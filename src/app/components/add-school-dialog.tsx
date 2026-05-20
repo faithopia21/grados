@@ -149,6 +149,16 @@ export function AddSchoolDialog({
       return;
     }
 
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert({ id: user.id });
+
+    if (profileError) {
+      setLoading(false);
+      setError(profileError.message);
+      return;
+    }
+
     const { error: insertError } = await supabase.from('programs').insert({
       ...programPayload,
       user_id: user.id,

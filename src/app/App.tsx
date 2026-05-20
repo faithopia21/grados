@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router';
 import { ApplicationProvider } from '../contexts/ApplicationContext';
 import { Toaster } from './components/ui/sonner';
 import { Navigation } from './components/layout/navigation';
@@ -17,6 +17,11 @@ import { BottomNav } from './components/layout/bottom-nav';
 import { MobileHeader } from './components/layout/mobile-header';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
+function LegacyApplicationRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/applications/${id}`} replace />;
+}
+
 function AppLayout() {
   const location = useLocation();
 
@@ -29,6 +34,7 @@ function AppLayout() {
     if (path === '/settings') return 'Settings';
     if (path === '/profile') return 'Profile';
     if (path === '/onboarding') return 'Onboarding';
+    if (path.startsWith('/applications/') && path !== '/applications') return 'Application';
     if (path.startsWith('/application/')) return 'Application';
     return 'GradOS';
   };
@@ -45,7 +51,8 @@ function AppLayout() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/applications" element={<Applications />} />
-            <Route path="/application/:id" element={<SchoolWorkspace />} />
+            <Route path="/applications/:id" element={<SchoolWorkspace />} />
+            <Route path="/application/:id" element={<LegacyApplicationRedirect />} />
             <Route path="/deadlines" element={<Timeline />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/settings" element={<Settings />} />

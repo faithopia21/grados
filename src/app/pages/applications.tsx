@@ -572,7 +572,7 @@ export function Applications() {
                           <Button
                             variant="outline"
                             className="flex-1 md:w-full"
-                            onClick={() => navigate(`/application/${program.id}`)}
+                            onClick={() => navigate(`/applications/${program.id}`)}
                           >
                             View
                             <ArrowRight className="h-4 w-4 ml-2" />

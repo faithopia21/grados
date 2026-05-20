@@ -218,7 +218,7 @@ export function Dashboard() {
               <div
                 key={program.id}
                 className="flex items-start justify-between gap-4 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
-                onClick={() => navigate(`/application/${program.id}`)}
+                onClick={() => navigate(`/applications/${program.id}`)}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -256,7 +256,7 @@ export function Dashboard() {
               <div
                 key={program.id}
                 className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
-                onClick={() => navigate(`/application/${program.id}`)}
+                onClick={() => navigate(`/applications/${program.id}`)}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

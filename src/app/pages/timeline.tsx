@@ -124,7 +124,7 @@ export function Timeline() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/application/${deadline.id}`)}
+          onClick={() => navigate(`/applications/${deadline.id}`)}
         >
           <ArrowRight className="h-4 w-4" />
         </Button>

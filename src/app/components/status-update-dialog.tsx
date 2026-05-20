@@ -1,4 +1,4 @@
-import { ApplicationStatus } from '../../types';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,34 +8,65 @@ import {
   DialogFooter,
 } from './ui/dialog';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
+import { cn } from '../../lib/utils';
+
+export const PROGRAM_STATUS_OPTIONS = [
+  'Not Started',
+  'In Progress',
+  'Ready to Submit',
+  'Submitted',
+  'Interview',
+  'Accepted',
+  'Rejected',
+  'Waitlisted',
+] as const;
+
+export type ProgramStatusLabel = (typeof PROGRAM_STATUS_OPTIONS)[number];
 
 interface StatusUpdateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  currentStatus: ApplicationStatus;
-  onStatusChange: (status: ApplicationStatus) => void;
+  currentStatus: string;
+  onConfirm: (status: string) => void | Promise<void>;
+  confirming?: boolean;
+}
+
+function normalizeStatus(status: string): string {
+  return status?.toLowerCase().replace(/\s+/g, '_') ?? '';
+}
+
+function statusesMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const map: Record<string, string> = {
+    not_started: 'not started',
+    in_progress: 'in progress',
+    ready_to_submit: 'ready to submit',
+    submitted: 'submitted',
+    interview: 'interview',
+    accepted: 'accepted',
+    rejected: 'rejected',
+    waitlisted: 'waitlisted',
+  };
+  return normalizeStatus(a) === normalizeStatus(b) || map[normalizeStatus(a)] === normalizeStatus(b);
 }
 
 export function StatusUpdateDialog({
   open,
   onOpenChange,
   currentStatus,
-  onStatusChange,
+  onConfirm,
+  confirming = false,
 }: StatusUpdateDialogProps) {
-  const statuses: { value: ApplicationStatus; label: string; variant: any }[] = [
-    { value: 'not_started', label: 'Not Started', variant: 'outline' },
-    { value: 'in_progress', label: 'In Progress', variant: 'warning' },
-    { value: 'ready_to_submit', label: 'Ready to Submit', variant: 'default' },
-    { value: 'submitted', label: 'Submitted', variant: 'success' },
-    { value: 'interview', label: 'Interview', variant: 'default' },
-    { value: 'accepted', label: 'Accepted', variant: 'success' },
-    { value: 'rejected', label: 'Rejected', variant: 'destructive' },
-    { value: 'waitlisted', label: 'Waitlisted', variant: 'warning' },
-  ];
+  const [selectedStatus, setSelectedStatus] = useState(currentStatus);
 
-  const handleStatusSelect = (status: ApplicationStatus) => {
-    onStatusChange(status);
+  useEffect(() => {
+    if (open) {
+      setSelectedStatus(currentStatus);
+    }
+  }, [open, currentStatus]);
+
+  const handleConfirm = async () => {
+    await onConfirm(selectedStatus);
     onOpenChange(false);
   };
 
@@ -50,24 +81,37 @@ export function StatusUpdateDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3 py-4">
-          {statuses.map(status => (
-            <Button
-              key={status.value}
-              variant={currentStatus === status.value ? 'default' : 'outline'}
-              onClick={() => handleStatusSelect(status.value)}
-              className="justify-start h-auto py-3"
-            >
-              <Badge variant={status.variant} className="mr-2">
-                {currentStatus === status.value && '✓'}
-              </Badge>
-              {status.label}
-            </Button>
-          ))}
+          {PROGRAM_STATUS_OPTIONS.map(status => {
+            const isSelected = statusesMatch(selectedStatus, status);
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setSelectedStatus(status)}
+                className={cn(
+                  'justify-start h-auto py-3 px-4 rounded-md border text-sm font-medium transition-colors text-left',
+                  isSelected
+                    ? 'border-[#4F46E5] bg-[#4F46E5] text-white'
+                    : 'border-border bg-background hover:bg-accent'
+                )}
+              >
+                {status}
+              </button>
+            );
+          })}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={confirming}>
             Cancel
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={confirming}
+            style={{ backgroundColor: '#4F46E5' }}
+            className="text-white hover:opacity-90"
+          >
+            {confirming ? 'Saving...' : 'Confirm'}
           </Button>
         </DialogFooter>
       </DialogContent>

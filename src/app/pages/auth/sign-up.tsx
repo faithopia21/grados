@@ -46,12 +46,16 @@ export function SignUp() {
       return;
     }
 
-    if (data.user) {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
       const fullName = `${firstName} ${lastName}`.trim();
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        full_name: fullName,
-      });
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          full_name: fullName,
+        });
 
       if (profileError) {
         setLoading(false);
