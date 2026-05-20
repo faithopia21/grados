@@ -12,6 +12,13 @@ import {
 } from '../../components/ui/select';
 import { CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '../../../lib/supabase';
+
+function parseGreScore(value: string): number | null {
+  if (!value.trim()) return null;
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
+}
 
 export function Onboarding() {
   const navigate = useNavigate();
@@ -24,20 +31,53 @@ export function Onboarding() {
   const [greVerbal, setGreVerbal] = useState('');
   const [greQuant, setGreQuant] = useState('');
   const [greAwa, setGreAwa] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSkip = () => {
-    toast('Welcome to GradOS 👋 — Add your first school to get started.', {
-      duration: 4000,
-    });
-    navigate('/');
+    navigate('/dashboard');
   };
 
-  const handleContinue = (e: React.FormEvent) => {
+  const saveProfile = async () => {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { error: userError?.message || 'You must be signed in to save your profile' };
+    }
+
+    const { error: upsertError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        intended_degree: degreeType || null,
+        field_of_study: fieldOfStudy.trim() || null,
+        current_institution: currentInstitution.trim() || null,
+        nationality: nationality.trim() || null,
+        intended_start_term: startTerm || null,
+        gre_verbal: greTaken === 'Yes' ? parseGreScore(greVerbal) : null,
+        gre_quant: greTaken === 'Yes' ? parseGreScore(greQuant) : null,
+        gre_awa: greTaken === 'Yes' ? parseGreScore(greAwa) : null,
+      });
+
+    return { error: upsertError?.message };
+  };
+
+  const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast('Welcome to GradOS 👋 — Add your first school to get started.', {
-      duration: 4000,
-    });
-    navigate('/');
+    setError('');
+    setLoading(true);
+
+    const { error: saveError } = await saveProfile();
+
+    setLoading(false);
+
+    if (saveError) {
+      setError(saveError);
+      return;
+    }
+
+    toast.success('Welcome to GradOS! Your profile has been saved.');
+    navigate('/dashboard');
   };
 
   return (
@@ -83,6 +123,12 @@ export function Onboarding() {
             This information helps personalise your experience. You can update it anytime.
           </p>
         </div>
+
+        {error && (
+          <p className="text-sm text-red-600 mb-4" role="alert">
+            {error}
+          </p>
+        )}
 
         {/* Form */}
         <form onSubmit={handleContinue} className="space-y-4">
@@ -208,11 +254,11 @@ export function Onboarding() {
           )}
 
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={handleSkip}>
+            <Button type="button" variant="outline" onClick={handleSkip} disabled={loading}>
               Skip for now
             </Button>
-            <Button type="submit">
-              Save and continue →
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Saving...' : 'Save and continue →'}
             </Button>
           </div>
         </form>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { X, Sun, Moon } from 'lucide-react';
+import { Sun, Moon, LogOut } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Button } from '../ui/button';
 import {
@@ -91,9 +91,13 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
               </Button>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-destructive"
-                onClick={handleSignOut}
+                className="w-full justify-start text-[#DC2626] hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30"
+                onClick={() => {
+                  setIsDrawerOpen(false);
+                  handleSignOut();
+                }}
               >
+                <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </Button>
             </div>

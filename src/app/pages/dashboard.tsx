@@ -1,69 +1,100 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
-import { AddSchoolDialog, SchoolFormData } from '../components/add-school-dialog';
-import { useApplications } from '../../contexts/ApplicationContext';
+import { AddSchoolDialog } from '../components/add-school-dialog';
 import { getDaysUntil, getDeadlineStatus, formatDate } from '../../lib/utils';
-import { Calendar, Clock, TrendingUp, AlertCircle, CheckCircle2, ArrowRight, Plus, DollarSign } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Plus, DollarSign } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
-import { toast } from 'sonner';
+import { supabase } from '../../lib/supabase';
+
+export interface DbProgram {
+  id: string;
+  user_id: string;
+  school_name: string;
+  program_name: string;
+  degree_type: string;
+  country: string;
+  deadline: string;
+  funding_available: boolean;
+  portal_url: string | null;
+  status: string;
+}
+
+function mapDbStatus(status: string) {
+  const normalized = status?.toLowerCase().replace(/\s+/g, '_');
+  if (normalized === 'not_started') return 'not_started';
+  if (normalized === 'in_progress') return 'in_progress';
+  if (normalized === 'submitted') return 'submitted';
+  if (normalized === 'ready_to_submit') return 'ready_to_submit';
+  return 'not_started';
+}
 
 export function Dashboard() {
   const [isAddSchoolOpen, setIsAddSchoolOpen] = useState(false);
+  const [programs, setPrograms] = useState<DbProgram[]>([]);
+  const [loadingPrograms, setLoadingPrograms] = useState(true);
   const navigate = useNavigate();
-  const { applications, universities, programs, addApplication, addUniversity, addProgram } =
-    useApplications();
+
+  const fetchPrograms = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setPrograms([]);
+      setLoadingPrograms(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('programs')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('deadline', { ascending: true });
+
+    if (!error && data) {
+      setPrograms(data as DbProgram[]);
+    }
+    setLoadingPrograms(false);
+  }, []);
+
+  useEffect(() => {
+    fetchPrograms();
+  }, [fetchPrograms]);
+
   const stats = useMemo(() => {
-    const total = applications.length;
-    const submitted = applications.filter(app => app.status === 'submitted').length;
-    const inProgress = applications.filter(app => app.status === 'in_progress').length;
-    const notStarted = applications.filter(app => app.status === 'not_started').length;
+    const total = programs.length;
+    const submitted = programs.filter(p => mapDbStatus(p.status) === 'submitted').length;
+    const inProgress = programs.filter(p => mapDbStatus(p.status) === 'in_progress').length;
+    const notStarted = programs.filter(p => mapDbStatus(p.status) === 'not_started').length;
 
     return { total, submitted, inProgress, notStarted };
-  }, [applications]);
+  }, [programs]);
 
   const upcomingDeadlines = useMemo(() => {
-    return applications
-      .map(app => ({
-        ...app,
-        university: universities.find(u => u.id === app.universityId)!,
-        program: programs.find(p => p.id === app.programId)!,
-        daysUntil: getDaysUntil(app.deadline),
+    return programs
+      .map(program => ({
+        ...program,
+        daysUntil: getDaysUntil(program.deadline),
+        status: mapDbStatus(program.status),
       }))
-      .filter(app => app.daysUntil >= 0 && app.status !== 'submitted')
+      .filter(program => program.daysUntil >= 0 && program.status !== 'submitted')
       .sort((a, b) => a.daysUntil - b.daysUntil)
       .slice(0, 5);
-  }, [applications, universities, programs]);
+  }, [programs]);
 
-  const recentApplications = useMemo(() => {
-    return applications
-      .map(app => ({
-        ...app,
-        university: universities.find(u => u.id === app.universityId)!,
-        program: programs.find(p => p.id === app.programId)!,
-      }))
-      .slice(0, 4);
-  }, [applications, universities, programs]);
+  const recentPrograms = useMemo(() => programs.slice(0, 4), [programs]);
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; label: string }> = {
+    const mapped = mapDbStatus(status);
+    const variants: Record<string, { variant: 'outline' | 'default' | 'secondary' | 'destructive'; label: string }> = {
       not_started: { variant: 'outline', label: 'Not Started' },
-      in_progress: { variant: 'warning', label: 'In Progress' },
+      in_progress: { variant: 'secondary', label: 'In Progress' },
       ready_to_submit: { variant: 'default', label: 'Ready' },
-      submitted: { variant: 'success', label: 'Submitted' },
+      submitted: { variant: 'default', label: 'Submitted' },
     };
-    const config = variants[status] || { variant: 'outline', label: status };
+    const config = variants[mapped] || { variant: 'outline' as const, label: status };
     return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const getDeadlineBadgeVariant = (daysUntil: number) => {
-    const status = getDeadlineStatus(daysUntil);
-    if (status === 'urgent') return 'destructive';
-    if (status === 'soon') return 'warning';
-    return 'outline';
   };
 
   const getUrgencyPillStyle = (daysUntil: number) => {
@@ -74,72 +105,6 @@ export function Dashboard() {
     } else {
       return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
     }
-  };
-
-  const getNextStep = (app: any) => {
-    if (app.status === 'submitted') return 'Wait for response';
-    if (app.status === 'ready_to_submit') return 'Submit application';
-
-    const incompleteReq = app.requirements.find((r: any) => !r.completed);
-    if (incompleteReq) {
-      if (incompleteReq.name.includes('SOP') || incompleteReq.name.includes('Statement')) {
-        return 'Upload SOP';
-      } else if (incompleteReq.name.includes('CV') || incompleteReq.name.includes('Resume')) {
-        return 'Upload CV';
-      } else if (incompleteReq.name.includes('Transcript')) {
-        return 'Upload transcripts';
-      } else if (incompleteReq.name.includes('Recommendation')) {
-        return 'Request recommendation letter';
-      } else if (incompleteReq.name.includes('Test') || incompleteReq.name.includes('TOEFL') || incompleteReq.name.includes('IELTS')) {
-        return 'Upload test scores';
-      }
-      return `Complete ${incompleteReq.name}`;
-    }
-
-    return 'Review application';
-  };
-
-  const handleAddSchool = (data: SchoolFormData) => {
-    // Create university
-    const universityId = addUniversity({
-      name: data.universityName,
-      location: '', // We can add this to the form later
-      country: data.country,
-    });
-
-    // Create program
-    const programId = addProgram({
-      universityId,
-      name: data.programName,
-      degree: data.degree,
-      department: data.department,
-      fundingAvailable: data.fundingAvailable,
-    });
-
-    // Create application with default requirements
-    const defaultRequirements = [
-      { id: `req-${Date.now()}-1`, name: 'Statement of Purpose', completed: false, required: true, status: 'not_started' as const },
-      { id: `req-${Date.now()}-2`, name: 'CV/Resume', completed: false, required: true, status: 'not_started' as const },
-      { id: `req-${Date.now()}-3`, name: 'Transcripts', completed: false, required: true, status: 'not_started' as const },
-      { id: `req-${Date.now()}-4`, name: 'Letters of Recommendation', completed: false, required: true, status: 'not_started' as const },
-      { id: `req-${Date.now()}-5`, name: 'English Test (TOEFL/IELTS)', completed: false, required: true, status: 'not_started' as const },
-    ];
-
-    addApplication({
-      universityId,
-      programId,
-      status: 'not_started',
-      deadline: data.applicationDeadline,
-      portalLink: data.portalUrl,
-      notes: data.notes,
-      requirements: defaultRequirements,
-      documents: [],
-      supervisors: [],
-      matchScore: 0,
-      fundingLikelihood: data.fundingAvailable ? 50 : 0,
-    });
-
-    toast.success(`Added ${data.universityName} - ${data.degree} in ${data.programName}`);
   };
 
   return (
@@ -162,7 +127,7 @@ export function Dashboard() {
       <AddSchoolDialog
         open={isAddSchoolOpen}
         onOpenChange={setIsAddSchoolOpen}
-        onSubmit={handleAddSchool}
+        onSuccess={fetchPrograms}
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -209,22 +174,20 @@ export function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Pending Tasks</CardTitle>
+            <CardTitle className="text-sm">Not Started</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl">
-              {applications.reduce((total, app) => {
-                return total + app.requirements.filter(r => !r.completed).length;
-              }, 0)}
-            </div>
+            <div className="text-3xl">{stats.notStarted}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              across all applications
+              awaiting action
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {applications.length === 0 ? (
+      {loadingPrograms ? (
+        <p className="text-sm text-muted-foreground text-center py-8">Loading programs...</p>
+      ) : programs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 px-4">
           <div className="relative mb-6">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -251,25 +214,25 @@ export function Dashboard() {
             <CardDescription>Applications due soon</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {upcomingDeadlines.map(app => (
+            {upcomingDeadlines.map(program => (
               <div
-                key={app.id}
+                key={program.id}
                 className="flex items-start justify-between gap-4 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
-                onClick={() => navigate(`/application/${app.id}`)}
+                onClick={() => navigate(`/application/${program.id}`)}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h4 className="truncate">{app.university.name}</h4>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getUrgencyPillStyle(app.daysUntil)}`}>
-                      {app.daysUntil}d
+                    <h4 className="truncate">{program.school_name}</h4>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getUrgencyPillStyle(program.daysUntil)}`}>
+                      {program.daysUntil}d
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {app.program.degree} in {app.program.name}
+                    {program.degree_type} in {program.program_name}
                   </p>
                   <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    Due {formatDate(app.deadline)}
+                    Due {formatDate(program.deadline)}
                   </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -289,49 +252,32 @@ export function Dashboard() {
             <CardDescription>Your most recent application activity</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentApplications.map(app => {
-              const completedReqs = app.requirements.filter(r => r.completed).length;
-              const totalReqs = app.requirements.length;
-              const progress = totalReqs > 0 ? (completedReqs / totalReqs) * 100 : 0;
-              const appProgram = programs.find(p => p.id === app.programId);
-              const nextStep = getNextStep(app);
-
-              return (
-                <div
-                  key={app.id}
-                  className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/application/${app.id}`)}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h4 className="truncate">{app.university.name}</h4>
-                        {appProgram?.fundingAvailable && (
-                          <DollarSign className="h-4 w-4 text-green-600" title="Funding Available" />
-                        )}
-                        {getStatusBadge(app.status)}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {app.program.degree} in {app.program.name}
-                      </p>
-                      {totalReqs > 0 && (
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                            <span>Documents: {completedReqs}/{totalReqs}</span>
-                            <span>{Math.round(progress)}%</span>
-                          </div>
-                          <Progress value={progress} className="mb-2" />
-                          <p className="text-xs text-muted-foreground">
-                            <span className="font-medium">Next step:</span> {nextStep}
-                          </p>
-                        </div>
+            {recentPrograms.map(program => (
+              <div
+                key={program.id}
+                className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
+                onClick={() => navigate(`/application/${program.id}`)}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h4 className="truncate">{program.school_name}</h4>
+                      {program.funding_available && (
+                        <DollarSign className="h-4 w-4 text-green-600" title="Funding Available" />
                       )}
+                      {getStatusBadge(program.status)}
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                    <p className="text-sm text-muted-foreground">
+                      {program.degree_type} in {program.program_name}
+                    </p>
+                    {program.country && (
+                      <p className="text-xs text-muted-foreground mt-1">{program.country}</p>
+                    )}
                   </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>
@@ -350,8 +296,8 @@ export function Dashboard() {
             <Calendar className="h-4 w-4 mr-2" />
             View Deadlines
           </Button>
-          <Button variant="outline" onClick={() => navigate('/profile')}>
-            Update Profile
+          <Button variant="outline" onClick={() => navigate('/applications')}>
+            View Applications
           </Button>
           <Button variant="outline" onClick={() => navigate('/documents')}>
             Manage Documents

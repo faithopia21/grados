@@ -1,56 +1,187 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
-import { mockUserProfile } from '../../data/mockData';
-import { User, GraduationCap, Award, Briefcase, BookOpen, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Skeleton } from '../components/ui/skeleton';
+import { supabase } from '../../lib/supabase';
+import { User, GraduationCap, Award, Briefcase, BookOpen, Plus, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface ProfileRow {
+  id: string;
+  full_name: string | null;
+  nationality: string | null;
+  current_institution: string | null;
+  intended_degree: string | null;
+  field_of_study: string | null;
+  intended_start_term: string | null;
+  gre_verbal: number | null;
+  gre_quant: number | null;
+  gre_awa: number | null;
+}
+
+interface ProfileFormData {
+  fullName: string;
+  nationality: string;
+  currentInstitution: string;
+  intendedDegree: string;
+  fieldOfStudy: string;
+  greVerbal: string;
+  greQuant: string;
+  greAwa: string;
+}
+
+const emptyForm: ProfileFormData = {
+  fullName: '',
+  nationality: '',
+  currentInstitution: '',
+  intendedDegree: '',
+  fieldOfStudy: '',
+  greVerbal: '',
+  greQuant: '',
+  greAwa: '',
+};
+
+function profileToForm(profile: ProfileRow | null): ProfileFormData {
+  if (!profile) return emptyForm;
+  return {
+    fullName: profile.full_name ?? '',
+    nationality: profile.nationality ?? '',
+    currentInstitution: profile.current_institution ?? '',
+    intendedDegree: profile.intended_degree ?? '',
+    fieldOfStudy: profile.field_of_study ?? '',
+    greVerbal: profile.gre_verbal != null ? String(profile.gre_verbal) : '',
+    greQuant: profile.gre_quant != null ? String(profile.gre_quant) : '',
+    greAwa: profile.gre_awa != null ? String(profile.gre_awa) : '',
+  };
+}
+
+function parseGreScore(value: string): number | null {
+  if (!value.trim()) return null;
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+      <Skeleton className="h-2 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-32" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export function Profile() {
-  const [profile] = useState(mockUserProfile);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [formData, setFormData] = useState<ProfileFormData>(emptyForm);
+  const [fetchError, setFetchError] = useState('');
 
-  // Calculate profile completion percentage
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setFetchError('');
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setFetchError(userError?.message || 'Not signed in');
+      setLoading(false);
+      return;
+    }
+
+    setUserId(user.id);
+    setEmail(user.email ?? '');
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      setFetchError(profileError.message);
+    } else if (profile) {
+      setFormData(profileToForm(profile as ProfileRow));
+    } else {
+      setFormData(emptyForm);
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
   const profileCompletion = useMemo(() => {
-    let totalFields = 0;
+    let totalFields = 5;
     let completedFields = 0;
-
-    // Personal info (5 fields)
-    totalFields += 5;
-    if (profile.personalInfo.firstName) completedFields++;
-    if (profile.personalInfo.lastName) completedFields++;
-    if (profile.personalInfo.email) completedFields++;
-    if (profile.personalInfo.phone) completedFields++;
-    if (profile.personalInfo.nationality) completedFields++;
-
-    // Education (count if at least one entry)
-    totalFields += 1;
-    if (profile.education.length > 0) completedFields++;
-
-    // Test scores (count if at least one entry)
-    totalFields += 1;
-    if (profile.testScores.length > 0) completedFields++;
-
-    // Publications (count if at least one entry)
-    totalFields += 1;
-    if (profile.publications.length > 0) completedFields++;
-
-    // Projects (count if at least one entry)
-    totalFields += 1;
-    if (profile.projects.length > 0) completedFields++;
-
-    // Experience (count if at least one entry)
-    totalFields += 1;
-    if (profile.experience.length > 0) completedFields++;
-
-    // Research interests
-    totalFields += 1;
-    if (profile.researchInterests.length > 0) completedFields++;
-
+    if (formData.fullName.trim()) completedFields++;
+    if (email.trim()) completedFields++;
+    if (formData.nationality.trim()) completedFields++;
+    if (formData.currentInstitution.trim()) completedFields++;
+    if (formData.fieldOfStudy.trim()) completedFields++;
     return Math.round((completedFields / totalFields) * 100);
-  }, [profile]);
+  }, [formData, email]);
+
+  const handleChange = (field: keyof ProfileFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!userId) return;
+
+    setSaving(true);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: formData.fullName.trim() || null,
+        nationality: formData.nationality.trim() || null,
+        current_institution: formData.currentInstitution.trim() || null,
+        intended_degree: formData.intendedDegree.trim() || null,
+        field_of_study: formData.fieldOfStudy.trim() || null,
+        gre_verbal: parseGreScore(formData.greVerbal),
+        gre_quant: parseGreScore(formData.greQuant),
+        gre_awa: parseGreScore(formData.greAwa),
+      })
+      .eq('id', userId);
+
+    setSaving(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success('Profile saved');
+  };
+
+  if (loading) {
+    return <ProfileSkeleton />;
+  }
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -61,7 +192,12 @@ export function Profile() {
         </p>
       </div>
 
-      {/* Profile Completion Indicator */}
+      {fetchError && (
+        <p className="text-sm text-red-600" role="alert">
+          {fetchError}
+        </p>
+      )}
+
       <div className="space-y-2">
         {profileCompletion === 100 ? (
           <div className="flex items-center gap-2 text-sm" style={{ color: '#1D9E75' }}>
@@ -73,12 +209,12 @@ export function Profile() {
             <p className="text-[13px] text-muted-foreground">
               Profile {profileCompletion}% complete — complete your profile to improve application matching
             </p>
-            <Progress value={profileCompletion} className="h-2" style={{ '--tw-bg-opacity': '1', backgroundColor: 'rgb(241 245 249 / var(--tw-bg-opacity))' } as any}>
+            <Progress value={profileCompletion} className="h-2">
               <div
-                className="h-full transition-all"
+                className="h-full transition-all rounded-full"
                 style={{
                   width: `${profileCompletion}%`,
-                  backgroundColor: '#1D9E75'
+                  backgroundColor: '#1D9E75',
                 }}
               />
             </Progress>
@@ -117,285 +253,182 @@ export function Profile() {
               <CardDescription>Your basic information for applications</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue={profile.personalInfo.firstName} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue={profile.personalInfo.lastName} />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full name</Label>
+                <Input
+                  id="fullName"
+                  value={formData.fullName}
+                  onChange={e => handleChange('fullName', e.target.value)}
+                  placeholder="Your full name"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" defaultValue={profile.personalInfo.email} />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" type="tel" defaultValue={profile.personalInfo.phone} />
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  readOnly
+                  className="bg-muted cursor-not-allowed"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Email changes require re-verification and cannot be edited here.
+                </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="nationality">Nationality</Label>
-                <Input id="nationality" defaultValue={profile.personalInfo.nationality} />
+                <Input
+                  id="nationality"
+                  value={formData.nationality}
+                  onChange={e => handleChange('nationality', e.target.value)}
+                  placeholder="Your nationality"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label>Research Interests</Label>
-                <div className="flex flex-wrap gap-2 p-3 rounded-md border border-border bg-input-background min-h-[80px]">
-                  {profile.researchInterests.map((interest, idx) => (
-                    <Badge key={idx} variant="secondary">
-                      {interest}
-                      <button className="ml-2 hover:text-destructive">×</button>
-                    </Badge>
-                  ))}
-                  <Button variant="ghost" size="sm" className="h-6">
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add
-                  </Button>
+                <Label htmlFor="currentInstitution">Current institution</Label>
+                <Input
+                  id="currentInstitution"
+                  value={formData.currentInstitution}
+                  onChange={e => handleChange('currentInstitution', e.target.value)}
+                  placeholder="Where you study or work now"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="intendedDegree">Intended degree</Label>
+                  <Input
+                    id="intendedDegree"
+                    value={formData.intendedDegree}
+                    onChange={e => handleChange('intendedDegree', e.target.value)}
+                    placeholder="e.g. PhD"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fieldOfStudy">Field of study</Label>
+                  <Input
+                    id="fieldOfStudy"
+                    value={formData.fieldOfStudy}
+                    onChange={e => handleChange('fieldOfStudy', e.target.value)}
+                    placeholder="e.g. Computer Science"
+                  />
                 </div>
               </div>
 
-              <Button>Save Changes</Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="education">
-          <div className="space-y-4">
-            {profile.education.map((edu, idx) => (
-              <Card key={edu.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle>{edu.degree} in {edu.field}</CardTitle>
-                      <CardDescription>{edu.institution}</CardDescription>
-                    </div>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Institution</Label>
-                      <Input defaultValue={edu.institution} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Degree</Label>
-                      <Input defaultValue={edu.degree} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Field of Study</Label>
-                    <Input defaultValue={edu.field} />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Start Date</Label>
-                      <Input type="month" defaultValue={edu.startDate} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>End Date</Label>
-                      <Input type="month" defaultValue={edu.endDate} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>GPA</Label>
-                      <Input type="number" step="0.01" defaultValue={edu.gpa} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Max GPA</Label>
-                      <Input type="number" step="0.01" defaultValue={edu.maxGpa} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            <Button variant="outline" className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Education
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Education</CardTitle>
+              <CardDescription>Academic history for your applications</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                No education entries yet. Add your degrees from the profile fields above for now.
+              </p>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="tests">
-          <div className="space-y-4">
-            {profile.testScores.map(test => (
-              <Card key={test.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle>{test.type}</CardTitle>
-                      <CardDescription>Score: {test.score} • Taken on {test.date}</CardDescription>
-                    </div>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Test Type</Label>
-                      <Input defaultValue={test.type} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Overall Score</Label>
-                      <Input defaultValue={test.score} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Test Date</Label>
-                    <Input type="date" defaultValue={test.date} />
-                  </div>
-
-                  {test.breakdown && (
-                    <div className="space-y-2">
-                      <Label>Score Breakdown</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {Object.entries(test.breakdown).map(([section, score]) => (
-                          <div key={section} className="flex items-center justify-between p-2 rounded-md bg-muted">
-                            <span className="text-sm capitalize">{section}</span>
-                            <span className="text-sm">{score}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-
-            <Button variant="outline" className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Test Score
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Test Scores</CardTitle>
+              <CardDescription>GRE and other standardized tests</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="greVerbal">GRE Verbal</Label>
+                  <Input
+                    id="greVerbal"
+                    type="number"
+                    value={formData.greVerbal}
+                    onChange={e => handleChange('greVerbal', e.target.value)}
+                    placeholder="—"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="greQuant">GRE Quant</Label>
+                  <Input
+                    id="greQuant"
+                    type="number"
+                    value={formData.greQuant}
+                    onChange={e => handleChange('greQuant', e.target.value)}
+                    placeholder="—"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="greAwa">GRE AWA</Label>
+                  <Input
+                    id="greAwa"
+                    type="number"
+                    step="0.5"
+                    value={formData.greAwa}
+                    onChange={e => handleChange('greAwa', e.target.value)}
+                    placeholder="—"
+                  />
+                </div>
+              </div>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="research">
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3>Publications</h3>
-              {profile.publications.map(pub => (
-                <Card key={pub.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-base">{pub.title}</CardTitle>
-                        <CardDescription>
-                          {pub.authors.join(', ')} • {pub.venue}, {pub.year}
-                        </CardDescription>
-                      </div>
-                      <Button variant="ghost" size="icon">
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {pub.citations && (
-                      <div className="flex items-center gap-4 text-sm">
-                        <Badge variant="outline">{pub.citations} citations</Badge>
-                        {pub.doi && (
-                          <a href={`https://doi.org/${pub.doi}`} className="text-primary hover:underline">
-                            DOI: {pub.doi}
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-
-              <Button variant="outline" className="w-full">
+          <Card>
+            <CardHeader>
+              <CardTitle>Research</CardTitle>
+              <CardDescription>Publications and projects</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                No publications or projects yet.
+              </p>
+              <Button variant="outline" className="w-full" disabled>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Publication
               </Button>
-            </div>
-
-            <div className="space-y-4">
-              <h3>Projects</h3>
-              {profile.projects.map(project => (
-                <Card key={project.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-base">{project.title}</CardTitle>
-                        <CardDescription>{project.description}</CardDescription>
-                      </div>
-                      <Button variant="ghost" size="icon">
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {project.technologies.map((tech, idx) => (
-                        <Badge key={idx} variant="secondary">{tech}</Badge>
-                      ))}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {project.startDate} - {project.endDate || 'Present'}
-                    </div>
-                    {project.link && (
-                      <a href={project.link} className="text-sm text-primary hover:underline">
-                        View Project →
-                      </a>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-
-              <Button variant="outline" className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Project
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
               </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="experience">
-          <div className="space-y-4">
-            {profile.experience.map(exp => (
-              <Card key={exp.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-base">{exp.position}</CardTitle>
-                      <CardDescription>
-                        {exp.company} • {exp.location}
-                      </CardDescription>
-                    </div>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="text-sm text-muted-foreground">
-                    {exp.startDate} - {exp.endDate || 'Present'}
-                  </div>
-                  <p className="text-sm">{exp.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-
-            <Button variant="outline" className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Experience
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Experience</CardTitle>
+              <CardDescription>Work and research experience</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                No experience entries yet.
+              </p>
+              <Button variant="outline" className="w-full" disabled>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Experience
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

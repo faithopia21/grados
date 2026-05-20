@@ -556,6 +556,14 @@ export function Settings() {
             </div>
 
             <Button onClick={handleSaveAccount}>Save changes</Button>
+
+            <Button
+              variant="outline"
+              onClick={handleSignOut}
+              className="w-full border-[#DC2626] text-[#DC2626] hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30"
+            >
+              Sign out of GradOS
+            </Button>
           </CardContent>
         )}
       </Card>
@@ -588,15 +596,6 @@ export function Settings() {
               </Button>
             </div>
 
-            <div className="pt-4 border-t border-border">
-              <Button
-                variant="outline"
-                onClick={handleSignOut}
-                className="w-full"
-              >
-                Sign Out
-              </Button>
-            </div>
           </CardContent>
         )}
       </Card>

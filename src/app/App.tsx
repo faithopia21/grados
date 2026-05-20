@@ -8,6 +8,7 @@ import { SchoolWorkspace } from './pages/school-workspace';
 import { Documents } from './pages/documents';
 import { Timeline } from './pages/timeline';
 import { Settings } from './pages/settings';
+import { Profile } from './pages/profile';
 import { SignIn } from './pages/auth/sign-in';
 import { SignUp } from './pages/auth/sign-up';
 import { Onboarding } from './pages/auth/onboarding';
@@ -26,6 +27,7 @@ function AppLayout() {
     if (path === '/deadlines') return 'Deadlines';
     if (path === '/documents') return 'Documents';
     if (path === '/settings') return 'Settings';
+    if (path === '/profile') return 'Profile';
     if (path === '/onboarding') return 'Onboarding';
     if (path.startsWith('/application/')) return 'Application';
     return 'GradOS';
@@ -47,6 +49,7 @@ function AppLayout() {
             <Route path="/deadlines" element={<Timeline />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/onboarding" element={<Onboarding />} />
           </Routes>
         </main>
