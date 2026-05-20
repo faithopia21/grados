@@ -10,17 +10,17 @@ import { Textarea } from '../components/ui/textarea';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Skeleton } from '../components/ui/skeleton';
-import { DocumentStatusSelect } from '../components/document-status-select';
+import { ChecklistStatusSelect } from '../components/checklist-status-select';
 import { StatusUpdateDialog } from '../components/status-update-dialog';
 import { supabase } from '../../lib/supabase';
 import { formatDate, getDaysUntil } from '../../lib/utils';
+import { resolveChecklistUpdate } from '../../lib/checklist-status';
+import { formatNoteTimestamp } from '../../lib/note-format';
 import {
   displayProgramStatus,
   getStatusBadgeClassName,
   getStatusBadgeVariant,
 } from '../../lib/program-status';
-import { DocumentStatus } from '../../types';
-import { formatDocumentStatus } from '../../lib/status-utils';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -31,6 +31,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  FileText,
 } from 'lucide-react';
 
 interface DbProgram {
@@ -64,6 +65,38 @@ interface ProgramNote {
   id: string;
   program_id: string;
   content: string;
+  updated_at?: string | null;
+}
+
+interface Recommender {
+  id: string;
+  program_id: string;
+  name: string | null;
+  title: string | null;
+  email: string | null;
+  status: string;
+  briefing_note: string | null;
+}
+
+const RECOMMENDER_STATUSES = ['Not Asked', 'Asked', 'Confirmed', 'Submitted'] as const;
+
+const BRIEFING_PLACEHOLDER = `Suggested structure:
+• How we know each other and for how long
+• Key project or achievement to highlight
+• Skills relevant to this specific program
+• Why this program fits my goals`;
+
+function getRecommenderBorderClass(status: string): string {
+  const n = status?.toLowerCase();
+  if (n === 'asked') return 'border-l-amber-500';
+  if (n === 'confirmed') return 'border-l-[#4F46E5]';
+  if (n === 'submitted') return 'border-l-green-500';
+  return 'border-l-gray-400';
+}
+
+function isRecommenderComplete(status: string): boolean {
+  const n = status?.toLowerCase();
+  return n === 'confirmed' || n === 'submitted';
 }
 
 interface PortalLink {
@@ -105,16 +138,20 @@ export function SchoolWorkspace() {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [programNote, setProgramNote] = useState<ProgramNote | null>(null);
   const [portalLinks, setPortalLinks] = useState<PortalLink[]>([]);
+  const [recommenders, setRecommenders] = useState<Recommender[]>([]);
   const [loading, setLoading] = useState(true);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [noteContent, setNoteContent] = useState('');
   const [noteSaveState, setNoteSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [noteSavedAt, setNoteSavedAt] = useState<string | null>(null);
   const [newItemLabel, setNewItemLabel] = useState('');
   const [showAddItem, setShowAddItem] = useState(false);
   const noteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedNoteRef = useRef<string | null>(null);
+  const briefingDebounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const lastSavedBriefingRef = useRef<Record<string, string>>({});
 
   const fetchChecklist = useCallback(async (programId: string) => {
     const { data, error } = await supabase
@@ -141,10 +178,28 @@ export function SchoolWorkspace() {
       setProgramNote(note);
       setNoteContent(content);
       lastSavedNoteRef.current = content;
+      setNoteSavedAt(note.updated_at ?? null);
     } else {
       setProgramNote(null);
       setNoteContent('');
       lastSavedNoteRef.current = '';
+      setNoteSavedAt(null);
+    }
+  }, []);
+
+  const fetchRecommenders = useCallback(async (programId: string) => {
+    const { data, error } = await supabase
+      .from('recommenders')
+      .select('*')
+      .eq('program_id', programId)
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      const rows = data as Recommender[];
+      setRecommenders(rows);
+      rows.forEach(r => {
+        lastSavedBriefingRef.current[r.id] = r.briefing_note ?? '';
+      });
     }
   }, []);
 
@@ -183,9 +238,10 @@ export function SchoolWorkspace() {
       fetchChecklist(prog.id),
       fetchNote(prog.id),
       fetchPortalLinks(prog.id),
+      fetchRecommenders(prog.id),
     ]);
     setLoading(false);
-  }, [id, fetchChecklist, fetchNote, fetchPortalLinks]);
+  }, [id, fetchChecklist, fetchNote, fetchPortalLinks, fetchRecommenders]);
 
   useEffect(() => {
     fetchProgram();
@@ -194,23 +250,28 @@ export function SchoolWorkspace() {
   const saveNote = useCallback(
     async (content: string, programId: string, existingNote: ProgramNote | null) => {
       setNoteSaveState('saving');
+      const updatedAt = new Date().toISOString();
 
       if (existingNote) {
         const { error } = await supabase
           .from('program_notes')
-          .update({ content })
-          .eq('id', existingNote.id);
+          .update({ content, updated_at: updatedAt })
+          .eq('program_id', programId);
 
         if (error) {
           setNoteSaveState('idle');
           toast.error(error.message);
           return;
         }
-        setProgramNote({ ...existingNote, content });
+        setProgramNote({ ...existingNote, content, updated_at: updatedAt });
       } else {
         const { data, error } = await supabase
           .from('program_notes')
-          .insert({ program_id: programId, content })
+          .insert({
+            program_id: programId,
+            content,
+            updated_at: updatedAt,
+          })
           .select()
           .single();
 
@@ -223,8 +284,9 @@ export function SchoolWorkspace() {
       }
 
       lastSavedNoteRef.current = content;
+      setNoteSavedAt(updatedAt);
       setNoteSaveState('saved');
-      setTimeout(() => setNoteSaveState('idle'), 2000);
+      setTimeout(() => setNoteSaveState('idle'), 2500);
     },
     []
   );
@@ -268,10 +330,18 @@ export function SchoolWorkspace() {
     toast.success(`Status updated to ${status}`);
   };
 
-  const handleToggleChecklistItem = async (item: ChecklistItem, checked: boolean) => {
+  const updateChecklistItem = async (
+    item: ChecklistItem,
+    change: { is_done?: boolean; status?: string }
+  ) => {
+    const { is_done, status } = resolveChecklistUpdate(
+      { is_done: item.is_done, status: item.status },
+      change
+    );
+
     const { error } = await supabase
       .from('checklist_items')
-      .update({ is_done: checked })
+      .update({ is_done, status })
       .eq('id', item.id);
 
     if (error) {
@@ -280,25 +350,119 @@ export function SchoolWorkspace() {
     }
 
     setChecklistItems(prev =>
-      prev.map(i => (i.id === item.id ? { ...i, is_done: checked } : i))
+      prev.map(i => (i.id === item.id ? { ...i, is_done, status } : i))
     );
   };
 
-  const handleChecklistStatusChange = async (item: ChecklistItem, status: DocumentStatus) => {
+  const handleToggleChecklistItem = (item: ChecklistItem, checked: boolean) => {
+    updateChecklistItem(item, { is_done: checked });
+  };
+
+  const handleChecklistStatusChange = (item: ChecklistItem, status: string) => {
+    updateChecklistItem(item, { status });
+  };
+
+  const updateRecommender = async (
+    recommenderId: string,
+    updates: Partial<Pick<Recommender, 'name' | 'title' | 'email' | 'status' | 'briefing_note'>>
+  ) => {
     const { error } = await supabase
-      .from('checklist_items')
-      .update({ status })
-      .eq('id', item.id);
+      .from('recommenders')
+      .update(updates)
+      .eq('id', recommenderId);
+
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
+    return true;
+  };
+
+  const handleRecommenderFieldBlur = async (
+    rec: Recommender,
+    field: 'name' | 'title' | 'email',
+    value: string
+  ) => {
+    const updates = { [field]: value.trim() || null };
+    const ok = await updateRecommender(rec.id, updates);
+    if (ok) {
+      setRecommenders(prev =>
+        prev.map(r => (r.id === rec.id ? { ...r, ...updates } : r))
+      );
+    }
+  };
+
+  const handleRecommenderStatusChange = async (rec: Recommender, status: string) => {
+    const ok = await updateRecommender(rec.id, { status });
+    if (ok) {
+      setRecommenders(prev => prev.map(r => (r.id === rec.id ? { ...r, status } : r)));
+    }
+  };
+
+  const saveRecommenderBriefing = async (rec: Recommender, briefing_note: string) => {
+    const ok = await updateRecommender(rec.id, { briefing_note });
+    if (ok) {
+      lastSavedBriefingRef.current[rec.id] = briefing_note;
+    }
+  };
+
+  const handleBriefingChange = (rec: Recommender, value: string) => {
+    setRecommenders(prev =>
+      prev.map(r => (r.id === rec.id ? { ...r, briefing_note: value } : r))
+    );
+
+    if (briefingDebounceRefs.current[rec.id]) {
+      clearTimeout(briefingDebounceRefs.current[rec.id]);
+    }
+
+    briefingDebounceRefs.current[rec.id] = setTimeout(() => {
+      if (value === lastSavedBriefingRef.current[rec.id]) return;
+      saveRecommenderBriefing(rec, value);
+    }, 1000);
+  };
+
+  const handleAddRecommender = async () => {
+    if (!program) return;
+    if (recommenders.length >= 5) {
+      toast.error('Maximum 5 recommenders');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('recommenders')
+      .insert({
+        program_id: program.id,
+        name: '',
+        title: '',
+        email: '',
+        status: 'Not Asked',
+        briefing_note: '',
+      })
+      .select()
+      .single();
 
     if (error) {
       toast.error(error.message);
       return;
     }
 
-    setChecklistItems(prev =>
-      prev.map(i => (i.id === item.id ? { ...i, status } : i))
-    );
-    toast.success(`Status updated to ${formatDocumentStatus(status)}`);
+    const row = data as Recommender;
+    lastSavedBriefingRef.current[row.id] = '';
+    setRecommenders(prev => [...prev, row]);
+  };
+
+  const handleDeleteRecommender = async (rec: Recommender) => {
+    if (!window.confirm('Remove this recommender?')) return;
+
+    const { error } = await supabase.from('recommenders').delete().eq('id', rec.id);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setRecommenders(prev => prev.filter(r => r.id !== rec.id));
+    delete lastSavedBriefingRef.current[rec.id];
   };
 
   const handleAddChecklistItem = async () => {
@@ -507,7 +671,9 @@ export function SchoolWorkspace() {
           <TabsList className="w-max md:w-full">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="requirements">Requirements Checklist</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
             <TabsTrigger value="portal">Portal Access</TabsTrigger>
           </TabsList>
         </div>
@@ -652,8 +818,8 @@ export function SchoolWorkspace() {
                             Due {formatDate(item.due_date)}
                           </p>
                         )}
-                        <DocumentStatusSelect
-                          value={(item.status as DocumentStatus) || 'not_started'}
+                        <ChecklistStatusSelect
+                          value={item.status || 'not_started'}
                           onChange={status => handleChecklistStatusChange(item, status)}
                         />
                       </div>
@@ -697,23 +863,33 @@ export function SchoolWorkspace() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="documents">
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents</CardTitle>
+              <CardDescription>Files linked to this application</CardDescription>
+            </CardHeader>
+            <CardContent className="py-12 text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-sm text-muted-foreground">
+                No documents linked to this program yet.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="notes">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Program Notes</CardTitle>
-                  <CardDescription>
-                    Auto-saves as you type
-                  </CardDescription>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {noteSaveState === 'saving' && 'Saving...'}
-                  {noteSaveState === 'saved' && 'Saved ✓'}
-                </span>
-              </div>
+              <CardTitle>Program Notes</CardTitle>
+              <CardDescription>Auto-saves 1 second after you stop typing</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              {noteSavedAt && noteSaveState === 'idle' && (
+                <p className="text-xs text-muted-foreground">
+                  Last saved: {formatNoteTimestamp(noteSavedAt)}
+                </p>
+              )}
               <Textarea
                 placeholder="Write notes about this application..."
                 value={noteContent}
@@ -724,8 +900,143 @@ export function SchoolWorkspace() {
                 rows={12}
                 className="resize-none min-h-[200px]"
               />
+              <p className="text-xs text-muted-foreground min-h-[1.25rem]">
+                {noteSaveState === 'saving' && 'Saving...'}
+                {noteSaveState === 'saved' &&
+                  noteSavedAt &&
+                  `Saved ✓ · ${formatNoteTimestamp(noteSavedAt)}`}
+              </p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="recommendations">
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="pt-6 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {recommenders.filter(r => isRecommenderComplete(r.status)).length} of{' '}
+                    {recommenders.length} recommenders confirmed or submitted
+                  </span>
+                  <span className="font-medium">
+                    {recommenders.length > 0
+                      ? Math.round(
+                          (recommenders.filter(r => isRecommenderComplete(r.status)).length /
+                            recommenders.length) *
+                            100
+                        )
+                      : 0}
+                    %
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden" style={{ height: 8 }}>
+                  <div
+                    className="rounded-full transition-all"
+                    style={{
+                      height: 8,
+                      width: `${
+                        recommenders.length > 0
+                          ? (recommenders.filter(r => isRecommenderComplete(r.status)).length /
+                              recommenders.length) *
+                            100
+                          : 0
+                      }%`,
+                      backgroundColor: '#4F46E5',
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {recommenders.map(rec => (
+              <Card
+                key={rec.id}
+                className={`border-l-[3px] ${getRecommenderBorderClass(rec.status)}`}
+              >
+                <CardContent className="pt-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Name</Label>
+                      <Input
+                        defaultValue={rec.name ?? ''}
+                        placeholder="Recommender name"
+                        onBlur={e => handleRecommenderFieldBlur(rec, 'name', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Title / Role</Label>
+                      <Input
+                        defaultValue={rec.title ?? ''}
+                        placeholder="Professor, Manager..."
+                        onBlur={e => handleRecommenderFieldBlur(rec, 'title', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Email</Label>
+                      <Input
+                        type="email"
+                        defaultValue={rec.email ?? ''}
+                        placeholder="email@university.edu"
+                        onBlur={e => handleRecommenderFieldBlur(rec, 'email', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Label className="text-xs shrink-0">Status</Label>
+                    <select
+                      value={rec.status || 'Not Asked'}
+                      onChange={e => handleRecommenderStatusChange(rec, e.target.value)}
+                      className="px-3 py-2 text-sm border border-border rounded-md bg-background"
+                    >
+                      {RECOMMENDER_STATUSES.map(s => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="text-sm text-destructive hover:underline ml-auto"
+                      onClick={() => handleDeleteRecommender(rec)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Briefing note</Label>
+                    <Textarea
+                      value={rec.briefing_note ?? ''}
+                      onChange={e => handleBriefingChange(rec, e.target.value)}
+                      placeholder={BRIEFING_PLACEHOLDER}
+                      className="min-h-[140px] resize-none whitespace-pre-wrap text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(rec.briefing_note ?? '');
+                        toast.success('Briefing note copied');
+                      }}
+                    >
+                      Copy note
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleAddRecommender}
+              disabled={recommenders.length >= 5}
+              title={recommenders.length >= 5 ? 'Maximum 5 recommenders' : undefined}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add recommender
+            </Button>
+          </div>
         </TabsContent>
 
         <TabsContent value="portal">
@@ -744,7 +1055,9 @@ export function SchoolWorkspace() {
                   </Button>
                 ) : (
                   <div className="text-center py-6 space-y-3">
-                    <p className="text-sm text-muted-foreground">No portal URL saved</p>
+                    <p className="text-sm text-muted-foreground">
+                      No portal URL saved — add one when editing this school
+                    </p>
                     <Button variant="outline" onClick={handleEditPortalUrl}>
                       <Pencil className="h-4 w-4 mr-2" />
                       Add portal URL
