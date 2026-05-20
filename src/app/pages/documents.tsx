@@ -1,47 +1,119 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { useApplications } from '../../contexts/ApplicationContext';
-import { formatDate } from '../../lib/utils';
-import {
-  FileText,
-  Upload,
-  Download,
-  Trash2,
-  FileCheck,
-  FileEdit,
-  Search,
-  Plus,
-  Copy,
-} from 'lucide-react';
 import { Input } from '../components/ui/input';
+import { Skeleton } from '../components/ui/skeleton';
+import { UploadDocumentFlow } from '../components/upload-document-flow';
+import { supabase } from '../../lib/supabase';
+import {
+  type DbDocument,
+  DOC_FILTER_TABS,
+  formatDocumentDate,
+  getDocTypeBadgeClass,
+  getDocTypeLabel,
+  getStoragePath,
+  getTotalStorageMb,
+  matchesDocFilter,
+} from '../../lib/documents';
+import { cn } from '../../lib/utils';
+import { FileText, Upload, Download, Trash2, Search } from 'lucide-react';
+import { toast } from 'sonner';
+
+function DocumentRowSkeleton() {
+  return <Skeleton className="h-20 w-full rounded-lg" />;
+}
 
 export function Documents() {
+  const [documents, setDocuments] = useState<DbDocument[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const { applications, universities } = useApplications();
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
-  const allDocuments = applications.flatMap(app => {
-    const university = universities.find(u => u.id === app.universityId);
-    return app.documents.map(doc => ({
-      ...doc,
-      applicationId: app.id,
-      universityName: university?.name || 'Unknown',
-    }));
-  });
+  const fetchDocuments = useCallback(async () => {
+    setLoading(true);
+    setDeleteError('');
 
-  const sopDocuments = allDocuments.filter(d => d.type === 'sop');
-  const cvDocuments = allDocuments.filter(d => d.type === 'cv');
-  const otherDocuments = allDocuments.filter(d => !['sop', 'cv'].includes(d.type));
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setDocuments([]);
+      setLoading(false);
+      return;
+    }
 
-  const documentsByType = {
-    sop: sopDocuments,
-    cv: cvDocuments,
-    transcript: allDocuments.filter(d => d.type === 'transcript'),
-    recommendation: allDocuments.filter(d => d.type === 'recommendation'),
-    other: otherDocuments,
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast.error(error.message);
+      setDocuments([]);
+    } else {
+      setDocuments((data ?? []) as DbDocument[]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  const storage = useMemo(() => getTotalStorageMb(documents), [documents]);
+
+  const filteredDocuments = useMemo(() => {
+    let list = documents.filter(d => matchesDocFilter(d, activeFilter));
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(d => d.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [documents, activeFilter, searchQuery]);
+
+  const handleDownload = async (doc: DbDocument) => {
+    const filePath = getStoragePath(doc);
+    if (!filePath) {
+      toast.error('Could not resolve file path');
+      return;
+    }
+
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(filePath, 3600);
+
+    if (error || !data?.signedUrl) {
+      toast.error(error?.message || 'Failed to generate download link');
+      return;
+    }
+
+    window.open(data.signedUrl, '_blank');
+  };
+
+  const handleDelete = async (doc: DbDocument) => {
+    if (!window.confirm('Delete this document? This cannot be undone.')) return;
+
+    const filePath = getStoragePath(doc);
+    if (filePath) {
+      const { error: storageError } = await supabase.storage.from('documents').remove([filePath]);
+      if (storageError) {
+        setDeleteError(storageError.message);
+        return;
+      }
+    }
+
+    const { error } = await supabase.from('documents').delete().eq('id', doc.id);
+
+    if (error) {
+      setDeleteError(error.message);
+      return;
+    }
+
+    setDocuments(prev => prev.filter(d => d.id !== doc.id));
+    toast.success('Document deleted');
   };
 
   return (
@@ -53,307 +125,147 @@ export function Documents() {
             Centralized library for all your application documents
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setUploadOpen(true)}>
           <Upload className="h-4 w-4 mr-2" />
           Upload New Document
         </Button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search documents..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">2.1 MB of 200 MB used</p>
+          <p className="text-sm text-muted-foreground">
+            {storage.usedMb < 0.1
+              ? '0 MB'
+              : `${storage.usedMb < 1 ? storage.usedMb.toFixed(2) : storage.usedMb.toFixed(1)} MB`}{' '}
+            of {storage.limitMb} MB used
+          </p>
         </div>
-        <div className="w-full">
-          <Progress value={1.05} className="h-1.5" style={{ backgroundColor: '#F1F5F9' }} />
+        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-2 rounded-full transition-all"
+            style={{ width: `${storage.percent}%`, backgroundColor: '#4F46E5' }}
+          />
         </div>
       </div>
 
-      <Tabs defaultValue="all" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="all">
-            All Documents ({allDocuments.length})
-          </TabsTrigger>
-          <TabsTrigger value="sop">
-            SOP Library ({documentsByType.sop.length})
-          </TabsTrigger>
-          <TabsTrigger value="cv">
-            CV Library ({documentsByType.cv.length})
-          </TabsTrigger>
-          <TabsTrigger value="recommendations">
-            Recommendations ({documentsByType.recommendation.length})
-          </TabsTrigger>
-          <TabsTrigger value="other">
-            Other ({documentsByType.other.length})
-          </TabsTrigger>
-        </TabsList>
+      {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
 
-        <TabsContent value="all">
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <DocumentRowSkeleton key={i} />
+          ))}
+        </div>
+      ) : documents.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 px-4">
+          <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+          <h2 className="text-lg mb-2">No documents yet</h2>
+          <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
+            Upload your SOP, CV, transcripts and other documents once — then they are available
+            across all your applications.
+          </p>
+          <Button onClick={() => setUploadOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload New Document
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-4">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search documents..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {DOC_FILTER_TABS.map(tab => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setActiveFilter(tab.value)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-sm border transition-colors',
+                    activeFilter === tab.value
+                      ? 'border-[#4F46E5] bg-[#4F46E5] text-white'
+                      : 'border-border bg-background hover:bg-accent'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle>All Documents</CardTitle>
-              <CardDescription>Complete library of application documents</CardDescription>
+              <CardTitle>Your documents</CardTitle>
+              <CardDescription>
+                {filteredDocuments.length}{' '}
+                {filteredDocuments.length === 1 ? 'document' : 'documents'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {allDocuments.length > 0 ? (
+              {filteredDocuments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No documents match your search or filter.
+                </p>
+              ) : (
                 <div className="space-y-3">
-                  {allDocuments.map(doc => (
+                  {filteredDocuments.map(doc => (
                     <div
                       key={doc.id}
-                      className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
                     >
-                      <div className="flex items-start gap-3">
-                        <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-sm">{doc.name}</h4>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {doc.type.toUpperCase()}
+                      <div className="flex items-start gap-3 min-w-0">
+                        <FileText className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <Badge
+                              className={cn('text-xs border-0', getDocTypeBadgeClass(doc.doc_type))}
+                            >
+                              {getDocTypeLabel(doc.doc_type)}
                             </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              Version {doc.version}
-                            </span>
-                            <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
-                            <span className="text-xs text-muted-foreground">
-                              Used in {doc.universityName}
-                            </span>
-                            <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(doc.uploadedDate)}
-                            </span>
+                            <span className="text-xs text-muted-foreground">v{doc.version}</span>
                           </div>
+                          <p className="text-sm font-medium truncate">{doc.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDocumentDate(doc.created_at)} · {doc.file_size}
+                          </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 self-end md:self-auto">
-                        <Button variant="ghost" size="sm" title="Use in another application">
-                          <Copy className="h-4 w-4" />
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
                         </Button>
-                        <Button variant="ghost" size="sm" title="Download">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" title="Delete">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(doc)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="mb-6">
-                    <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto">
-                      <rect x="12" y="4" width="32" height="48" rx="4" stroke="#C7D2FE" strokeWidth="2" strokeDasharray="4 4" fill="#EEF2FF" />
-                      <path d="M28 20v16m-8-8h16" stroke="#C7D2FE" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <h3 className="text-base mb-2">No documents yet</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Upload your SOP, CV, transcripts, and other documents once — then attach them to any application.
-                  </p>
-                  <Button>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload your first document
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    PDF, DOCX, TXT · Max 25 MB per file
-                  </p>
-                </div>
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </>
+      )}
 
-        <TabsContent value="sop">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Statement of Purpose Library</CardTitle>
-                <CardDescription>
-                  Manage different versions of your SOP for various applications
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {sopDocuments.length > 0 ? (
-                  <div className="space-y-3">
-                    {sopDocuments.map(doc => (
-                      <div
-                        key={doc.id}
-                        className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h4 className="text-sm">{doc.name}</h4>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              For {doc.universityName} • Version {doc.version}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Uploaded {formatDate(doc.uploadedDate)}
-                            </p>
-                          </div>
-                          <Badge variant="success" className="text-xs">
-                            <FileCheck className="h-3 w-3 mr-1" />
-                            Ready
-                          </Badge>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <FileEdit className="h-4 w-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Copy className="h-4 w-4 mr-2" />
-                            Duplicate
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            Use in Application
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-sm text-muted-foreground mb-4">
-                      No SOP documents yet
-                    </p>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Master SOP
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>SOP Variations</CardTitle>
-                <CardDescription>
-                  Adapt your master SOP for different programs
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create SOP Variation
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="cv">
-          <Card>
-            <CardHeader>
-              <CardTitle>CV/Resume Library</CardTitle>
-              <CardDescription>
-                Different versions of your CV tailored for specific programs
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {cvDocuments.length > 0 ? (
-                <div className="space-y-3">
-                  {cvDocuments.map(doc => (
-                    <div
-                      key={doc.id}
-                      className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="text-sm">{doc.name}</h4>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Version {doc.version} • {formatDate(doc.uploadedDate)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <FileEdit className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Copy className="h-4 w-4 mr-2" />
-                          Duplicate
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground mb-4">No CV documents yet</p>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Upload Master CV
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="recommendations">
-          <Card>
-            <CardHeader>
-              <CardTitle>Letters of Recommendation</CardTitle>
-              <CardDescription>Track recommendation letters and requests</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground mb-4">
-                  No recommendation letters yet
-                </p>
-                <Button variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Recommender
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="other">
-          <Card>
-            <CardHeader>
-              <CardTitle>Other Documents</CardTitle>
-              <CardDescription>
-                Transcripts, test scores, portfolios, and miscellaneous files
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground mb-4">
-                  No additional documents yet
-                </p>
-                <Button variant="outline">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Document
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <UploadDocumentFlow
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onSuccess={fetchDocuments}
+      />
     </div>
   );
 }

@@ -12,8 +12,23 @@ import { Label } from '../components/ui/label';
 import { Skeleton } from '../components/ui/skeleton';
 import { ChecklistStatusSelect } from '../components/checklist-status-select';
 import { StatusUpdateDialog } from '../components/status-update-dialog';
+import { UploadDocumentFlow } from '../components/upload-document-flow';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import {
+  type DbDocument,
+  formatDocumentDate,
+  getDocTypeBadgeClass,
+  getDocTypeLabel,
+  getStoragePath,
+} from '../../lib/documents';
 import { supabase } from '../../lib/supabase';
-import { formatDate, getDaysUntil } from '../../lib/utils';
+import { cn, formatDate, getDaysUntil } from '../../lib/utils';
 import { resolveChecklistUpdate } from '../../lib/checklist-status';
 import { formatNoteTimestamp } from '../../lib/note-format';
 import {
@@ -32,6 +47,10 @@ import {
   Pencil,
   Trash2,
   FileText,
+  Upload,
+  Link2,
+  Unlink,
+  Download,
 } from 'lucide-react';
 
 interface DbProgram {
@@ -106,6 +125,11 @@ interface PortalLink {
   url: string;
 }
 
+interface LinkedDocument {
+  linkId: string;
+  document: DbDocument;
+}
+
 const DEFAULT_CHECKLIST_LABELS = [
   'Statement of Purpose',
   'CV/Resume',
@@ -139,6 +163,10 @@ export function SchoolWorkspace() {
   const [programNote, setProgramNote] = useState<ProgramNote | null>(null);
   const [portalLinks, setPortalLinks] = useState<PortalLink[]>([]);
   const [recommenders, setRecommenders] = useState<Recommender[]>([]);
+  const [linkedDocuments, setLinkedDocuments] = useState<LinkedDocument[]>([]);
+  const [libraryDocuments, setLibraryDocuments] = useState<DbDocument[]>([]);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isUploadDocOpen, setIsUploadDocOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
@@ -184,6 +212,43 @@ export function SchoolWorkspace() {
       setNoteContent('');
       lastSavedNoteRef.current = '';
       setNoteSavedAt(null);
+    }
+  }, []);
+
+  const fetchLinkedDocuments = useCallback(async (programId: string) => {
+    const { data, error } = await supabase
+      .from('program_documents')
+      .select('id, program_id, document_id, documents(*)')
+      .eq('program_id', programId);
+
+    if (!error && data) {
+      const links = (data as { id: string; documents: DbDocument | null }[])
+        .filter(row => row.documents)
+        .map(row => ({
+          linkId: row.id,
+          document: row.documents as DbDocument,
+        }));
+      setLinkedDocuments(links);
+    } else {
+      setLinkedDocuments([]);
+    }
+  }, []);
+
+  const fetchLibraryDocuments = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLibraryDocuments([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setLibraryDocuments(data as DbDocument[]);
     }
   }, []);
 
@@ -239,9 +304,10 @@ export function SchoolWorkspace() {
       fetchNote(prog.id),
       fetchPortalLinks(prog.id),
       fetchRecommenders(prog.id),
+      fetchLinkedDocuments(prog.id),
     ]);
     setLoading(false);
-  }, [id, fetchChecklist, fetchNote, fetchPortalLinks, fetchRecommenders]);
+  }, [id, fetchChecklist, fetchNote, fetchPortalLinks, fetchRecommenders, fetchLinkedDocuments]);
 
   useEffect(() => {
     fetchProgram();
@@ -590,6 +656,70 @@ export function SchoolWorkspace() {
     );
   };
 
+  const handleOpenLibrary = async () => {
+    await fetchLibraryDocuments();
+    setIsLibraryOpen(true);
+  };
+
+  const handleLinkDocument = async (documentId: string) => {
+    if (!program) return;
+
+    const alreadyLinked = linkedDocuments.some(l => l.document.id === documentId);
+    if (alreadyLinked) {
+      toast.error('Document is already linked');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('program_documents')
+      .insert({
+        program_id: program.id,
+        document_id: documentId,
+      })
+      .select('id, program_id, document_id, documents(*)')
+      .single();
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    const row = data as { id: string; documents: DbDocument };
+    setLinkedDocuments(prev => [...prev, { linkId: row.id, document: row.documents }]);
+    toast.success('Document linked');
+  };
+
+  const handleUnlinkDocument = async (linkId: string) => {
+    const { error } = await supabase.from('program_documents').delete().eq('id', linkId);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setLinkedDocuments(prev => prev.filter(l => l.linkId !== linkId));
+    toast.success('Document unlinked');
+  };
+
+  const handleDownloadLinkedDoc = async (doc: DbDocument) => {
+    const filePath = getStoragePath(doc);
+    if (!filePath) {
+      toast.error('Could not resolve file path');
+      return;
+    }
+
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(filePath, 3600);
+
+    if (error || !data?.signedUrl) {
+      toast.error(error?.message || 'Failed to download');
+      return;
+    }
+
+    window.open(data.signedUrl, '_blank');
+  };
+
   const handleDeletePortalLink = async (linkId: string) => {
     const { error } = await supabase.from('portal_links').delete().eq('id', linkId);
 
@@ -649,6 +779,16 @@ export function SchoolWorkspace() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {program.portal_url?.trim() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-transparent border-[#4F46E5] text-[#4F46E5] hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+              onClick={() => window.open(program.portal_url!, '_blank')}
+            >
+              ↗ Open Application Portal
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setIsStatusDialogOpen(true)}>
             Mark as Submitted
           </Button>
@@ -864,18 +1004,143 @@ export function SchoolWorkspace() {
         </TabsContent>
 
         <TabsContent value="documents">
-          <Card>
-            <CardHeader>
-              <CardTitle>Documents</CardTitle>
-              <CardDescription>Files linked to this application</CardDescription>
-            </CardHeader>
-            <CardContent className="py-12 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-sm text-muted-foreground">
-                No documents linked to this program yet.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <CardTitle>Application Documents</CardTitle>
+                    <CardDescription>Files linked to this program</CardDescription>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={handleOpenLibrary}>
+                      Browse Document Library
+                    </Button>
+                    <Button size="sm" onClick={() => setIsUploadDocOpen(true)}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload New
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {linkedDocuments.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-sm text-muted-foreground mb-4">
+                      No documents linked to this program yet.
+                    </p>
+                    <Button variant="outline" onClick={handleOpenLibrary}>
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Browse Document Library
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {linkedDocuments.map(({ linkId, document: doc }) => (
+                      <div
+                        key={linkId}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-border"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <Badge
+                              className={cn(
+                                'text-xs border-0',
+                                getDocTypeBadgeClass(doc.doc_type)
+                              )}
+                            >
+                              {getDocTypeLabel(doc.doc_type)}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">v{doc.version}</span>
+                          </div>
+                          <p className="text-sm font-medium truncate">{doc.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDocumentDate(doc.created_at)} · {doc.file_size}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadLinkedDoc(doc)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUnlinkDocument(linkId)}
+                          >
+                            <Unlink className="h-4 w-4 mr-2" />
+                            Unlink
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Dialog open={isLibraryOpen} onOpenChange={setIsLibraryOpen}>
+            <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Document Library</DialogTitle>
+                <DialogDescription>
+                  Link an existing document to this application
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                {libraryDocuments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    No documents in your library yet. Upload from the Documents hub first.
+                  </p>
+                ) : (
+                  libraryDocuments.map(doc => {
+                    const isLinked = linkedDocuments.some(l => l.document.id === doc.id);
+                    return (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{doc.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {getDocTypeLabel(doc.doc_type)} · v{doc.version}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={isLinked ? 'outline' : 'default'}
+                          disabled={isLinked}
+                          onClick={() => handleLinkDocument(doc.id)}
+                          style={!isLinked ? { backgroundColor: '#4F46E5' } : undefined}
+                          className={!isLinked ? 'text-white hover:opacity-90' : undefined}
+                        >
+                          {isLinked ? 'Linked' : 'Link to this application'}
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {program && (
+            <UploadDocumentFlow
+              open={isUploadDocOpen}
+              onOpenChange={setIsUploadDocOpen}
+              linkToProgramId={program.id}
+              onSuccess={() => {
+                fetchLinkedDocuments(program.id);
+                fetchLibraryDocuments();
+              }}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="notes">
