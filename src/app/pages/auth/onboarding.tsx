@@ -57,6 +57,7 @@ export function Onboarding() {
         gre_verbal: greTaken === 'Yes' ? parseGreScore(greVerbal) : null,
         gre_quant: greTaken === 'Yes' ? parseGreScore(greQuant) : null,
         gre_awa: greTaken === 'Yes' ? parseGreScore(greAwa) : null,
+        onboarding_completed: true,
       });
 
     return { error: upsertError?.message };

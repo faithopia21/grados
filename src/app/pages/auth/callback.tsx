@@ -3,6 +3,21 @@ import { useNavigate } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
+type ProfileRow = {
+  id: string;
+  onboarding_completed: boolean | null;
+};
+
+function getGoogleAvatarUrl(
+  metadata: Record<string, unknown> | undefined
+): string | null {
+  if (!metadata) return null;
+  const avatar =
+    (metadata.avatar_url as string | undefined) ||
+    (metadata.picture as string | undefined);
+  return avatar?.trim() || null;
+}
+
 export function AuthCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
@@ -11,35 +26,57 @@ export function AuthCallback() {
     const completeSignIn = async () => {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (sessionError || !session?.user) {
-        setError(sessionError?.message || 'Could not establish session. Please try again.');
+      if (sessionError) {
+        setError(sessionError.message);
+        return;
+      }
+
+      if (!session?.user) {
+        setError('Could not establish session. Please try again.');
         return;
       }
 
       const user = session.user;
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, onboarding_completed')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (!profile) {
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: user.id,
-          full_name:
-            user.user_metadata?.full_name ||
-            user.user_metadata?.name ||
-            '',
-        });
-
-        if (profileError) {
-          setError(profileError.message);
-          return;
-        }
+      if (profileError) {
+        setError(profileError.message);
+        return;
       }
 
-      navigate('/dashboard', { replace: true });
+      let onboardingCompleted = profile?.onboarding_completed === true;
+
+      if (!profile) {
+        const { data: createdProfile, error: createError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            email: user.email ?? '',
+            full_name:
+              user.user_metadata?.full_name ||
+              user.user_metadata?.name ||
+              '',
+            avatar_url: getGoogleAvatarUrl(user.user_metadata),
+            onboarding_completed: false,
+          })
+          .select('id, onboarding_completed')
+          .single();
+
+        if (createError) {
+          setError(createError.message);
+          return;
+        }
+
+        onboardingCompleted =
+          (createdProfile as ProfileRow | null)?.onboarding_completed === true;
+      }
+
+      navigate(onboardingCompleted ? '/dashboard' : '/onboarding', { replace: true });
     };
 
     completeSignIn();
