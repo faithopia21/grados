@@ -75,22 +75,29 @@ export function Documents() {
   }, [documents, activeFilter, searchQuery]);
 
   const handleDownload = async (doc: DbDocument) => {
-    const filePath = getStoragePath(doc);
-    if (!filePath) {
-      toast.error('Could not resolve file path');
+    const storagePath = doc.storage_path?.trim();
+    if (storagePath) {
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(storagePath, 3600);
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+        return;
+      }
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+    }
+
+    if (doc.file_url?.trim()) {
+      window.open(doc.file_url, '_blank');
       return;
     }
 
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(filePath, 3600);
-
-    if (error || !data?.signedUrl) {
-      toast.error(error?.message || 'Failed to generate download link');
-      return;
-    }
-
-    window.open(data.signedUrl, '_blank');
+    toast.error('Could not download file');
   };
 
   const handleDelete = async (doc: DbDocument) => {

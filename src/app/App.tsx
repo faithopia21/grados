@@ -13,6 +13,7 @@ import { SignIn } from './pages/auth/sign-in';
 import { SignUp } from './pages/auth/sign-up';
 import { Onboarding } from './pages/auth/onboarding';
 import { ForgotPassword } from './pages/auth/forgot-password';
+import { AuthCallback } from './pages/auth/callback';
 import { BottomNav } from './components/layout/bottom-nav';
 import { MobileHeader } from './components/layout/mobile-header';
 import { ProtectedRoute } from '../components/ProtectedRoute';
@@ -73,6 +74,7 @@ function AppRoutes() {
       <Route path="/sign-in" element={<Navigate to="/signin" replace />} />
       <Route path="/sign-up" element={<SignUp />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
 
       <Route
         path="/*"

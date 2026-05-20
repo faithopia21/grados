@@ -25,7 +25,6 @@ import {
   formatDocumentDate,
   getDocTypeBadgeClass,
   getDocTypeLabel,
-  getStoragePath,
 } from '../../lib/documents';
 import { supabase } from '../../lib/supabase';
 import { cn, formatDate, getDaysUntil } from '../../lib/utils';
@@ -35,11 +34,18 @@ import {
   displayProgramStatus,
   getStatusBadgeClassName,
   getStatusBadgeVariant,
+  normalizeProgramStatus,
 } from '../../lib/program-status';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '../components/ui/tooltip';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
   Calendar,
+  Pencil,
   ExternalLink,
   CheckCircle2,
   Globe,
@@ -130,6 +136,72 @@ interface LinkedDocument {
   document: DbDocument;
 }
 
+const PROGRAM_DOCUMENTS_SELECT = `
+  id,
+  document_id,
+  documents (
+    id,
+    name,
+    doc_type,
+    file_url,
+    storage_path,
+    version,
+    file_size,
+    created_at
+  )
+`;
+
+type ProgramDocumentRow = {
+  id: string;
+  document_id: string;
+  documents:
+    | {
+        id: string;
+        name: string;
+        doc_type: string;
+        file_url: string;
+        storage_path?: string | null;
+        version: number;
+        file_size: string;
+        created_at: string;
+      }
+    | {
+        id: string;
+        name: string;
+        doc_type: string;
+        file_url: string;
+        storage_path?: string | null;
+        version: number;
+        file_size: string;
+        created_at: string;
+      }[]
+    | null;
+};
+
+function mapProgramDocumentLinks(rows: ProgramDocumentRow[]): LinkedDocument[] {
+  return rows
+    .map(row => {
+      const nested = row.documents;
+      const doc = Array.isArray(nested) ? nested[0] : nested;
+      if (!doc) return null;
+      return {
+        linkId: row.id,
+        document: {
+          id: doc.id,
+          user_id: '',
+          name: doc.name,
+          doc_type: doc.doc_type,
+          file_url: doc.file_url,
+          file_size: doc.file_size,
+          version: doc.version,
+          created_at: doc.created_at,
+          storage_path: doc.storage_path ?? null,
+        },
+      };
+    })
+    .filter((link): link is LinkedDocument => link !== null);
+}
+
 const DEFAULT_CHECKLIST_LABELS = [
   'Statement of Purpose',
   'CV/Resume',
@@ -216,19 +288,13 @@ export function SchoolWorkspace() {
   }, []);
 
   const fetchLinkedDocuments = useCallback(async (programId: string) => {
-    const { data, error } = await supabase
+    const { data: linkedDocs, error } = await supabase
       .from('program_documents')
-      .select('id, program_id, document_id, documents(*)')
+      .select(PROGRAM_DOCUMENTS_SELECT)
       .eq('program_id', programId);
 
-    if (!error && data) {
-      const links = (data as { id: string; documents: DbDocument | null }[])
-        .filter(row => row.documents)
-        .map(row => ({
-          linkId: row.id,
-          document: row.documents as DbDocument,
-        }));
-      setLinkedDocuments(links);
+    if (!error && linkedDocs) {
+      setLinkedDocuments(mapProgramDocumentLinks(linkedDocs as ProgramDocumentRow[]));
     } else {
       setLinkedDocuments([]);
     }
@@ -394,6 +460,26 @@ export function SchoolWorkspace() {
 
     setProgram(prev => (prev ? { ...prev, status } : prev));
     toast.success(`Status updated to ${status}`);
+  };
+
+  const handleMarkAsSubmitted = async () => {
+    if (!program) return;
+
+    setStatusSaving(true);
+    const { error } = await supabase
+      .from('programs')
+      .update({ status: 'Submitted' })
+      .eq('id', program.id);
+
+    setStatusSaving(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setProgram(prev => (prev ? { ...prev, status: 'Submitted' } : prev));
+    toast.success('Marked as submitted');
   };
 
   const updateChecklistItem = async (
@@ -676,7 +762,7 @@ export function SchoolWorkspace() {
         program_id: program.id,
         document_id: documentId,
       })
-      .select('id, program_id, document_id, documents(*)')
+      .select(PROGRAM_DOCUMENTS_SELECT)
       .single();
 
     if (error) {
@@ -684,8 +770,10 @@ export function SchoolWorkspace() {
       return;
     }
 
-    const row = data as { id: string; documents: DbDocument };
-    setLinkedDocuments(prev => [...prev, { linkId: row.id, document: row.documents }]);
+    const [link] = mapProgramDocumentLinks([data as ProgramDocumentRow]);
+    if (link) {
+      setLinkedDocuments(prev => [...prev, link]);
+    }
     toast.success('Document linked');
   };
 
@@ -702,22 +790,29 @@ export function SchoolWorkspace() {
   };
 
   const handleDownloadLinkedDoc = async (doc: DbDocument) => {
-    const filePath = getStoragePath(doc);
-    if (!filePath) {
-      toast.error('Could not resolve file path');
+    const storagePath = doc.storage_path?.trim();
+    if (storagePath) {
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(storagePath, 3600);
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+        return;
+      }
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+    }
+
+    if (doc.file_url?.trim()) {
+      window.open(doc.file_url, '_blank');
       return;
     }
 
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(filePath, 3600);
-
-    if (error || !data?.signedUrl) {
-      toast.error(error?.message || 'Failed to download');
-      return;
-    }
-
-    window.open(data.signedUrl, '_blank');
+    toast.error('Could not download file');
   };
 
   const handleDeletePortalLink = async (linkId: string) => {
@@ -749,6 +844,7 @@ export function SchoolWorkspace() {
   const checklistTotal = checklistItems.length;
   const checklistProgress = checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0;
   const statusLabel = displayProgramStatus(program.status);
+  const statusKey = normalizeProgramStatus(program.status);
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -759,12 +855,6 @@ export function SchoolWorkspace() {
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h1 className="text-xl md:text-2xl">{program.school_name}</h1>
-            <Badge
-              variant={getStatusBadgeVariant(program.status)}
-              className={getStatusBadgeClassName(program.status)}
-            >
-              {statusLabel}
-            </Badge>
             {program.funding_available && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0">
                 Funding Available
@@ -789,12 +879,28 @@ export function SchoolWorkspace() {
               ↗ Open Application Portal
             </Button>
           )}
-          <Button variant="outline" onClick={() => setIsStatusDialogOpen(true)}>
-            Mark as Submitted
-          </Button>
-          <Button variant="outline" onClick={() => setIsStatusDialogOpen(true)}>
-            Update Status
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => setIsStatusDialogOpen(true)}
+                aria-label="Update status"
+              >
+                <Badge
+                  variant={getStatusBadgeVariant(program.status)}
+                  className={cn(
+                    'cursor-pointer',
+                    getStatusBadgeClassName(program.status)
+                  )}
+                >
+                  {statusLabel}
+                </Badge>
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Update status</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -887,9 +993,27 @@ export function SchoolWorkspace() {
                 >
                   {statusLabel}
                 </Badge>
-                <Button variant="outline" onClick={() => setIsStatusDialogOpen(true)}>
-                  Update Status
-                </Button>
+                {statusKey !== 'accepted' && statusKey !== 'rejected' && (
+                  <>
+                    {statusKey === 'submitted' ? (
+                      <Button
+                        variant="outline"
+                        className="w-full border-green-600 text-green-700 dark:text-green-400"
+                        disabled
+                      >
+                        Submitted ✓
+                      </Button>
+                    ) : (
+                      <Button
+                        className="w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white"
+                        onClick={handleMarkAsSubmitted}
+                        disabled={statusSaving}
+                      >
+                        Mark as Submitted
+                      </Button>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

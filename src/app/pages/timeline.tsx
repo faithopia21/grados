@@ -11,7 +11,7 @@ import {
   getStatusBadgeClassName,
   getStatusBadgeVariant,
 } from '../../lib/program-status';
-import { Calendar, Clock, AlertCircle, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, ArrowRight, Download } from 'lucide-react';
 
 interface DbProgram {
   id: string;
@@ -115,6 +115,33 @@ export function Timeline() {
   const upcoming = useMemo(() => programs.filter(p => p.bucket === 'upcoming'), [programs]);
   const future = useMemo(() => programs.filter(p => p.bucket === 'future'), [programs]);
 
+  const handleExportIcs = () => {
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//GradOS//Application Deadlines//EN',
+      ...programs.map(p => [
+        'BEGIN:VEVENT',
+        `DTSTART:${new Date(p.deadline)
+          .toISOString()
+          .replace(/-|:|\.\d{3}/g, '')
+          .slice(0, 8)}`,
+        `SUMMARY:${p.school_name} - ${p.program_name} deadline`,
+        `DESCRIPTION:Application deadline for ${p.program_name} at ${p.school_name}`,
+        'END:VEVENT',
+      ].join('\r\n')),
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'grados-deadlines.ics';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const DeadlineCard = ({ program }: { program: ProgramWithUrgency }) => (
     <div
       className={`p-4 rounded-lg border transition-colors border-l-[3px] ${getLeftBorderClass(
@@ -158,11 +185,22 @@ export function Timeline() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <div>
-        <h1>Deadlines</h1>
-        <p className="text-muted-foreground mt-2">
-          All application deadlines in one calendar view
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1>Deadlines</h1>
+          <p className="text-muted-foreground mt-2">
+            All application deadlines in one calendar view
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportIcs}
+          disabled={loading || programs.length === 0}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export .ics
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">

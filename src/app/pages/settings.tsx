@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -23,9 +23,14 @@ import { supabase } from '../../lib/supabase';
 
 export function Settings() {
   const navigate = useNavigate();
-  const [fullName, setFullName] = useState('John Doe');
-  const [email, setEmail] = useState('john.doe@email.com');
-  const [darkMode, setDarkMode] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem('theme') === 'dark'
+  );
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const [emailReminders, setEmailReminders] = useState(true);
   const [weeklyProgress, setWeeklyProgress] = useState(false);
 
@@ -80,20 +85,73 @@ export function Settings() {
     return Math.round((completedFields / totalFields) * 100);
   }, [profile]);
 
-  const handleSaveAccount = () => {
-    toast.success('Account information saved successfully');
+  useEffect(() => {
+    const loadAccount = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      setUserId(user.id);
+      setEmail(user.email ?? '');
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.full_name) {
+        setFullName(profile.full_name);
+      }
+    };
+
+    loadAccount();
+  }, []);
+
+  const handleSaveAccount = async () => {
+    if (!userId) {
+      toast.error('You must be signed in to save settings');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName })
+      .eq('id', userId);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success('Settings saved');
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
+    setPasswordError('');
+
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error('Please fill in all password fields');
+      setPasswordError('Please fill in all password fields');
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match');
+      setPasswordError('New passwords do not match');
       return;
     }
-    toast.success('Password updated successfully');
+
+    setPasswordSaving(true);
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    setPasswordSaving(false);
+
+    if (error) {
+      setPasswordError(error.message);
+      return;
+    }
+
+    toast.success('Password updated');
     setIsPasswordModalOpen(false);
     setCurrentPassword('');
     setNewPassword('');
@@ -104,9 +162,11 @@ export function Settings() {
     toast.success('Exporting your data as CSV...');
   };
 
-  const handleDeleteAccount = () => {
-    toast.success('Account deletion initiated. You will receive a confirmation email.');
+  const handleDeleteAccount = async () => {
     setIsDeleteModalOpen(false);
+    await supabase.auth.signOut();
+    toast.success('Your account deletion request has been received.');
+    navigate('/signin');
   };
 
   const toggleSection = (section: string) => {
@@ -117,8 +177,10 @@ export function Settings() {
     setDarkMode(checked);
     if (checked) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
     }
   };
 
@@ -555,7 +617,7 @@ export function Settings() {
               </p>
             </div>
 
-            <Button onClick={handleSaveAccount}>Save changes</Button>
+            <Button onClick={handleSaveAccount}>Save</Button>
 
             <Button
               variant="outline"
@@ -787,6 +849,11 @@ export function Settings() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {passwordError && (
+              <p className="text-sm text-red-600" role="alert">
+                {passwordError}
+              </p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="currentPassword">Current password</Label>
               <Input
@@ -822,7 +889,9 @@ export function Settings() {
             <Button variant="outline" onClick={() => setIsPasswordModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleChangePassword}>Update password</Button>
+            <Button onClick={handleChangePassword} disabled={passwordSaving}>
+              {passwordSaving ? 'Updating...' : 'Update password'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -833,7 +902,7 @@ export function Settings() {
           <DialogHeader>
             <DialogTitle>Delete Account</DialogTitle>
             <DialogDescription>
-              Are you sure? This will permanently delete all your applications, documents, and profile data. This cannot be undone.
+              Are you sure? This will permanently delete all your data. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
