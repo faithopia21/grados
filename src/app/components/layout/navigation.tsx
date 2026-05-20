@@ -14,7 +14,7 @@ import { cn } from '../../../lib/utils';
 import { ThemeToggle } from '../theme-toggle';
 
 const navItems = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Applications', path: '/applications', icon: School },
   { name: 'Deadlines', path: '/deadlines', icon: Calendar },
   { name: 'Documents', path: '/documents', icon: FileText },
@@ -67,7 +67,9 @@ export function Navigation() {
           <div className="space-y-1 px-3">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const isActive =
+                location.pathname === item.path ||
+                (item.path === '/dashboard' && location.pathname === '/');
 
               return (
                 <Link

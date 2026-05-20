@@ -19,6 +19,7 @@ import { ChevronDown, ChevronRight, Moon, Sun, User, GraduationCap, Award, Brief
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import { mockUserProfile } from '../../data/mockData';
+import { supabase } from '../../lib/supabase';
 
 export function Settings() {
   const navigate = useNavigate();
@@ -121,9 +122,9 @@ export function Settings() {
     }
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem('gradOS_authenticated');
-    navigate('/sign-in');
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate('/signin');
   };
 
   return (

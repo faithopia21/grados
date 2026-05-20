@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Eye, EyeOff } from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
 
 export function SignUp() {
   const navigate = useNavigate();
@@ -16,22 +17,55 @@ export function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
     if (!agreedToTerms) {
-      alert('Please agree to the Terms of Service and Privacy Policy');
+      setError('Please agree to the Terms of Service and Privacy Policy');
       return;
     }
     if (password !== confirmPassword) {
-      alert('Passwords do not match');
+      setError('Passwords do not match');
       return;
     }
+
+    setLoading(true);
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (signUpError) {
+      setLoading(false);
+      setError(signUpError.message);
+      return;
+    }
+
+    if (data.user) {
+      const fullName = `${firstName} ${lastName}`.trim();
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: data.user.id,
+        full_name: fullName,
+      });
+
+      if (profileError) {
+        setLoading(false);
+        setError(profileError.message);
+        return;
+      }
+    }
+
+    setLoading(false);
     navigate('/onboarding');
   };
 
   const handleGoogleSignUp = () => {
-    navigate('/onboarding');
+    setError('Google sign up is not configured yet.');
   };
 
   return (
@@ -151,8 +185,14 @@ export function SignUp() {
             </label>
           </div>
 
-          <Button type="submit" className="w-full h-11">
-            Create account
+          {error && (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
+
+          <Button type="submit" className="w-full h-11" disabled={loading}>
+            {loading ? 'Creating account...' : 'Create account'}
           </Button>
 
           <div className="relative">

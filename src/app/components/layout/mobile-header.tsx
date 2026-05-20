@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { X, Sun, Moon } from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
 import { Button } from '../ui/button';
 import {
   Sheet,
@@ -32,9 +33,9 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
     }
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem('gradOS_authenticated');
-    navigate('/sign-in');
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate('/signin');
   };
 
   return (

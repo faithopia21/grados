@@ -3,7 +3,7 @@ import { LayoutDashboard, School, Calendar, FileText, Settings } from 'lucide-re
 import { cn } from '../../../lib/utils';
 
 const navItems = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Applications', path: '/applications', icon: School },
   { name: 'Deadlines', path: '/deadlines', icon: Calendar },
   { name: 'Documents', path: '/documents', icon: FileText },

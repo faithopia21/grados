@@ -4,22 +4,38 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Eye, EyeOff } from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
 
 export function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('gradOS_authenticated', 'true');
-    navigate('/');
+    setError('');
+    setLoading(true);
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
+
+    navigate('/dashboard');
   };
 
   const handleGoogleSignIn = () => {
-    localStorage.setItem('gradOS_authenticated', 'true');
-    navigate('/');
+    setError('Google sign in is not configured yet.');
   };
 
   return (
@@ -85,8 +101,14 @@ export function SignIn() {
             </button>
           </div>
 
-          <Button type="submit" className="w-full h-11">
-            Sign in
+          {error && (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
+
+          <Button type="submit" className="w-full h-11" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign in'}
           </Button>
 
           <div className="relative">
