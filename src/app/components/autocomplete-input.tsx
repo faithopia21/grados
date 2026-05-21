@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Input } from './ui/input';
 import { cn } from '../../lib/utils';
 
@@ -7,6 +8,7 @@ export type AutocompleteOption = {
   label: string;
   secondary?: string;
   isCustom?: boolean;
+  disabled?: boolean;
 };
 
 interface AutocompleteInputProps {
@@ -19,6 +21,7 @@ interface AutocompleteInputProps {
   disabled?: boolean;
   className?: string;
   maxResults?: number;
+  loading?: boolean;
 }
 
 export function AutocompleteInput({
@@ -31,6 +34,7 @@ export function AutocompleteInput({
   disabled,
   className,
   maxResults = 5,
+  loading = false,
 }: AutocompleteInputProps) {
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -50,7 +54,8 @@ export function AutocompleteInput({
     const rect = input.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    const dropdownHeight = Math.min(visibleOptions.length, maxResults) * 44 + 8;
+    const itemCount = (loading ? 1 : 0) + visibleOptions.length;
+    const dropdownHeight = Math.min(itemCount, maxResults + 1) * 44 + 8;
     setPlacement(spaceBelow < dropdownHeight && spaceAbove > spaceBelow ? 'top' : 'bottom');
   }, [visibleOptions.length, maxResults]);
 
@@ -81,6 +86,7 @@ export function AutocompleteInput({
   }, [open, updatePlacement, visibleOptions.length]);
 
   const selectOption = (option: AutocompleteOption) => {
+    if (option.disabled) return;
     onChange(option.value);
     onSelect?.(option);
     setOpen(false);
@@ -116,7 +122,10 @@ export function AutocompleteInput({
       );
     } else if (e.key === 'Enter' && highlightIndex >= 0) {
       e.preventDefault();
-      selectOption(visibleOptions[highlightIndex]);
+      const option = visibleOptions[highlightIndex];
+      if (!option?.disabled) {
+        selectOption(option);
+      }
     }
   };
 
@@ -127,7 +136,7 @@ export function AutocompleteInput({
     }
   }, [highlightIndex]);
 
-  const showDropdown = open && visibleOptions.length > 0;
+  const showDropdown = open && (loading || visibleOptions.length > 0);
 
   return (
     <div ref={containerRef} className={cn('relative', className)}>
@@ -142,9 +151,10 @@ export function AutocompleteInput({
           onChange(e.target.value);
           setOpen(true);
           setHighlightIndex(-1);
+          updatePlacement();
         }}
         onFocus={() => {
-          if (visibleOptions.length > 0) {
+          if (loading || visibleOptions.length > 0) {
             setOpen(true);
             updatePlacement();
           }
@@ -164,22 +174,34 @@ export function AutocompleteInput({
             placement === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'
           )}
         >
+          {loading && (
+            <li className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground min-h-[44px]">
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              <span>Searching...</span>
+            </li>
+          )}
           {visibleOptions.map((option, index) => (
             <li
               key={`${option.value}-${index}`}
               role="option"
               aria-selected={highlightIndex === index}
               className={cn(
-                'flex items-center justify-between gap-2 px-3 py-2.5 text-sm cursor-pointer min-h-[44px]',
-                highlightIndex === index
-                  ? 'bg-accent text-accent-foreground'
-                  : 'hover:bg-accent/50',
-                option.isCustom && 'italic'
+                'flex items-center justify-between gap-2 px-3 py-2.5 text-sm min-h-[44px]',
+                option.disabled
+                  ? 'text-muted-foreground cursor-default'
+                  : 'cursor-pointer',
+                !option.disabled &&
+                  (highlightIndex === index
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-accent/50'),
+                option.isCustom && !option.disabled && 'italic'
               )}
-              onMouseEnter={() => setHighlightIndex(index)}
+              onMouseEnter={() => !option.disabled && setHighlightIndex(index)}
               onMouseDown={e => {
                 e.preventDefault();
-                selectOption(option);
+                if (!option.disabled) {
+                  selectOption(option);
+                }
               }}
             >
               <span className="truncate">{option.label}</span>

@@ -1,71 +1,25 @@
-export const UNIVERSITIES = [
-  { name: 'Massachusetts Institute of Technology', country: 'United States' },
-  { name: 'Stanford University', country: 'United States' },
-  { name: 'Harvard University', country: 'United States' },
-  { name: 'University of California Berkeley', country: 'United States' },
-  { name: 'Carnegie Mellon University', country: 'United States' },
-  { name: 'Princeton University', country: 'United States' },
-  { name: 'Yale University', country: 'United States' },
-  { name: 'Columbia University', country: 'United States' },
-  { name: 'University of Chicago', country: 'United States' },
-  { name: 'University of Pennsylvania', country: 'United States' },
-  { name: 'Cornell University', country: 'United States' },
-  { name: 'Johns Hopkins University', country: 'United States' },
-  { name: 'University of Michigan', country: 'United States' },
-  { name: 'Duke University', country: 'United States' },
-  { name: 'Northwestern University', country: 'United States' },
-  { name: 'New York University', country: 'United States' },
-  { name: 'University of Texas Austin', country: 'United States' },
-  { name: 'Georgia Institute of Technology', country: 'United States' },
-  { name: 'University of Washington', country: 'United States' },
-  { name: 'Purdue University', country: 'United States' },
-  { name: 'University of Illinois Urbana-Champaign', country: 'United States' },
-  { name: 'University of Wisconsin Madison', country: 'United States' },
-  { name: 'Boston University', country: 'United States' },
-  { name: 'University of Southern California', country: 'United States' },
-  { name: 'University of California Los Angeles', country: 'United States' },
-  { name: 'University of California San Diego', country: 'United States' },
-  { name: 'University of California Davis', country: 'United States' },
-  { name: 'University of Minnesota', country: 'United States' },
-  { name: 'Pennsylvania State University', country: 'United States' },
-  { name: 'Texas A&M University', country: 'United States' },
-  { name: 'University of Oxford', country: 'United Kingdom' },
-  { name: 'University of Cambridge', country: 'United Kingdom' },
-  { name: 'Imperial College London', country: 'United Kingdom' },
-  { name: 'University College London', country: 'United Kingdom' },
-  { name: 'University of Edinburgh', country: 'United Kingdom' },
-  { name: 'University of Manchester', country: 'United Kingdom' },
-  { name: "King's College London", country: 'United Kingdom' },
-  { name: 'London School of Economics', country: 'United Kingdom' },
-  { name: 'University of Bristol', country: 'United Kingdom' },
-  { name: 'University of Warwick', country: 'United Kingdom' },
-  { name: 'ETH Zurich', country: 'Switzerland' },
-  { name: 'EPFL', country: 'Switzerland' },
-  { name: 'University of Toronto', country: 'Canada' },
-  { name: 'University of British Columbia', country: 'Canada' },
-  { name: 'McGill University', country: 'Canada' },
-  { name: 'University of Waterloo', country: 'Canada' },
-  { name: 'University of Alberta', country: 'Canada' },
-  { name: 'Technical University of Munich', country: 'Germany' },
-  { name: 'Heidelberg University', country: 'Germany' },
-  { name: 'LMU Munich', country: 'Germany' },
-  { name: 'University of Amsterdam', country: 'Netherlands' },
-  { name: 'Delft University of Technology', country: 'Netherlands' },
-  { name: 'KU Leuven', country: 'Belgium' },
-  { name: 'University of Melbourne', country: 'Australia' },
-  { name: 'Australian National University', country: 'Australia' },
-  { name: 'University of Sydney', country: 'Australia' },
-  { name: 'University of Tokyo', country: 'Japan' },
-  { name: 'National University of Singapore', country: 'Singapore' },
-  { name: 'Nanyang Technological University', country: 'Singapore' },
-  { name: 'Tsinghua University', country: 'China' },
-  { name: 'Peking University', country: 'China' },
-  { name: 'University of Cape Town', country: 'South Africa' },
-  { name: 'University of Lagos', country: 'Nigeria' },
-  { name: 'University of Ibadan', country: 'Nigeria' },
-  { name: 'Covenant University', country: 'Nigeria' },
-  { name: 'University of Ghana', country: 'Ghana' },
-  { name: 'University of Nairobi', country: 'Kenya' },
-] as const;
+export interface University {
+  name: string;
+  country: string;
+  web_pages: string[];
+}
 
-export type University = (typeof UNIVERSITIES)[number];
+export async function searchUniversities(
+  query: string
+): Promise<University[]> {
+  if (query.length < 2) return [];
+  try {
+    const response = await fetch(
+      `https://universities.hipolabs.com/search?name=${encodeURIComponent(query)}`
+    );
+    if (!response.ok) throw new Error('API error');
+    const data = await response.json();
+    return data
+      .slice(0, 8)
+      .sort((a: University, b: University) =>
+        a.name.localeCompare(b.name)
+      );
+  } catch {
+    throw new Error('Search unavailable');
+  }
+}

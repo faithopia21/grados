@@ -21,7 +21,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { AutocompleteInput } from './autocomplete-input';
-import { UNIVERSITIES } from '../../data/universities';
+import { searchUniversities } from '../../data/universities';
 import { COUNTRIES } from '../../data/countries';
 
 interface AddSchoolDialogProps {
@@ -77,6 +77,11 @@ export function AddSchoolDialog({
     programName?: string;
     applicationDeadline?: string;
   }>({});
+  const [universitySearchLoading, setUniversitySearchLoading] = useState(false);
+  const [universitySearchFailed, setUniversitySearchFailed] = useState(false);
+  const [universityApiResults, setUniversityApiResults] = useState<
+    Awaited<ReturnType<typeof searchUniversities>>
+  >([]);
 
   const resetForm = () => {
     setFormData(emptyForm);
@@ -204,30 +209,69 @@ export function AddSchoolDialog({
     }
   }, [initialData, open, isEditing]);
 
+  useEffect(() => {
+    const q = formData.universityName.trim();
+
+    if (q.length < 2) {
+      setUniversityApiResults([]);
+      setUniversitySearchLoading(false);
+      setUniversitySearchFailed(false);
+      return;
+    }
+
+    setUniversitySearchLoading(true);
+    setUniversitySearchFailed(false);
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchUniversities(q);
+        setUniversityApiResults(results);
+        setUniversitySearchFailed(false);
+      } catch {
+        setUniversityApiResults([]);
+        setUniversitySearchFailed(true);
+      } finally {
+        setUniversitySearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [formData.universityName]);
+
   const universityOptions = useMemo(() => {
     const q = formData.universityName.trim();
-    if (!q) return [];
 
-    const matches = UNIVERSITIES.filter(u =>
-      u.name.toLowerCase().includes(q.toLowerCase())
-    ).slice(0, 5);
+    if (universitySearchFailed) {
+      return [
+        {
+          value: '',
+          label: 'Search unavailable — type manually',
+          disabled: true,
+        },
+      ];
+    }
 
-    const opts = matches.map(u => ({
+    const opts = universityApiResults.map(u => ({
       value: u.name,
       label: u.name,
       secondary: u.country,
     }));
 
-    if (q.length >= 3 && matches.length === 0) {
+    if (!universitySearchLoading && q.length >= 3 && opts.length === 0) {
       opts.push({
         value: q,
-        label: `Add '${q}'`,
+        label: `Add '${q}' manually`,
         isCustom: true,
       });
     }
 
     return opts;
-  }, [formData.universityName]);
+  }, [
+    formData.universityName,
+    universityApiResults,
+    universitySearchLoading,
+    universitySearchFailed,
+  ]);
 
   const countryOptions = useMemo(() => {
     const q = formData.country.trim();
@@ -262,21 +306,21 @@ export function AddSchoolDialog({
               value={formData.universityName}
               onChange={value => handleChange('universityName', value)}
               options={universityOptions}
+              loading={universitySearchLoading}
+              maxResults={8}
               onSelect={option => {
+                if (option.disabled) return;
                 if (option.isCustom) {
                   handleChange('universityName', option.value);
                   return;
                 }
-                const uni = UNIVERSITIES.find(u => u.name === option.value);
-                if (uni) {
-                  setFormData(prev => ({
-                    ...prev,
-                    universityName: uni.name,
-                    country: uni.country,
-                  }));
-                  if (fieldErrors.universityName) {
-                    setFieldErrors(prev => ({ ...prev, universityName: undefined }));
-                  }
+                setFormData(prev => ({
+                  ...prev,
+                  universityName: option.value,
+                  country: option.secondary || prev.country,
+                }));
+                if (fieldErrors.universityName) {
+                  setFieldErrors(prev => ({ ...prev, universityName: undefined }));
                 }
               }}
             />
