@@ -55,7 +55,24 @@ export function Onboarding() {
       return { error: userError?.message || 'You must be signed in to save your profile' };
     }
 
-    const { error: upsertError } = await supabase
+    console.log('=== ONBOARDING SUBMIT ===');
+    console.log('All form state:', {
+      degreeType,
+      startTerm,
+      currentInstitution,
+      fieldOfStudy,
+      nationality,
+      greTaken,
+      greVerbal,
+      greQuant,
+      greAwa,
+      loading,
+      error,
+    });
+
+    console.log('About to upsert to profiles');
+
+    const { data, error: upsertError } = await supabase
       .from('profiles')
       .upsert({
         id: user.id,
@@ -70,10 +87,14 @@ export function Onboarding() {
         onboarding_completed: true,
       });
 
+    console.log('Upsert result:', { data, error: upsertError });
+
     return { error: upsertError?.message };
   };
 
   const handleContinue = async (e: React.FormEvent) => {
+    console.log('Onboarding submit triggered');
+
     e.preventDefault();
     setError('');
     setLoading(true);
