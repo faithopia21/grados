@@ -52,7 +52,9 @@ export function Onboarding() {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return { error: userError?.message || 'You must be signed in to save your profile' };
+      const msg = userError?.message || 'You must be signed in to save your profile';
+      setError(msg);
+      return { error: msg };
     }
 
     console.log('=== ONBOARDING SUBMIT ===');
@@ -88,8 +90,25 @@ export function Onboarding() {
       });
 
     console.log('Upsert result:', { data, error: upsertError });
+    console.log('User ID used for upsert:', user.id);
 
-    return { error: upsertError?.message };
+    if (upsertError) {
+      const isRlsError =
+        upsertError.code === '42501' ||
+        upsertError.message?.toLowerCase().includes('row-level security') ||
+        upsertError.message?.toLowerCase().includes('policy');
+
+      const rlsHint = isRlsError
+        ? ' This is a Row Level Security (RLS) policy error. Run supabase/profiles-insert-policy.sql in the Supabase SQL Editor — profiles needs both INSERT and UPDATE policies for auth.uid() = id.'
+        : '';
+
+      setError(
+        `Profile save failed: ${upsertError.message} (code: ${upsertError.code})${rlsHint}`
+      );
+      return { error: upsertError.message };
+    }
+
+    return { error: undefined };
   };
 
   const handleContinue = async (e: React.FormEvent) => {
@@ -104,7 +123,6 @@ export function Onboarding() {
     setLoading(false);
 
     if (saveError) {
-      setError(saveError);
       return;
     }
 
