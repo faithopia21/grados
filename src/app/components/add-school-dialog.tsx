@@ -134,7 +134,7 @@ export function AddSchoolDialog({
         return;
       }
 
-      toast.success('Application updated successfully');
+      toast.success('Application updated');
       resetForm();
       onOpenChange(false);
       onSuccess?.();
@@ -203,7 +203,9 @@ export function AddSchoolDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] md:max-h-[90vh] max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-t-2xl max-md:h-[90vh] max-md:flex max-md:flex-col p-0 gap-0 overflow-hidden">
+        <div className="md:hidden w-10 h-1 rounded-full bg-muted mx-auto mt-3 shrink-0" aria-hidden />
+        <div className="flex-1 overflow-y-auto px-6 pt-4 pb-4">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit School' : 'Add New School'}</DialogTitle>
           <DialogDescription>
@@ -213,7 +215,7 @@ export function AddSchoolDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id="add-school-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="universityName">
               University Name <span className="text-destructive">*</span>
@@ -357,16 +359,17 @@ export function AddSchoolDialog({
               {error}
             </p>
           )}
+        </form>
+        </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+        <DialogFooter className="sticky bottom-0 border-t border-border bg-card px-6 py-4 shrink-0 flex-col-reverse sm:flex-row gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="min-h-[44px] w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" form="add-school-form" disabled={loading} className="min-h-[44px] w-full sm:w-auto bg-[#4F46E5] hover:bg-[#4338CA] text-white">
               {loading ? 'Saving...' : isEditing ? 'Save changes' : 'Create Application Workspace'}
             </Button>
-          </DialogFooter>
-        </form>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

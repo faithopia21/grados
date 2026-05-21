@@ -22,6 +22,7 @@ import { Plus, ArrowRight, Search, ChevronDown } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
+import { displayProgramStatus } from '../../lib/program-status';
 
 interface DbProgram {
   id: string;
@@ -279,12 +280,17 @@ export function Applications() {
     const variants: Record<string, { variant: 'outline' | 'default' | 'secondary' | 'destructive'; label: string }> = {
       not_started: { variant: 'outline', label: 'Not Started' },
       in_progress: { variant: 'secondary', label: 'In Progress' },
-      ready_to_submit: { variant: 'default', label: 'Ready' },
+      ready_to_submit: { variant: 'default', label: 'Ready to Submit' },
       submitted: { variant: 'default', label: 'Submitted' },
       accepted: { variant: 'default', label: 'Accepted' },
       rejected: { variant: 'destructive', label: 'Rejected' },
+      interview: { variant: 'secondary', label: 'Interview' },
+      waitlisted: { variant: 'secondary', label: 'Waitlisted' },
     };
-    const config = variants[key] || { variant: 'outline' as const, label: status };
+    const config = variants[key] || {
+      variant: 'outline' as const,
+      label: displayProgramStatus(status),
+    };
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
@@ -294,7 +300,7 @@ export function Applications() {
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1>All Applications</h1>
+          <h1 className="text-2xl font-semibold">Applications</h1>
           <p className="text-muted-foreground mt-2">
             Manage all your graduate school applications
           </p>
@@ -357,7 +363,7 @@ export function Applications() {
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 overflow-x-auto pb-1 -mx-1 px-1">
               <DropdownMenu>
                 <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3">
                   {statusFilter === 'all'

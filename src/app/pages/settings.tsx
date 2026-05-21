@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { ChevronDown, ChevronRight, Moon, Sun, User, GraduationCap, Award, Briefcase, BookOpen, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, User, GraduationCap, Award, Briefcase, BookOpen, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import { mockUserProfile } from '../../data/mockData';
@@ -26,9 +26,6 @@ export function Settings() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem('theme') === 'dark'
-  );
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [emailReminders, setEmailReminders] = useState(true);
@@ -173,17 +170,6 @@ export function Settings() {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const toggleDarkMode = (checked: boolean) => {
-    setDarkMode(checked);
-    if (checked) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate('/signin');
@@ -191,25 +177,11 @@ export function Settings() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1>Settings</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your account settings and preferences
-          </p>
-        </div>
-        {/* Theme toggle for mobile/tablet */}
-        <button
-          onClick={() => toggleDarkMode(!darkMode)}
-          className="md:hidden p-2 rounded-lg hover:bg-accent transition-colors"
-          aria-label="Toggle theme"
-        >
-          {darkMode ? (
-            <Sun className="h-5 w-5 text-foreground" />
-          ) : (
-            <Moon className="h-5 w-5 text-foreground" />
-          )}
-        </button>
+      <div>
+        <h1 className="text-2xl font-semibold">Settings</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage your account and preferences
+        </p>
       </div>
 
       {/* Profile Section */}
@@ -618,14 +590,6 @@ export function Settings() {
             </div>
 
             <Button onClick={handleSaveAccount}>Save</Button>
-
-            <Button
-              variant="outline"
-              onClick={handleSignOut}
-              className="w-full border-[#DC2626] text-[#DC2626] hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30"
-            >
-              Sign out of GradOS
-            </Button>
           </CardContent>
         )}
       </Card>
@@ -658,40 +622,6 @@ export function Settings() {
               </Button>
             </div>
 
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Appearance Section */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader
-          className="cursor-pointer hover:bg-accent/50 transition-colors border-0"
-          onClick={() => toggleSection('appearance')}
-        >
-          <div className="flex items-center justify-between">
-            <CardTitle>Appearance</CardTitle>
-            {expandedSection === 'appearance' ? (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-        </CardHeader>
-        {expandedSection === 'appearance' && (
-          <CardContent className="space-y-4 pt-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="darkMode">Dark mode</Label>
-                <p className="text-xs text-muted-foreground">
-                  Enable dark theme for the entire application
-                </p>
-              </div>
-              <Switch
-                id="darkMode"
-                checked={darkMode}
-                onCheckedChange={toggleDarkMode}
-              />
-            </div>
           </CardContent>
         )}
       </Card>
@@ -838,6 +768,17 @@ export function Settings() {
           </CardContent>
         )}
       </Card>
+
+      <div className="border-t border-border pt-6">
+        <Button
+          variant="outline"
+          onClick={handleSignOut}
+          className="w-full h-11 border-[#DC2626] text-[#DC2626] bg-transparent hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30"
+          style={{ height: 44 }}
+        >
+          Sign out of GradOS
+        </Button>
+      </div>
 
       {/* Change Password Modal */}
       <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>

@@ -97,6 +97,7 @@ export function Profile() {
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [formData, setFormData] = useState<ProfileFormData>(emptyForm);
+  const [storedProfile, setStoredProfile] = useState<ProfileRow | null>(null);
   const [fetchError, setFetchError] = useState('');
 
   const loadProfile = useCallback(async () => {
@@ -123,8 +124,11 @@ export function Profile() {
     if (profileError && profileError.code !== 'PGRST116') {
       setFetchError(profileError.message);
     } else if (profile) {
-      setFormData(profileToForm(profile as ProfileRow));
+      const row = profile as ProfileRow;
+      setStoredProfile(row);
+      setFormData(profileToForm(row));
     } else {
+      setStoredProfile(null);
       setFormData(emptyForm);
     }
 
@@ -136,15 +140,17 @@ export function Profile() {
   }, [loadProfile]);
 
   const profileCompletion = useMemo(() => {
-    let totalFields = 5;
-    let completedFields = 0;
-    if (formData.fullName.trim()) completedFields++;
-    if (email.trim()) completedFields++;
-    if (formData.nationality.trim()) completedFields++;
-    if (formData.currentInstitution.trim()) completedFields++;
-    if (formData.fieldOfStudy.trim()) completedFields++;
-    return Math.round((completedFields / totalFields) * 100);
-  }, [formData, email]);
+    const fields = [
+      formData.fullName,
+      formData.nationality,
+      formData.currentInstitution,
+      formData.intendedDegree,
+      formData.fieldOfStudy,
+      storedProfile?.intended_start_term ?? '',
+    ];
+    const completed = fields.filter(f => String(f ?? '').trim()).length;
+    return Math.round((completed / fields.length) * 100);
+  }, [formData, storedProfile]);
 
   const handleChange = (field: keyof ProfileFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -177,6 +183,7 @@ export function Profile() {
     }
 
     toast.success('Profile saved');
+    await loadProfile();
   };
 
   if (loading) {
@@ -186,7 +193,7 @@ export function Profile() {
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div>
-        <h1>Universal Profile</h1>
+        <h1 className="text-2xl font-semibold">Profile</h1>
         <p className="text-muted-foreground mt-2">
           Complete your profile once and reuse it across all applications
         </p>
@@ -209,15 +216,11 @@ export function Profile() {
             <p className="text-[13px] text-muted-foreground">
               Profile {profileCompletion}% complete — complete your profile to improve application matching
             </p>
-            <Progress value={profileCompletion} className="h-2">
-              <div
-                className="h-full transition-all rounded-full"
-                style={{
-                  width: `${profileCompletion}%`,
-                  backgroundColor: '#1D9E75',
-                }}
-              />
-            </Progress>
+            <p className="text-sm font-medium">{profileCompletion}% complete</p>
+            <Progress
+              value={profileCompletion}
+              className="h-2 [&_[data-slot=progress-indicator]]:bg-[#4F46E5]"
+            />
           </>
         )}
       </div>

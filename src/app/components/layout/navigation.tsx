@@ -1,18 +1,20 @@
 import { Link, useLocation, useNavigate } from 'react-router';
-import { useState } from 'react';
 import {
   LayoutDashboard,
   School,
   FileText,
   Settings,
   Calendar,
-  Menu,
-  X,
   LogOut,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { ThemeToggle } from '../theme-toggle';
 import { supabase } from '../../../lib/supabase';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -22,99 +24,120 @@ const navItems = [
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
-export function Navigation() {
+interface NavigationProps {
+  tabletOverlayOpen?: boolean;
+  onTabletOverlayClose?: () => void;
+}
+
+export function Navigation({
+  tabletOverlayOpen = false,
+  onTabletOverlayClose,
+}: NavigationProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate('/signin');
   };
 
+  const closeOverlay = () => onTabletOverlayClose?.();
+
   return (
     <>
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border">
-        <div className="flex items-center justify-between p-4">
-          <div>
-            <h1 className="text-lg">GradOS</h1>
-          </div>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 hover:bg-accent rounded-lg transition-colors"
-          >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
+      {tabletOverlayOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setIsMobileMenuOpen(false)}
+          className="hidden md:block lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={closeOverlay}
+          aria-hidden
         />
       )}
 
-      {/* Sidebar */}
       <nav
         className={cn(
-          'hidden md:flex fixed md:sticky top-0 h-screen border-r border-border bg-card flex-col z-40 transition-all duration-300',
-          'md:w-64 lg:w-64',
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          'hidden md:flex fixed md:sticky top-0 h-screen border-r border-border bg-card flex-col z-50 transition-all duration-300',
+          'md:w-16 lg:w-60',
+          tabletOverlayOpen
+            ? 'md:w-60 md:shadow-xl'
+            : 'md:translate-x-0'
         )}
       >
-        <div className="p-6 border-b border-border mt-16 md:mt-0">
-          <h1 className="text-xl text-foreground">GradOS</h1>
-          <p className="text-xs text-muted-foreground mt-1">Graduate Application OS</p>
+        <div className="p-4 border-b border-border flex items-center justify-center lg:justify-start lg:px-6 lg:py-6">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 lg:hidden"
+            style={{ backgroundColor: '#4F46E5' }}
+          >
+            <span className="text-white text-sm font-medium">G</span>
+          </div>
+          <div className="hidden lg:block min-w-0">
+            <h1 className="text-xl text-foreground">GradOS</h1>
+            <p className="text-xs text-muted-foreground mt-1">Graduate Application OS</p>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto py-4">
-          <div className="space-y-1 px-3">
-            {navItems.map((item) => {
+          <div className="space-y-1 px-2 lg:px-3">
+            {navItems.map(item => {
               const Icon = item.icon;
               const isActive =
                 location.pathname === item.path ||
                 (item.path === '/dashboard' && location.pathname === '/');
 
-              return (
+              const link = (
                 <Link
                   key={item.path}
                   to={item.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeOverlay}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]',
+                    'md:justify-center lg:justify-start',
                     isActive
                       ? 'bg-[--primary-light] text-primary border-l-2 border-primary'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {item.name}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="hidden lg:inline">{item.name}</span>
                 </Link>
+              );
+
+              return (
+                <Tooltip key={item.path}>
+                  <TooltipTrigger asChild className="md:flex lg:contents w-full">
+                    {link}
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="lg:hidden">
+                    {item.name}
+                  </TooltipContent>
+                </Tooltip>
               );
             })}
 
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors w-full',
-                'text-muted-foreground hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30'
-              )}
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full min-h-[44px]',
+                    'md:justify-center lg:justify-start',
+                    'text-muted-foreground hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30'
+                  )}
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  <span className="hidden lg:inline">Sign Out</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="lg:hidden">
+                Sign Out
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
-        <div className="p-3 border-t border-border space-y-1">
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-xs text-muted-foreground">Theme</span>
-            <ThemeToggle />
-          </div>
+        <div className="p-2 lg:p-3 border-t border-border flex items-center justify-center lg:justify-between lg:px-3">
+          <span className="hidden lg:inline text-xs text-muted-foreground">Theme</span>
+          <ThemeToggle />
         </div>
       </nav>
     </>

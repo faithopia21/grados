@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { AddSchoolDialog } from '../components/add-school-dialog';
 import { getDaysUntil, getDeadlineStatus, formatDate } from '../../lib/utils';
+import { displayProgramStatus } from '../../lib/program-status';
 import { Calendar, Clock, ArrowRight, Plus, DollarSign } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { supabase } from '../../lib/supabase';
@@ -90,10 +91,13 @@ export function Dashboard() {
     const variants: Record<string, { variant: 'outline' | 'default' | 'secondary' | 'destructive'; label: string }> = {
       not_started: { variant: 'outline', label: 'Not Started' },
       in_progress: { variant: 'secondary', label: 'In Progress' },
-      ready_to_submit: { variant: 'default', label: 'Ready' },
+      ready_to_submit: { variant: 'default', label: 'Ready to Submit' },
       submitted: { variant: 'default', label: 'Submitted' },
     };
-    const config = variants[mapped] || { variant: 'outline' as const, label: status };
+    const config = variants[mapped] || {
+      variant: 'outline' as const,
+      label: displayProgramStatus(status),
+    };
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
@@ -111,7 +115,7 @@ export function Dashboard() {
     <div className="p-4 md:p-8 space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1>Dashboard</h1>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
           <p className="text-muted-foreground mt-2">
             Overview of your graduate application journey
           </p>
@@ -287,7 +291,7 @@ export function Dashboard() {
           <CardTitle>Quick Actions</CardTitle>
           <CardDescription>What would you like to do?</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
+        <CardContent className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 flex-nowrap md:flex-wrap">
           <Button onClick={() => setIsAddSchoolOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add New School

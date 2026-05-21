@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router';
+import { Menu } from 'lucide-react';
 import { ApplicationProvider } from '../contexts/ApplicationContext';
 import { Toaster } from './components/ui/sonner';
 import { Navigation } from './components/layout/navigation';
@@ -25,6 +27,7 @@ function LegacyApplicationRedirect() {
 
 function AppLayout() {
   const location = useLocation();
+  const [tabletSidebarOpen, setTabletSidebarOpen] = useState(false);
 
   const getPageName = () => {
     const path = location.pathname;
@@ -46,8 +49,19 @@ function AppLayout() {
     <>
       <MobileHeader pageName={getPageName()} />
       <div className="flex h-screen overflow-hidden bg-background">
-        <Navigation />
-        <main className="flex-1 overflow-y-auto pt-[52px] md:pt-0 pb-[60px] md:pb-0">
+        <Navigation
+          tabletOverlayOpen={tabletSidebarOpen}
+          onTabletOverlayClose={() => setTabletSidebarOpen(false)}
+        />
+        <main className="flex-1 overflow-y-auto pt-[52px] md:pt-12 lg:pt-0 pb-[60px] md:pb-0 relative md:pl-0">
+          <button
+            type="button"
+            className="hidden md:flex lg:hidden items-center justify-center fixed top-3 left-3 z-30 w-10 h-10 rounded-lg border border-border bg-card text-foreground shadow-sm hover:bg-accent"
+            onClick={() => setTabletSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />

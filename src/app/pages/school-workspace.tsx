@@ -13,6 +13,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { ChecklistStatusSelect } from '../components/checklist-status-select';
 import { StatusUpdateDialog } from '../components/status-update-dialog';
 import { UploadDocumentFlow } from '../components/upload-document-flow';
+import { WorkspaceProgramNotes } from '../components/workspace-program-notes';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,6 @@ import {
 import { supabase } from '../../lib/supabase';
 import { cn, formatDate, getDaysUntil } from '../../lib/utils';
 import { resolveChecklistUpdate } from '../../lib/checklist-status';
-import { formatNoteTimestamp } from '../../lib/note-format';
 import {
   displayProgramStatus,
   getStatusBadgeClassName,
@@ -50,7 +50,6 @@ import {
   CheckCircle2,
   Globe,
   Plus,
-  Pencil,
   Trash2,
   FileText,
   Upload,
@@ -84,13 +83,6 @@ interface ChecklistItem {
   is_required: boolean;
   status: string | null;
   due_date: string | null;
-}
-
-interface ProgramNote {
-  id: string;
-  program_id: string;
-  content: string;
-  updated_at?: string | null;
 }
 
 interface Recommender {
@@ -212,6 +204,48 @@ const DEFAULT_CHECKLIST_LABELS = [
   'Application Fee',
 ];
 
+function BriefingNoteTextarea({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const resize = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    resize();
+  }, [value, resize]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={e => {
+        onChange(e.target.value);
+        resize();
+      }}
+      placeholder={placeholder}
+      rows={1}
+      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      style={{
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        overflowWrap: 'break-word',
+      }}
+    />
+  );
+}
+
 function WorkspaceSkeleton() {
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -232,7 +266,6 @@ export function SchoolWorkspace() {
   const navigate = useNavigate();
   const [program, setProgram] = useState<DbProgram | null>(null);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
-  const [programNote, setProgramNote] = useState<ProgramNote | null>(null);
   const [portalLinks, setPortalLinks] = useState<PortalLink[]>([]);
   const [recommenders, setRecommenders] = useState<Recommender[]>([]);
   const [linkedDocuments, setLinkedDocuments] = useState<LinkedDocument[]>([]);
@@ -243,15 +276,12 @@ export function SchoolWorkspace() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [noteContent, setNoteContent] = useState('');
-  const [noteSaveState, setNoteSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [noteSavedAt, setNoteSavedAt] = useState<string | null>(null);
   const [newItemLabel, setNewItemLabel] = useState('');
   const [showAddItem, setShowAddItem] = useState(false);
-  const noteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedNoteRef = useRef<string | null>(null);
+  const [recommenderDeleteId, setRecommenderDeleteId] = useState<string | null>(null);
   const briefingDebounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const lastSavedBriefingRef = useRef<Record<string, string>>({});
+  const checklistCompleteToastShown = useRef(false);
 
   const fetchChecklist = useCallback(async (programId: string) => {
     const { data, error } = await supabase
@@ -262,28 +292,6 @@ export function SchoolWorkspace() {
 
     if (!error && data) {
       setChecklistItems(data as ChecklistItem[]);
-    }
-  }, []);
-
-  const fetchNote = useCallback(async (programId: string) => {
-    const { data, error } = await supabase
-      .from('program_notes')
-      .select('*')
-      .eq('program_id', programId)
-      .maybeSingle();
-
-    if (!error && data) {
-      const note = data as ProgramNote;
-      const content = note.content ?? '';
-      setProgramNote(note);
-      setNoteContent(content);
-      lastSavedNoteRef.current = content;
-      setNoteSavedAt(note.updated_at ?? null);
-    } else {
-      setProgramNote(null);
-      setNoteContent('');
-      lastSavedNoteRef.current = '';
-      setNoteSavedAt(null);
     }
   }, []);
 
@@ -367,80 +375,33 @@ export function SchoolWorkspace() {
     setProgram(prog);
     await Promise.all([
       fetchChecklist(prog.id),
-      fetchNote(prog.id),
       fetchPortalLinks(prog.id),
       fetchRecommenders(prog.id),
       fetchLinkedDocuments(prog.id),
     ]);
     setLoading(false);
-  }, [id, fetchChecklist, fetchNote, fetchPortalLinks, fetchRecommenders, fetchLinkedDocuments]);
+  }, [id, fetchChecklist, fetchPortalLinks, fetchRecommenders, fetchLinkedDocuments]);
 
   useEffect(() => {
     fetchProgram();
   }, [fetchProgram]);
 
-  const saveNote = useCallback(
-    async (content: string, programId: string, existingNote: ProgramNote | null) => {
-      setNoteSaveState('saving');
-      const updatedAt = new Date().toISOString();
-
-      if (existingNote) {
-        const { error } = await supabase
-          .from('program_notes')
-          .update({ content, updated_at: updatedAt })
-          .eq('program_id', programId);
-
-        if (error) {
-          setNoteSaveState('idle');
-          toast.error(error.message);
-          return;
-        }
-        setProgramNote({ ...existingNote, content, updated_at: updatedAt });
-      } else {
-        const { data, error } = await supabase
-          .from('program_notes')
-          .insert({
-            program_id: programId,
-            content,
-            updated_at: updatedAt,
-          })
-          .select()
-          .single();
-
-        if (error) {
-          setNoteSaveState('idle');
-          toast.error(error.message);
-          return;
-        }
-        setProgramNote(data as ProgramNote);
-      }
-
-      lastSavedNoteRef.current = content;
-      setNoteSavedAt(updatedAt);
-      setNoteSaveState('saved');
-      setTimeout(() => setNoteSaveState('idle'), 2500);
-    },
-    []
-  );
-
   useEffect(() => {
-    if (!program || loading) return;
-    if (noteContent === lastSavedNoteRef.current) return;
-
-    if (noteDebounceRef.current) {
-      clearTimeout(noteDebounceRef.current);
+    if (!checklistItems.length) {
+      checklistCompleteToastShown.current = false;
+      return;
     }
-
-    noteDebounceRef.current = setTimeout(() => {
-      saveNote(noteContent, program.id, programNote);
-    }, 1000);
-
-    return () => {
-      if (noteDebounceRef.current) {
-        clearTimeout(noteDebounceRef.current);
-      }
-    };
-  }, [noteContent, program, programNote, loading, saveNote]);
+    const required = checklistItems.filter(i => i.is_required);
+    const allDone =
+      required.length > 0 && required.every(i => i.is_done || i.status === 'done');
+    if (allDone && !checklistCompleteToastShown.current) {
+      toast.success('All requirements complete — ready to submit!');
+      checklistCompleteToastShown.current = true;
+    }
+    if (!allDone) {
+      checklistCompleteToastShown.current = false;
+    }
+  }, [checklistItems]);
 
   const handleStatusConfirm = async (status: string) => {
     if (!program) return;
@@ -459,7 +420,7 @@ export function SchoolWorkspace() {
     }
 
     setProgram(prev => (prev ? { ...prev, status } : prev));
-    toast.success(`Status updated to ${status}`);
+    toast.success(`Status updated to ${displayProgramStatus(status)}`);
   };
 
   const handleMarkAsSubmitted = async () => {
@@ -604,8 +565,6 @@ export function SchoolWorkspace() {
   };
 
   const handleDeleteRecommender = async (rec: Recommender) => {
-    if (!window.confirm('Remove this recommender?')) return;
-
     const { error } = await supabase.from('recommenders').delete().eq('id', rec.id);
 
     if (error) {
@@ -615,6 +574,7 @@ export function SchoolWorkspace() {
 
     setRecommenders(prev => prev.filter(r => r.id !== rec.id));
     delete lastSavedBriefingRef.current[rec.id];
+    setRecommenderDeleteId(null);
   };
 
   const handleAddChecklistItem = async () => {
@@ -913,14 +873,44 @@ export function SchoolWorkspace() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="w-max md:w-full">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="requirements">Requirements Checklist</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-            <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
-            <TabsTrigger value="portal">Portal Access</TabsTrigger>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-none">
+          <TabsList className="w-max min-w-full h-auto p-0 bg-transparent gap-0 rounded-none border-b border-border">
+            <TabsTrigger
+              value="overview"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#4F46E5] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-none px-4 py-2.5"
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger
+              value="requirements"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#4F46E5] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-none px-4 py-2.5"
+            >
+              Requirements
+            </TabsTrigger>
+            <TabsTrigger
+              value="recommendations"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#4F46E5] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-none px-4 py-2.5"
+            >
+              Recommendations
+            </TabsTrigger>
+            <TabsTrigger
+              value="documents"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#4F46E5] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-none px-4 py-2.5"
+            >
+              Documents
+            </TabsTrigger>
+            <TabsTrigger
+              value="notes"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#4F46E5] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-none px-4 py-2.5"
+            >
+              Notes
+            </TabsTrigger>
+            <TabsTrigger
+              value="portal"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#4F46E5] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-none px-4 py-2.5"
+            >
+              Portal Access
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1041,12 +1031,12 @@ export function SchoolWorkspace() {
                 <div className="text-center py-12 space-y-4">
                   <p className="text-muted-foreground">No checklist items yet</p>
                   <div className="flex flex-wrap gap-3 justify-center">
-                    <Button onClick={handleGenerateDefaultChecklist}>
+                    <Button onClick={handleGenerateDefaultChecklist} className="min-h-[44px]">
                       Generate default checklist
                     </Button>
-                    <Button variant="outline" onClick={() => setShowAddItem(true)}>
+                    <Button variant="outline" onClick={() => setShowAddItem(true)} className="min-h-[44px]">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add item
+                      Add manually
                     </Button>
                   </div>
                 </div>
@@ -1268,82 +1258,48 @@ export function SchoolWorkspace() {
         </TabsContent>
 
         <TabsContent value="notes">
-          <Card>
-            <CardHeader>
-              <CardTitle>Program Notes</CardTitle>
-              <CardDescription>Auto-saves 1 second after you stop typing</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {noteSavedAt && noteSaveState === 'idle' && (
-                <p className="text-xs text-muted-foreground">
-                  Last saved: {formatNoteTimestamp(noteSavedAt)}
-                </p>
-              )}
-              <Textarea
-                placeholder="Write notes about this application..."
-                value={noteContent}
-                onChange={e => {
-                  setNoteSaveState('idle');
-                  setNoteContent(e.target.value);
-                }}
-                rows={12}
-                className="resize-none min-h-[200px]"
-              />
-              <p className="text-xs text-muted-foreground min-h-[1.25rem]">
-                {noteSaveState === 'saving' && 'Saving...'}
-                {noteSaveState === 'saved' &&
-                  noteSavedAt &&
-                  `Saved ✓ · ${formatNoteTimestamp(noteSavedAt)}`}
-              </p>
-            </CardContent>
-          </Card>
+          {program && <WorkspaceProgramNotes programId={program.id} />}
         </TabsContent>
 
         <TabsContent value="recommendations">
           <div className="space-y-4">
-            <Card>
-              <CardContent className="pt-6 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {recommenders.filter(r => isRecommenderComplete(r.status)).length} of{' '}
-                    {recommenders.length} recommenders confirmed or submitted
-                  </span>
-                  <span className="font-medium">
-                    {recommenders.length > 0
-                      ? Math.round(
-                          (recommenders.filter(r => isRecommenderComplete(r.status)).length /
-                            recommenders.length) *
-                            100
-                        )
-                      : 0}
-                    %
-                  </span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden" style={{ height: 8 }}>
-                  <div
-                    className="rounded-full transition-all"
-                    style={{
-                      height: 8,
-                      width: `${
-                        recommenders.length > 0
-                          ? (recommenders.filter(r => isRecommenderComplete(r.status)).length /
-                              recommenders.length) *
-                            100
-                          : 0
-                      }%`,
-                      backgroundColor: '#4F46E5',
-                    }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
             {recommenders.map(rec => (
               <Card
                 key={rec.id}
-                className={`border-l-[3px] ${getRecommenderBorderClass(rec.status)}`}
+                className={`relative border-l-[3px] ${getRecommenderBorderClass(rec.status)}`}
               >
-                <CardContent className="pt-6 space-y-4">
+                <button
+                  type="button"
+                  className="absolute top-3 right-3 p-2 rounded-full text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  onClick={() => setRecommenderDeleteId(rec.id)}
+                  aria-label="Remove recommender"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                {recommenderDeleteId === rec.id && (
+                  <div className="px-6 pt-4 pb-0 border-b border-border">
+                    <p className="text-sm mb-2 pr-12">Remove this recommender?</p>
+                    <div className="flex gap-2 pb-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[#DC2626] border-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px]"
+                        onClick={() => handleDeleteRecommender(rec)}
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRecommenderDeleteId(null)}
+                        className="min-h-[44px]"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <CardContent className="pt-6 space-y-4 pr-12">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Name</Label>
@@ -1384,21 +1340,13 @@ export function SchoolWorkspace() {
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="button"
-                      className="text-sm text-destructive hover:underline ml-auto"
-                      onClick={() => handleDeleteRecommender(rec)}
-                    >
-                      Delete
-                    </button>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Briefing note</Label>
-                    <Textarea
+                    <BriefingNoteTextarea
                       value={rec.briefing_note ?? ''}
-                      onChange={e => handleBriefingChange(rec, e.target.value)}
+                      onChange={value => handleBriefingChange(rec, value)}
                       placeholder={BRIEFING_PLACEHOLDER}
-                      className="min-h-[140px] resize-none whitespace-pre-wrap text-sm"
                     />
                     <Button
                       variant="outline"
