@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -13,6 +13,8 @@ import {
 import { CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase';
+import { AutocompleteInput } from '../../components/autocomplete-input';
+import { COUNTRIES } from '../../../data/countries';
 
 function parseGreScore(value: string): number | null {
   if (!value.trim()) return null;
@@ -33,6 +35,14 @@ export function Onboarding() {
   const [greAwa, setGreAwa] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const nationalityOptions = useMemo(() => {
+    const q = nationality.trim();
+    if (!q) return [];
+    return COUNTRIES.filter(c => c.toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 5)
+      .map(c => ({ value: c, label: c }));
+  }, [nationality]);
 
   const handleSkip = () => {
     navigate('/dashboard');
@@ -192,12 +202,12 @@ export function Onboarding() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nationality">Nationality</Label>
-              <Input
+              <AutocompleteInput
                 id="nationality"
-                type="text"
-                placeholder="Nigerian"
+                placeholder="Your nationality"
                 value={nationality}
-                onChange={(e) => setNationality(e.target.value)}
+                onChange={setNationality}
+                options={nationalityOptions}
               />
             </div>
 

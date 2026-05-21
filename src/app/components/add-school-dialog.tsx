@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,9 @@ import {
 } from './ui/select';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
+import { AutocompleteInput } from './autocomplete-input';
+import { UNIVERSITIES } from '../../data/universities';
+import { COUNTRIES } from '../../data/countries';
 
 interface AddSchoolDialogProps {
   open: boolean;
@@ -201,6 +204,39 @@ export function AddSchoolDialog({
     }
   }, [initialData, open, isEditing]);
 
+  const universityOptions = useMemo(() => {
+    const q = formData.universityName.trim();
+    if (!q) return [];
+
+    const matches = UNIVERSITIES.filter(u =>
+      u.name.toLowerCase().includes(q.toLowerCase())
+    ).slice(0, 5);
+
+    const opts = matches.map(u => ({
+      value: u.name,
+      label: u.name,
+      secondary: u.country,
+    }));
+
+    if (q.length >= 3 && matches.length === 0) {
+      opts.push({
+        value: q,
+        label: `Add '${q}'`,
+        isCustom: true,
+      });
+    }
+
+    return opts;
+  }, [formData.universityName]);
+
+  const countryOptions = useMemo(() => {
+    const q = formData.country.trim();
+    if (!q) return [];
+    return COUNTRIES.filter(c => c.toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 5)
+      .map(c => ({ value: c, label: c }));
+  }, [formData.country]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] md:max-h-[90vh] max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-t-2xl max-md:h-[90vh] max-md:flex max-md:flex-col p-0 gap-0 overflow-hidden">
@@ -220,11 +256,29 @@ export function AddSchoolDialog({
             <Label htmlFor="universityName">
               University Name <span className="text-destructive">*</span>
             </Label>
-            <Input
+            <AutocompleteInput
               id="universityName"
               placeholder="e.g., Stanford University"
               value={formData.universityName}
-              onChange={e => handleChange('universityName', e.target.value)}
+              onChange={value => handleChange('universityName', value)}
+              options={universityOptions}
+              onSelect={option => {
+                if (option.isCustom) {
+                  handleChange('universityName', option.value);
+                  return;
+                }
+                const uni = UNIVERSITIES.find(u => u.name === option.value);
+                if (uni) {
+                  setFormData(prev => ({
+                    ...prev,
+                    universityName: uni.name,
+                    country: uni.country,
+                  }));
+                  if (fieldErrors.universityName) {
+                    setFieldErrors(prev => ({ ...prev, universityName: undefined }));
+                  }
+                }
+              }}
             />
             {fieldErrors.universityName && (
               <p className="text-sm text-red-600">{fieldErrors.universityName}</p>
@@ -281,11 +335,12 @@ export function AddSchoolDialog({
 
             <div className="space-y-2">
               <Label htmlFor="country">Country</Label>
-              <Input
+              <AutocompleteInput
                 id="country"
                 placeholder="e.g., United States"
                 value={formData.country}
-                onChange={e => handleChange('country', e.target.value)}
+                onChange={value => handleChange('country', value)}
+                options={countryOptions}
               />
             </div>
           </div>
