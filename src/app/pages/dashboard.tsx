@@ -22,6 +22,8 @@ export interface DbProgram {
   funding_available: boolean;
   portal_url: string | null;
   status: string;
+  nextStep?: string | null;
+  hasChecklist?: boolean;
 }
 
 function mapDbStatus(status: string) {
@@ -31,67 +33,6 @@ function mapDbStatus(status: string) {
   if (normalized === 'submitted') return 'submitted';
   if (normalized === 'ready_to_submit') return 'ready_to_submit';
   return 'not_started';
-}
-
-function NextStepHint({ programId }: { programId: string }) {
-  const [nextStep, setNextStep] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [noChecklist, setNoChecklist] = useState(false);
-
-  useEffect(() => {
-    async function fetchNextStep() {
-      const { count } = await supabase
-        .from('checklist_items')
-        .select('*', { count: 'exact', head: true })
-        .eq('program_id', programId);
-        
-      if (count === 0) {
-        setNoChecklist(true);
-        setLoading(false);
-        return;
-      }
-
-      const { data: nextItem } = await supabase
-        .from('checklist_items')
-        .select('label')
-        .eq('program_id', programId)
-        .eq('is_done', false)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (nextItem) {
-        setNextStep(nextItem.label);
-      }
-      setLoading(false);
-    }
-    fetchNextStep();
-  }, [programId]);
-
-  if (loading) return null;
-
-  if (noChecklist) {
-    return <p className="text-[12px] text-muted-foreground mt-2">No checklist added yet</p>;
-  }
-
-  if (!nextStep) {
-    return (
-      <div className="flex items-center mt-2 text-[12px] text-green-600 dark:text-green-500">
-        <Check className="h-3 w-3 mr-1" />
-        All tasks complete
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center mt-2 text-[12px]">
-      <span className="text-muted-foreground mr-1">Next step:</span>
-      <div className="flex items-center text-[#4F46E5] font-medium">
-        <ArrowRight className="h-3 w-3 mr-1" />
-        {nextStep}
-      </div>
-    </div>
-  );
 }
 
 export function Dashboard() {
@@ -115,7 +56,32 @@ export function Dashboard() {
       .order('deadline', { ascending: true });
 
     if (!error && data) {
-      setPrograms(data as DbProgram[]);
+      const programsWithNextStep = await Promise.all(
+        (data as DbProgram[]).map(async program => {
+          const { count } = await supabase
+            .from('checklist_items')
+            .select('*', { count: 'exact', head: true })
+            .eq('program_id', program.id);
+
+          const hasChecklist = (count ?? 0) > 0;
+
+          const { data: nextItem } = await supabase
+            .from('checklist_items')
+            .select('label')
+            .eq('program_id', program.id)
+            .eq('is_done', false)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          return {
+            ...program,
+            nextStep: nextItem?.label ?? null,
+            hasChecklist,
+          };
+        })
+      );
+      setPrograms(programsWithNextStep);
     }
     setLoadingPrograms(false);
   }, []);
@@ -338,7 +304,25 @@ export function Dashboard() {
                     {program.country && (
                       <p className="text-xs text-muted-foreground mt-1">{program.country}</p>
                     )}
-                    <NextStepHint programId={program.id} />
+                    {program.nextStep ? (
+                      <div className="flex items-center gap-1 mt-2">
+                        <ArrowRight size={11} className="text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground">Next step:</span>
+                        <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 truncate">
+                          {program.nextStep}
+                        </span>
+                      </div>
+                    ) : program.nextStep === null && program.hasChecklist ? (
+                      <div className="flex items-center gap-1 mt-2">
+                        <Check size={11} className="text-green-600 flex-shrink-0" />
+                        <span className="text-xs text-green-600">All tasks complete</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 mt-2">
+                        <ArrowRight size={11} className="text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground">No checklist added yet</span>
+                      </div>
+                    )}
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
                 </div>

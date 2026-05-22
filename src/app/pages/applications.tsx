@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
 import { getDaysUntil, formatDate } from '../../lib/utils';
-import { Plus, ArrowRight, Search, ChevronDown } from 'lucide-react';
+import { Plus, ArrowRight, Search, ChevronDown, Trash2 } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
@@ -93,6 +93,162 @@ function ApplicationCardSkeleton() {
         <div className="flex gap-2">
           <Skeleton className="h-9 flex-1" />
           <Skeleton className="h-9 flex-1" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface ApplicationCardProps {
+  program: ProgramWithProgress & { daysUntil: number };
+  navigate: (path: string) => void;
+  getStatusBadge: (status: string) => React.ReactNode;
+  isSubmitted: (status: string) => boolean;
+  handleMarkSubmitted: (program: ProgramWithProgress) => void;
+  handleEditProgram: (program: ProgramWithProgress) => void;
+  onDeleted: (id: string) => void;
+}
+
+function ApplicationCard({
+  program,
+  navigate,
+  getStatusBadge,
+  isSubmitted,
+  handleMarkSubmitted,
+  handleEditProgram,
+  onDeleted,
+}: ApplicationCardProps) {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const daysUntil = program.daysUntil;
+  const progress =
+    program.checklistTotal > 0
+      ? (program.checklistDone / program.checklistTotal) * 100
+      : 0;
+  const submitted = isSubmitted(program.status);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await supabase.from('checklist_items').delete().eq('program_id', program.id);
+      await supabase.from('program_notes').delete().eq('program_id', program.id);
+      await supabase.from('recommenders').delete().eq('program_id', program.id);
+      await supabase.from('portal_links').delete().eq('program_id', program.id);
+      await supabase.from('program_documents').delete().eq('program_id', program.id);
+      const { error } = await supabase.from('programs').delete().eq('id', program.id);
+      if (error) throw error;
+      onDeleted(program.id);
+      toast.success('Application deleted');
+    } catch {
+      toast.error('Failed to delete — please try again');
+      setConfirming(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-4 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
+          <div className="flex-1 space-y-4">
+            <div>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h3 className="text-base md:text-lg">{program.school_name}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {program.degree_type} in {program.program_name}
+                  </p>
+                  {program.country && (
+                    <p className="text-xs text-muted-foreground mt-1">{program.country}</p>
+                  )}
+                </div>
+                {getStatusBadge(program.status)}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground">Deadline</p>
+              <p className="text-sm mt-1">{formatDate(program.deadline)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {daysUntil >= 0 ? `${daysUntil} days left` : 'Passed'}
+              </p>
+            </div>
+
+            {program.checklistTotal > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                  <span>Progress</span>
+                  <span>
+                    {program.checklistDone}/{program.checklistTotal} items
+                  </span>
+                </div>
+                <Progress value={progress} />
+              </div>
+            )}
+          </div>
+
+          <div className="flex md:flex-col gap-2 justify-end md:justify-start">
+            {confirming ? (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Delete this application?</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-red-600 font-medium hover:underline disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting...' : 'Yes, delete'}
+                </button>
+                <button
+                  onClick={() => setConfirming(false)}
+                  disabled={deleting}
+                  className="text-muted-foreground hover:underline disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  className="flex-1 md:w-full"
+                  onClick={() => navigate(`/applications/${program.id}`)}
+                >
+                  View
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+                {!submitted && (
+                  <Button
+                    size="sm"
+                    className="flex-1 md:w-full"
+                    onClick={() => handleMarkSubmitted(program)}
+                  >
+                    Mark Submitted
+                  </Button>
+                )}
+                <div className="flex gap-2 flex-1 md:w-full">
+                  {!submitted && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="flex-1"
+                      onClick={() => handleEditProgram(program)}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  <button
+                    onClick={() => setConfirming(true)}
+                    title="Delete application"
+                    className="flex items-center justify-center w-9 h-9 rounded-md text-[#DC2626] bg-transparent hover:bg-[#FCEBEB] transition-colors shrink-0"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -526,89 +682,20 @@ export function Applications() {
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {filteredPrograms.map(program => {
-                const daysUntil = program.daysUntil;
-                const progress =
-                  program.checklistTotal > 0
-                    ? (program.checklistDone / program.checklistTotal) * 100
-                    : 0;
-                const submitted = isSubmitted(program.status);
-
-                return (
-                  <Card key={program.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 md:p-6">
-                      <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-                        <div className="flex-1 space-y-4">
-                          <div>
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <h3 className="text-base md:text-lg">{program.school_name}</h3>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {program.degree_type} in {program.program_name}
-                                </p>
-                                {program.country && (
-                                  <p className="text-xs text-muted-foreground mt-1">{program.country}</p>
-                                )}
-                              </div>
-                              {getStatusBadge(program.status)}
-                            </div>
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-muted-foreground">Deadline</p>
-                            <p className="text-sm mt-1">{formatDate(program.deadline)}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {daysUntil >= 0 ? `${daysUntil} days left` : 'Passed'}
-                            </p>
-                          </div>
-
-                          {program.checklistTotal > 0 && (
-                            <div>
-                              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                                <span>Progress</span>
-                                <span>
-                                  {program.checklistDone}/{program.checklistTotal} items
-                                </span>
-                              </div>
-                              <Progress value={progress} />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex md:flex-col gap-2 justify-end md:justify-start">
-                          <Button
-                            variant="outline"
-                            className="flex-1 md:w-full"
-                            onClick={() => navigate(`/applications/${program.id}`)}
-                          >
-                            View
-                            <ArrowRight className="h-4 w-4 ml-2" />
-                          </Button>
-                          {!submitted && (
-                            <Button
-                              size="sm"
-                              className="flex-1 md:w-full"
-                              onClick={() => handleMarkSubmitted(program)}
-                            >
-                              Mark Submitted
-                            </Button>
-                          )}
-                          {!submitted && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="flex-1 md:w-full"
-                              onClick={() => handleEditProgram(program)}
-                            >
-                              Edit
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {filteredPrograms.map(program => (
+                <ApplicationCard
+                  key={program.id}
+                  program={program}
+                  navigate={navigate}
+                  getStatusBadge={getStatusBadge}
+                  isSubmitted={isSubmitted}
+                  handleMarkSubmitted={handleMarkSubmitted}
+                  handleEditProgram={handleEditProgram}
+                  onDeleted={id =>
+                    setPrograms(prev => prev.filter(p => p.id !== id))
+                  }
+                />
+              ))}
             </div>
           )}
         </>
