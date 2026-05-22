@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -59,7 +59,7 @@ function parseResearchInterests(raw: string | null): string[] {
       return parsed.filter((t): t is string => typeof t === 'string');
     }
   } catch {
-    // ignore
+    // ignore invalid JSON
   }
   return [];
 }
@@ -101,73 +101,41 @@ function ProfileSkeleton() {
   );
 }
 
-interface ProfileFormProps {
+interface ProfilePageContentProps {
   profile: ProfileRow;
   email: string;
   onProfileUpdated: (profile: ProfileRow) => void;
 }
 
-function ProfileForm({ profile, email, onProfileUpdated }: ProfileFormProps) {
-  const [fullName, setFullName] = useState(profile.full_name || '');
-  const [nationality, setNationality] = useState(profile.nationality || '');
+function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageContentProps) {
+  const [fullName, setFullName] = useState(profile.full_name ?? '');
+  const [nationality, setNationality] = useState(profile.nationality ?? '');
   const [currentInstitution, setCurrentInstitution] = useState(
-    profile.current_institution || ''
+    profile.current_institution ?? ''
   );
-  const [intendedDegree, setIntendedDegree] = useState(profile.intended_degree || '');
-  const [fieldOfStudy, setFieldOfStudy] = useState(profile.field_of_study || '');
+  const [intendedDegree, setIntendedDegree] = useState(profile.intended_degree ?? '');
+  const [fieldOfStudy, setFieldOfStudy] = useState(profile.field_of_study ?? '');
   const [intendedStartTerm, setIntendedStartTerm] = useState(
-    profile.intended_start_term || ''
+    profile.intended_start_term ?? ''
   );
 
-  const [greVerbal, setGreVerbal] = useState(
-    profile.gre_verbal != null ? String(profile.gre_verbal) : ''
-  );
-  const [greQuant, setGreQuant] = useState(
-    profile.gre_quant != null ? String(profile.gre_quant) : ''
-  );
-  const [greAwa, setGreAwa] = useState(
-    profile.gre_awa != null ? String(profile.gre_awa) : ''
-  );
-  const [toeflScore, setToeflScore] = useState(
-    profile.toefl_score != null ? String(profile.toefl_score) : ''
-  );
-  const [ieltsScore, setIeltsScore] = useState(
-    profile.ielts_score != null ? String(profile.ielts_score) : ''
-  );
-  const [gmatScore, setGmatScore] = useState(
-    profile.gmat_score != null ? String(profile.gmat_score) : ''
-  );
+  const [greVerbal, setGreVerbal] = useState(profile.gre_verbal?.toString() ?? '');
+  const [greQuant, setGreQuant] = useState(profile.gre_quant?.toString() ?? '');
+  const [greAwa, setGreAwa] = useState(profile.gre_awa?.toString() ?? '');
+  const [toeflScore, setToeflScore] = useState(profile.toefl_score?.toString() ?? '');
+  const [ieltsScore, setIeltsScore] = useState(profile.ielts_score?.toString() ?? '');
+  const [gmatScore, setGmatScore] = useState(profile.gmat_score?.toString() ?? '');
 
   const [interestTags, setInterestTags] = useState<string[]>(
-    parseResearchInterests(profile.research_interests)
+    profile.research_interests ? parseResearchInterests(profile.research_interests) : []
   );
   const [newInterest, setNewInterest] = useState('');
-  const [experience, setExperience] = useState(profile.experience || '');
-  const [education, setEducation] = useState(profile.education || '');
+  const [experience, setExperience] = useState(profile.experience ?? '');
+  const [education, setEducation] = useState(profile.education ?? '');
 
   const [savingTab, setSavingTab] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
-
   const [localProfile, setLocalProfile] = useState(profile);
-
-  useEffect(() => {
-    setFullName(profile.full_name || '');
-    setNationality(profile.nationality || '');
-    setCurrentInstitution(profile.current_institution || '');
-    setIntendedDegree(profile.intended_degree || '');
-    setFieldOfStudy(profile.field_of_study || '');
-    setIntendedStartTerm(profile.intended_start_term || '');
-    setGreVerbal(profile.gre_verbal != null ? String(profile.gre_verbal) : '');
-    setGreQuant(profile.gre_quant != null ? String(profile.gre_quant) : '');
-    setGreAwa(profile.gre_awa != null ? String(profile.gre_awa) : '');
-    setToeflScore(profile.toefl_score != null ? String(profile.toefl_score) : '');
-    setIeltsScore(profile.ielts_score != null ? String(profile.ielts_score) : '');
-    setGmatScore(profile.gmat_score != null ? String(profile.gmat_score) : '');
-    setInterestTags(parseResearchInterests(profile.research_interests));
-    setExperience(profile.experience || '');
-    setEducation(profile.education || '');
-    setLocalProfile(profile);
-  }, [profile]);
 
   const profileCompletion = useMemo(
     () => getCompletionPercent(localProfile),
@@ -414,7 +382,7 @@ function ProfileForm({ profile, email, onProfileUpdated }: ProfileFormProps) {
                   id="education"
                   value={education}
                   onChange={e => setEducation(e.target.value)}
-                  placeholder="List your degrees, institutions, graduation dates, GPAs..."
+                  placeholder="List your degrees, institutions, graduation dates..."
                   rows={8}
                   className="resize-y"
                 />
@@ -601,79 +569,74 @@ function ProfileForm({ profile, email, onProfileUpdated }: ProfileFormProps) {
 }
 
 export function Profile() {
-  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [fetchError, setFetchError] = useState('');
 
-  const fetchProfile = useCallback(async () => {
-    setFetchError('');
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setFetchError('');
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      setFetchError(userError?.message || 'Not signed in');
-      return null;
-    }
-
-    setEmail(user.email ?? '');
-
-    let { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      setFetchError(profileError.message);
-      return null;
-    }
-
-    if (!profileData) {
-      const { error: upsertError } = await supabase
-        .from('profiles')
-        .upsert({ id: user.id });
-
-      if (upsertError) {
-        setFetchError(upsertError.message);
-        return null;
+      if (userError || !user) {
+        setFetchError(userError?.message || 'Not signed in');
+        setProfile(null);
+        setLoading(false);
+        return;
       }
 
-      const refetch = await supabase
+      setEmail(user.email ?? '');
+
+      let { data, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (refetch.error) {
-        setFetchError(refetch.error.message);
-        return null;
-      }
-
-      profileData = refetch.data;
-    }
-
-    return profileData as ProfileRow;
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      const data = await fetchProfile();
-      if (!cancelled) {
-        setProfile(data);
+      if (profileError) {
+        setFetchError(profileError.message);
+        setProfile(null);
         setLoading(false);
+        return;
       }
+
+      if (!data) {
+        const { error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({ id: user.id });
+
+        if (upsertError) {
+          setFetchError(upsertError.message);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        const refetch = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (refetch.error) {
+          setFetchError(refetch.error.message);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        data = refetch.data;
+      }
+
+      setProfile(data as ProfileRow);
+      setLoading(false);
     };
 
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchProfile]);
+    fetchProfile();
+  }, []);
 
   if (loading) {
     return <ProfileSkeleton />;
@@ -692,7 +655,7 @@ export function Profile() {
   if (!profile) {
     return (
       <div className="p-4 md:p-8">
-        <p className="text-sm text-muted-foreground">Could not load profile.</p>
+        <p className="text-sm text-muted-foreground">Profile not found</p>
       </div>
     );
   }
@@ -706,7 +669,8 @@ export function Profile() {
         </p>
       </div>
 
-      <ProfileForm
+      <ProfilePageContent
+        key={profile.id}
         profile={profile}
         email={email}
         onProfileUpdated={setProfile}
