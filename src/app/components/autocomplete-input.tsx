@@ -170,7 +170,7 @@ export function AutocompleteInput({
           ref={listRef}
           role="listbox"
           className={cn(
-            'absolute z-50 w-full rounded-md border border-border bg-card shadow-md overflow-hidden',
+            'absolute z-[100] w-full rounded-md border border-border bg-card shadow-md overflow-hidden',
             placement === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'
           )}
         >

@@ -56,8 +56,10 @@ import {
   Link2,
   Unlink,
   Download,
+  Download,
   X,
 } from 'lucide-react';
+import { PageHeader } from '../components/page-header';
 
 interface DbProgram {
   id: string;
@@ -800,62 +802,48 @@ export function SchoolWorkspace() {
   const statusKey = normalizeProgramStatus(program.status);
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div className="flex flex-wrap items-start gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/applications')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h1 className="text-xl md:text-2xl">{program.school_name}</h1>
+    <div className="flex flex-col h-full overflow-hidden">
+      <PageHeader 
+        title={
+          <div className="flex items-center gap-2">
+            <span>{program.school_name}</span>
             {program.funding_available && (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0">
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0 text-xs">
                 Funding Available
               </Badge>
             )}
           </div>
-          <p className="text-muted-foreground">
-            {program.degree_type} in {program.program_name}
-          </p>
-          {program.country && (
-            <p className="text-sm text-muted-foreground mt-0.5">{program.country}</p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+        }
+        subtitle={`${program.degree_type} in ${program.program_name}${program.country ? ` · ${program.country}` : ''}`}
+        backTo="/applications"
+      >
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={getStatusBadgeVariant(program.status)}
+            className={cn(
+              'cursor-pointer h-8 px-3 text-sm',
+              getStatusBadgeClassName(program.status)
+            )}
+            onClick={() => setIsStatusDialogOpen(true)}
+            title="Update status"
+          >
+            {statusLabel}
+          </Badge>
+          
           {program.portal_url?.trim() && (
             <Button
               variant="outline"
               size="sm"
-              className="bg-transparent border-[#4F46E5] text-[#4F46E5] hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+              className="bg-transparent border-[#4F46E5] text-[#4F46E5] hover:bg-indigo-50 dark:hover:bg-indigo-950/30 h-8"
               onClick={() => window.open(program.portal_url!, '_blank')}
             >
-              ↗ Open Application Portal
+              Open Portal <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
             </Button>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => setIsStatusDialogOpen(true)}
-                aria-label="Update status"
-              >
-                <Badge
-                  variant={getStatusBadgeVariant(program.status)}
-                  className={cn(
-                    'cursor-pointer',
-                    getStatusBadgeClassName(program.status)
-                  )}
-                >
-                  {statusLabel}
-                </Badge>
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>Update status</TooltipContent>
-          </Tooltip>
         </div>
-      </div>
+      </PageHeader>
+      
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
 
       <StatusUpdateDialog
         open={isStatusDialogOpen}
@@ -1543,9 +1531,8 @@ export function SchoolWorkspace() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-      </Tabs>
-
+          </TabsContent>
+        </Tabs>
       {/* Briefing Note Overlay */}
       {briefingOverlayId && (() => {
         const rec = recommenders.find(r => r.id === briefingOverlayId);
@@ -1582,6 +1569,7 @@ export function SchoolWorkspace() {
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }

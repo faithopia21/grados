@@ -447,6 +447,7 @@ export function AddSchoolDialog({
                 type="date"
                 value={formData.applicationDeadline}
                 onChange={e => handleChange('applicationDeadline', e.target.value)}
+                style={{ colorScheme: 'auto' }}
               />
               {fieldErrors.applicationDeadline && (
                 <p className="text-sm text-red-600">{fieldErrors.applicationDeadline}</p>
@@ -460,6 +461,7 @@ export function AddSchoolDialog({
                 type="date"
                 value={formData.fundingDeadline}
                 onChange={e => handleChange('fundingDeadline', e.target.value)}
+                style={{ colorScheme: 'auto' }}
               />
             </div>
           </div>

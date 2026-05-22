@@ -25,6 +25,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHeader } from '../components/page-header';
 
 export interface ProfileRow {
   id: string;
@@ -840,15 +841,14 @@ export function Profile() {
   const initials = getProfileInitials(profile.full_name, email);
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Profile</h1>
-        <p className="text-muted-foreground mt-2">
-          Complete your profile once and reuse it across all applications
-        </p>
-      </div>
-
-      <div className="flex items-center gap-4">
+    <div className="flex flex-col h-full overflow-hidden">
+      <PageHeader 
+        title="Universal Profile"
+        subtitle="Complete your profile once and reuse it"
+        backTo="/dashboard"
+      />
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+        <div className="flex items-center gap-4">
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold"
           style={{ backgroundColor: '#4F46E5' }}
@@ -867,6 +867,7 @@ export function Profile() {
         email={email}
         onProfileUpdated={setProfile}
       />
+      </div>
     </div>
   );
 }

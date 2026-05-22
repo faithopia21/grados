@@ -13,10 +13,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import { supabase } from '../../lib/supabase';
+import { PageHeader } from '../components/page-header';
+import { exportApplicationsPDF } from '../../lib/export-pdf';
 
 interface ProfileSummary {
   full_name: string | null;
@@ -37,7 +39,6 @@ function getProfileCompletion(profile: ProfileSummary | null): number {
 
 export function Settings() {
   const navigate = useNavigate();
-  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
@@ -76,36 +77,13 @@ export function Settings() {
 
       if (profile) {
         setProfileSummary(profile);
-        if (profile.full_name) {
-          setFullName(profile.full_name);
-        }
+      } else {
+        setProfileSummary({ full_name: '', nationality: '', current_institution: '' });
       }
     };
 
     loadAccount();
   }, []);
-
-  const handleSaveAccount = async () => {
-    if (!userId) {
-      toast.error('You must be signed in to save settings');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: fullName.trim() || null })
-      .eq('id', userId);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    setProfileSummary(prev =>
-      prev ? { ...prev, full_name: fullName.trim() || null } : prev
-    );
-    toast.success('Settings saved');
-  };
 
   const handleChangePassword = async () => {
     setPasswordError('');
@@ -139,8 +117,23 @@ export function Settings() {
     setConfirmPassword('');
   };
 
-  const handleExportData = () => {
-    toast.success('Exporting your data as CSV...');
+  const handleExportData = async () => {
+    if (!userId) return;
+    
+    const { data: programs } = await supabase
+      .from('programs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('deadline', { ascending: true });
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .maybeSingle();
+
+    await exportApplicationsPDF(programs || [], profile);
+    toast.success('PDF downloaded successfully');
   };
 
   const handleDeleteAccount = async () => {
@@ -160,13 +153,13 @@ export function Settings() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your account and preferences
-        </p>
-      </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      <PageHeader 
+        title="Settings"
+        subtitle="Manage your account and preferences"
+        backTo="/dashboard"
+      />
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
 
       <Card className="border-0 shadow-sm">
         <CardHeader
@@ -217,29 +210,19 @@ export function Settings() {
       <Card className="border-0 shadow-sm">
         <CardHeader
           className="cursor-pointer hover:bg-accent/50 transition-colors border-0"
-          onClick={() => toggleSection('account')}
+          onClick={() => toggleSection('security')}
         >
           <div className="flex items-center justify-between">
-            <CardTitle>Account</CardTitle>
-            {expandedSection === 'account' ? (
+            <CardTitle>Security</CardTitle>
+            {expandedSection === 'security' ? (
               <ChevronDown className="h-5 w-5 text-muted-foreground" />
             ) : (
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             )}
           </div>
         </CardHeader>
-        {expandedSection === 'account' && (
-          <CardContent className="space-y-4 pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full name</Label>
-              <Input
-                id="fullName"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                placeholder="Enter your full name"
-              />
-            </div>
-
+        {expandedSection === 'security' && (
+          <CardContent className="space-y-6 pt-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email address</Label>
               <Input
@@ -254,35 +237,32 @@ export function Settings() {
               </p>
             </div>
 
-            <Button onClick={handleSaveAccount}>Save</Button>
-          </CardContent>
-        )}
-      </Card>
-
-      <Card className="border-0 shadow-sm">
-        <CardHeader
-          className="cursor-pointer hover:bg-accent/50 transition-colors border-0"
-          onClick={() => toggleSection('security')}
-        >
-          <div className="flex items-center justify-between">
-            <CardTitle>Security</CardTitle>
-            {expandedSection === 'security' ? (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-        </CardHeader>
-        {expandedSection === 'security' && (
-          <CardContent className="space-y-4 pt-6">
             <div className="space-y-2">
               <Label>Password</Label>
+              <div>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsPasswordModalOpen(true)}
+                  style={{ color: '#4F46E5' }}
+                >
+                  Change password
+                </Button>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-border">
+              <div className="space-y-0.5 mb-3">
+                <Label className="text-destructive">Delete my account</Label>
+                <p className="text-xs text-muted-foreground">
+                  Permanently delete your account and all data
+                </p>
+              </div>
               <Button
                 variant="outline"
-                onClick={() => setIsPasswordModalOpen(true)}
-                style={{ color: '#4F46E5' }}
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
               >
-                Change password
+                Delete account
               </Button>
             </div>
           </CardContent>
@@ -304,32 +284,38 @@ export function Settings() {
           </div>
         </CardHeader>
         {expandedSection === 'notifications' && (
-          <CardContent className="space-y-4 pt-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="emailReminders">Email reminders for upcoming deadlines</Label>
+          <CardContent className="space-y-6 pt-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="emailReminders">Email reminders for upcoming deadlines</Label>
+                </div>
+                <Switch
+                  id="emailReminders"
+                  checked={emailReminders}
+                  onCheckedChange={setEmailReminders}
+                />
               </div>
-              <Switch
-                id="emailReminders"
-                checked={emailReminders}
-                onCheckedChange={setEmailReminders}
-              />
+              <p className="text-[11px] italic text-muted-foreground mt-1">
+                Email reminders coming in a future update.
+              </p>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="weeklyProgress">Weekly progress summary</Label>
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="weeklyProgress">Weekly progress summary</Label>
+                </div>
+                <Switch
+                  id="weeklyProgress"
+                  checked={weeklyProgress}
+                  onCheckedChange={setWeeklyProgress}
+                />
               </div>
-              <Switch
-                id="weeklyProgress"
-                checked={weeklyProgress}
-                onCheckedChange={setWeeklyProgress}
-              />
+              <p className="text-[11px] italic text-muted-foreground mt-1">
+                Weekly summaries coming in a future update.
+              </p>
             </div>
-
-            <p className="text-xs text-muted-foreground">
-              Notification delivery coming soon.
-            </p>
           </CardContent>
         )}
       </Card>
@@ -358,23 +344,7 @@ export function Settings() {
                 </p>
               </div>
               <Button variant="outline" onClick={handleExportData}>
-                Export as CSV
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Delete my account</Label>
-                <p className="text-xs text-muted-foreground">
-                  Permanently delete your account and all data
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setIsDeleteModalOpen(true)}
-                className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                Delete account
+                Export as PDF
               </Button>
             </div>
           </CardContent>
@@ -384,52 +354,66 @@ export function Settings() {
       <Card className="border-0 shadow-sm">
         <CardHeader
           className="cursor-pointer hover:bg-accent/50 transition-colors border-0"
-          onClick={() => toggleSection('about')}
+          onClick={() => toggleSection('help')}
         >
           <div className="flex items-center justify-between">
-            <CardTitle>About</CardTitle>
-            {expandedSection === 'about' ? (
+            <CardTitle>Help & Support</CardTitle>
+            {expandedSection === 'help' ? (
               <ChevronDown className="h-5 w-5 text-muted-foreground" />
             ) : (
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             )}
           </div>
         </CardHeader>
-        {expandedSection === 'about' && (
-          <CardContent className="space-y-3 pt-6">
+        {expandedSection === 'help' && (
+          <CardContent className="space-y-6 pt-6">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">App version</span>
-              <span className="text-sm">GradOS MVP v1.0</span>
+              <div className="space-y-0.5 pr-4">
+                <Label>Send feedback</Label>
+                <p className="text-xs text-muted-foreground">
+                  Help us improve GradOS
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => window.open('mailto:support@grados.app?subject=GradOS Feedback')}>
+                Open feedback form
+              </Button>
             </div>
-
-            <div className="flex flex-col space-y-2 pt-2">
-              <a
-                href="#"
-                className="text-sm hover:underline"
-                style={{ color: '#4F46E5' }}
-              >
-                Terms of Service
-              </a>
-              <a
-                href="#"
-                className="text-sm hover:underline"
-                style={{ color: '#4F46E5' }}
-              >
-                Privacy Policy
-              </a>
-              <a
-                href="mailto:support@grados.app"
-                className="text-sm hover:underline"
-                style={{ color: '#4F46E5' }}
-              >
-                Contact support
-              </a>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5 pr-4">
+                <Label>Report a bug</Label>
+                <p className="text-xs text-muted-foreground">
+                  Something not working correctly?
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => window.open('mailto:support@grados.app?subject=Bug Report - GradOS')}>
+                Report
+              </Button>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5 pr-4">
+                <Label>FAQs</Label>
+                <p className="text-xs text-muted-foreground">
+                  Common questions and how-tos
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => window.open('https://grados.app/help')}>
+                View FAQs
+              </Button>
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <div className="space-y-0.5">
+                <Label>About GradOS</Label>
+                <p className="text-xs text-muted-foreground">
+                  Built for graduate applicants worldwide.
+                </p>
+              </div>
+              <span className="text-sm">MVP v1.0</span>
             </div>
           </CardContent>
         )}
       </Card>
 
-      <div className="border-t border-border pt-6">
+      <div className="border-t border-border pt-6 pb-8">
         <Button
           variant="outline"
           onClick={handleSignOut}
@@ -514,6 +498,7 @@ export function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

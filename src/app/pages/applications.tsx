@@ -23,6 +23,7 @@ import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { displayProgramStatus } from '../../lib/program-status';
+import { PageHeader } from '../components/page-header';
 
 interface DbProgram {
   id: string;
@@ -297,19 +298,19 @@ export function Applications() {
   const isSubmitted = (status: string) => normalizeStatus(status) === 'submitted';
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Applications</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage all your graduate school applications
-          </p>
+    <div className="flex flex-col h-full overflow-hidden">
+      <PageHeader 
+        title="All Applications"
+        subtitle="Manage all your graduate school applications"
+        backTo="/dashboard"
+      />
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+        <div className="flex justify-end mb-2">
+          <Button onClick={() => setIsAddSchoolOpen(true)} className="hidden md:flex">
+            <Plus className="h-4 w-4 mr-2" />
+            Add New School
+          </Button>
         </div>
-        <Button onClick={() => setIsAddSchoolOpen(true)} className="hidden md:flex">
-          <Plus className="h-4 w-4 mr-2" />
-          Add New School
-        </Button>
-      </div>
 
       <FABButton onClick={() => setIsAddSchoolOpen(true)} />
 
@@ -612,6 +613,7 @@ export function Applications() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

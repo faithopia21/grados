@@ -12,6 +12,7 @@ import {
   getStatusBadgeVariant,
 } from '../../lib/program-status';
 import { Calendar, Clock, AlertCircle, ArrowRight, Download } from 'lucide-react';
+import { PageHeader } from '../components/page-header';
 
 interface DbProgram {
   id: string;
@@ -184,24 +185,24 @@ export function Timeline() {
   );
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Deadlines</h1>
-          <p className="text-muted-foreground mt-2">
-            All application deadlines in one place
-          </p>
+    <div className="flex flex-col h-full overflow-hidden">
+      <PageHeader 
+        title="Deadlines"
+        subtitle="All application deadlines in one place"
+        backTo="/dashboard"
+      />
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportIcs}
+            disabled={loading || programs.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export .ics
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExportIcs}
-          disabled={loading || programs.length === 0}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export .ics
-        </Button>
-      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <Card className="border-red-200 dark:border-red-800">
@@ -295,6 +296,7 @@ export function Timeline() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
