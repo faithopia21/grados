@@ -82,6 +82,7 @@ export function AddSchoolDialog({
   const [universityApiResults, setUniversityApiResults] = useState<
     Awaited<ReturnType<typeof searchUniversities>>
   >([]);
+  const [profileInterests, setProfileInterests] = useState<string[]>([]);
 
   const resetForm = () => {
     setFormData(emptyForm);
@@ -208,6 +209,27 @@ export function AddSchoolDialog({
       setFieldErrors({});
     }
   }, [initialData, open, isEditing]);
+
+  // Load user's research interests when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('research_interests')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!data?.research_interests) return;
+      try {
+        const parsed = JSON.parse(data.research_interests);
+        if (Array.isArray(parsed)) {
+          setProfileInterests(parsed.filter((t): t is string => typeof t === 'string'));
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [open]);
 
   useEffect(() => {
     const q = formData.universityName.trim();
@@ -342,6 +364,18 @@ export function AddSchoolDialog({
               />
               {fieldErrors.programName && (
                 <p className="text-sm text-red-600">{fieldErrors.programName}</p>
+              )}
+              {/* Research interests context — display only */}
+              {profileInterests.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Based on your profile:{' '}
+                  {profileInterests.slice(0, 3).map((t, i) => (
+                    <span key={t}>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[11px]">{t}</span>
+                      {i < Math.min(profileInterests.length, 3) - 1 ? ' ' : ''}
+                    </span>
+                  ))}
+                </p>
               )}
             </div>
 

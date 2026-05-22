@@ -11,7 +11,19 @@ import { Badge } from '../components/ui/badge';
 import { AutocompleteInput } from '../components/autocomplete-input';
 import { supabase } from '../../lib/supabase';
 import { COUNTRIES } from '../../data/countries';
-import { User, GraduationCap, Award, Briefcase, BookOpen, Plus, CheckCircle2, X } from 'lucide-react';
+import { RESEARCH_INTERESTS } from '../../data/researchInterests';
+import { cn } from '../../lib/utils';
+import {
+  User,
+  GraduationCap,
+  Award,
+  Briefcase,
+  BookOpen,
+  CheckCircle2,
+  X,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 export interface ProfileRow {
@@ -29,6 +41,7 @@ export interface ProfileRow {
   ielts_score: number | null;
   gmat_score: number | null;
   research_interests: string | null;
+  research_domain: string | null;
   experience: string | null;
   education: string | null;
 }
@@ -51,7 +64,7 @@ function parseDecimalScore(value: string): number | null {
   return Number.isNaN(num) ? null : num;
 }
 
-function parseResearchInterests(raw: string | null): string[] {
+function parseJsonArray(raw: string | null): string[] {
   if (!raw?.trim()) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -62,6 +75,14 @@ function parseResearchInterests(raw: string | null): string[] {
     // ignore invalid JSON
   }
   return [];
+}
+
+/** Given a list of subfields, return the parent domain names that have ≥1 match. */
+function deriveDomains(subfields: string[]): string[] {
+  if (!subfields.length) return [];
+  return RESEARCH_INTERESTS
+    .filter(d => d.subfields.some(s => subfields.includes(s)))
+    .map(d => d.domain);
 }
 
 function getCompletionPercent(profile: ProfileRow): number {
@@ -90,19 +111,13 @@ function getProfileInitials(fullName: string | null, email: string): string {
   return 'G';
 }
 
-/**
- * Dynamically generate term options starting from the next relevant cycle,
- * going 3 years forward. Since it is May 2026 (month < 8) we start with Fall 2026.
- */
 function generateTermOptions(): string[] {
   const now = new Date();
   const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1; // 1-based
-
+  const currentMonth = now.getMonth() + 1;
   const terms: string[] = [];
   const startYear = currentYear;
   const startWithSpring = currentMonth >= 8;
-
   for (let i = 0; i < 3; i++) {
     const year = startYear + i;
     if (startWithSpring || i > 0) {
@@ -111,42 +126,10 @@ function generateTermOptions(): string[] {
     terms.push(`Fall ${year + 1}`);
     terms.push(`Summer ${year + 1}`);
   }
-
   return terms;
 }
 
 const TERM_OPTIONS = generateTermOptions();
-
-const RESEARCH_SUGGESTIONS = [
-  'Machine Learning',
-  'Computer Science',
-  'Data Science',
-  'Artificial Intelligence',
-  'Robotics',
-  'Neuroscience',
-  'Public Health',
-  'Economics',
-  'Finance',
-  'Law',
-  'Environmental Science',
-  'Biomedical Engineering',
-  'Psychology',
-  'Political Science',
-  'International Relations',
-  'Architecture',
-  'Urban Planning',
-  'Education',
-  'Sociology',
-  'Physics',
-  'Chemistry',
-  'Mathematics',
-  'Software Engineering',
-  'Cybersecurity',
-  'Human-Computer Interaction',
-  'Business',
-  'Marketing',
-  'Entrepreneurship',
-];
 
 function ProfileSkeleton() {
   return (
@@ -180,17 +163,15 @@ interface ProfilePageContentProps {
 }
 
 function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageContentProps) {
+  // ── Personal ──────────────────────────────────────────────────────────
   const [fullName, setFullName] = useState(profile.full_name ?? '');
   const [nationality, setNationality] = useState(profile.nationality ?? '');
-  const [currentInstitution, setCurrentInstitution] = useState(
-    profile.current_institution ?? ''
-  );
+  const [currentInstitution, setCurrentInstitution] = useState(profile.current_institution ?? '');
   const [intendedDegree, setIntendedDegree] = useState(profile.intended_degree ?? '');
   const [fieldOfStudy, setFieldOfStudy] = useState(profile.field_of_study ?? '');
-  const [intendedStartTerm, setIntendedStartTerm] = useState(
-    profile.intended_start_term ?? ''
-  );
+  const [intendedStartTerm, setIntendedStartTerm] = useState(profile.intended_start_term ?? '');
 
+  // ── Tests ─────────────────────────────────────────────────────────────
   const [greVerbal, setGreVerbal] = useState(profile.gre_verbal?.toString() ?? '');
   const [greQuant, setGreQuant] = useState(profile.gre_quant?.toString() ?? '');
   const [greAwa, setGreAwa] = useState(profile.gre_awa?.toString() ?? '');
@@ -198,44 +179,37 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
   const [ieltsScore, setIeltsScore] = useState(profile.ielts_score?.toString() ?? '');
   const [gmatScore, setGmatScore] = useState(profile.gmat_score?.toString() ?? '');
 
-  // Research interests
-  const [interestTags, setInterestTags] = useState<string[]>(
-    profile.research_interests ? parseResearchInterests(profile.research_interests) : []
-  );
-  const [newInterest, setNewInterest] = useState('');
+  // ── Research Interests (hierarchical) ─────────────────────────────────
+  const initSubfields = parseJsonArray(profile.research_interests);
+  const [selectedSubfields, setSelectedSubfields] = useState<string[]>(initSubfields);
+  const initDomains = deriveDomains(initSubfields);
+  const [selectedDomains, setSelectedDomains] = useState<string[]>(initDomains);
+  const [expandedDomains, setExpandedDomains] = useState<string[]>(initDomains);
 
-  // Education (structured form)
+  // ── Education (structured) ─────────────────────────────────────────────
   const parseEducation = (raw: string | null) => {
     if (!raw?.trim()) return { institution: '', degree: '', graduationYear: '', grade: '' };
     try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch {
-      // legacy plain text — put in institution field
-      return { institution: raw, degree: '', graduationYear: '', grade: '' };
-    }
-    return { institution: '', degree: '', graduationYear: '', grade: '' };
+      const p = JSON.parse(raw);
+      if (p && typeof p === 'object') return p;
+    } catch { /* legacy */ }
+    return { institution: raw, degree: '', graduationYear: '', grade: '' };
   };
-
   const initialEdu = parseEducation(profile.education);
   const [eduInstitution, setEduInstitution] = useState(initialEdu.institution ?? '');
   const [eduDegree, setEduDegree] = useState(initialEdu.degree ?? '');
   const [eduGradYear, setEduGradYear] = useState(initialEdu.graduationYear ?? '');
   const [eduGrade, setEduGrade] = useState(initialEdu.grade ?? '');
 
-  // Experience (structured form)
+  // ── Experience (structured) ────────────────────────────────────────────
   const parseExperience = (raw: string | null) => {
     if (!raw?.trim()) return { jobTitle: '', organisation: '', duration: '', description: '' };
     try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch {
-      // legacy plain text — put in description field
-      return { jobTitle: '', organisation: '', duration: '', description: raw };
-    }
-    return { jobTitle: '', organisation: '', duration: '', description: '' };
+      const p = JSON.parse(raw);
+      if (p && typeof p === 'object') return p;
+    } catch { /* legacy */ }
+    return { jobTitle: '', organisation: '', duration: '', description: raw };
   };
-
   const initialExp = parseExperience(profile.experience);
   const [expJobTitle, setExpJobTitle] = useState(initialExp.jobTitle ?? '');
   const [expOrganisation, setExpOrganisation] = useState(initialExp.organisation ?? '');
@@ -245,11 +219,9 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
   const [savingTab, setSavingTab] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
 
-  const profileCompletion = useMemo(
-    () => getCompletionPercent(profile),
-    [profile]
-  );
+  const profileCompletion = useMemo(() => getCompletionPercent(profile), [profile]);
 
+  // Sync state when profile changes (e.g. after save)
   useEffect(() => {
     setFullName(profile.full_name ?? '');
     setNationality(profile.nationality ?? '');
@@ -263,16 +235,19 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
     setToeflScore(profile.toefl_score?.toString() ?? '');
     setIeltsScore(profile.ielts_score?.toString() ?? '');
     setGmatScore(profile.gmat_score?.toString() ?? '');
-    setInterestTags(
-      profile.research_interests
-        ? parseResearchInterests(profile.research_interests)
-        : []
-    );
+
+    const newSubfields = parseJsonArray(profile.research_interests);
+    setSelectedSubfields(newSubfields);
+    const newDomains = deriveDomains(newSubfields);
+    setSelectedDomains(newDomains);
+    setExpandedDomains(newDomains);
+
     const edu = parseEducation(profile.education);
     setEduInstitution(edu.institution ?? '');
     setEduDegree(edu.degree ?? '');
     setEduGradYear(edu.graduationYear ?? '');
     setEduGrade(edu.grade ?? '');
+
     const exp = parseExperience(profile.experience);
     setExpJobTitle(exp.jobTitle ?? '');
     setExpOrganisation(exp.organisation ?? '');
@@ -288,102 +263,93 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
       .map(c => ({ value: c, label: c }));
   }, [nationality]);
 
-  const saveProfile = async (
-    tab: string,
-    updates: Record<string, unknown>
-  ): Promise<boolean> => {
+  // ── Save helper ────────────────────────────────────────────────────────
+  const saveProfile = async (tab: string, updates: Record<string, unknown>): Promise<boolean> => {
     setSavingTab(tab);
     setSaveError('');
-
     const { data, error } = await supabase
       .from('profiles')
       .update(updates)
       .eq('id', profile.id)
       .select('*')
       .single();
-
     setSavingTab(null);
-
-    if (error) {
-      setSaveError(error.message);
-      return false;
-    }
-
-    const updated = data as ProfileRow;
-    onProfileUpdated(updated);
+    if (error) { setSaveError(error.message); return false; }
+    onProfileUpdated(data as ProfileRow);
     toast.success('Profile saved');
     return true;
   };
 
-  const handleSavePersonal = async () => {
-    await saveProfile('personal', {
-      full_name: fullName.trim() || null,
-      nationality: nationality.trim() || null,
-      current_institution: currentInstitution.trim() || null,
-      intended_degree: intendedDegree.trim() || null,
-      field_of_study: fieldOfStudy.trim() || null,
-      intended_start_term: intendedStartTerm.trim() || null,
-    });
+  // ── Save handlers ──────────────────────────────────────────────────────
+  const handleSavePersonal = () => saveProfile('personal', {
+    full_name: fullName.trim() || null,
+    nationality: nationality.trim() || null,
+    current_institution: currentInstitution.trim() || null,
+    intended_degree: intendedDegree.trim() || null,
+    field_of_study: fieldOfStudy.trim() || null,
+    intended_start_term: intendedStartTerm.trim() || null,
+  });
+
+  const handleSaveTests = () => saveProfile('tests', {
+    gre_verbal: parseGreScore(greVerbal),
+    gre_quant: parseGreScore(greQuant),
+    gre_awa: parseGreScore(greAwa),
+    toefl_score: parseIntScore(toeflScore),
+    ielts_score: parseDecimalScore(ieltsScore),
+    gmat_score: parseIntScore(gmatScore),
+  });
+
+  const handleSaveResearch = () => saveProfile('research', {
+    research_interests: JSON.stringify(selectedSubfields),
+    research_domain: JSON.stringify(selectedDomains),
+  });
+
+  const handleSaveEducation = () => saveProfile('education', {
+    education: JSON.stringify({
+      institution: eduInstitution.trim(),
+      degree: eduDegree.trim(),
+      graduationYear: eduGradYear.trim(),
+      grade: eduGrade.trim(),
+    }),
+  });
+
+  const handleSaveExperience = () => saveProfile('experience', {
+    experience: JSON.stringify({
+      jobTitle: expJobTitle.trim(),
+      organisation: expOrganisation.trim(),
+      duration: expDuration.trim(),
+      description: expDescription.trim(),
+    }),
+  });
+
+  // ── Research interaction handlers ──────────────────────────────────────
+  const toggleDomain = (domain: string) => {
+    const isSelected = selectedDomains.includes(domain);
+    if (isSelected) {
+      setSelectedDomains(prev => prev.filter(d => d !== domain));
+      setExpandedDomains(prev => prev.filter(d => d !== domain));
+    } else {
+      setSelectedDomains(prev => [...prev, domain]);
+      setExpandedDomains(prev => prev.includes(domain) ? prev : [...prev, domain]);
+    }
   };
 
-  const handleSaveTests = async () => {
-    await saveProfile('tests', {
-      gre_verbal: parseGreScore(greVerbal),
-      gre_quant: parseGreScore(greQuant),
-      gre_awa: parseGreScore(greAwa),
-      toefl_score: parseIntScore(toeflScore),
-      ielts_score: parseDecimalScore(ieltsScore),
-      gmat_score: parseIntScore(gmatScore),
-    });
+  const toggleExpanded = (domain: string) => {
+    setExpandedDomains(prev =>
+      prev.includes(domain) ? prev.filter(d => d !== domain) : [...prev, domain]
+    );
   };
 
-  const handleSaveResearch = async () => {
-    await saveProfile('research', {
-      research_interests: JSON.stringify(interestTags),
-    });
+  const toggleSubfield = (subfield: string) => {
+    setSelectedSubfields(prev =>
+      prev.includes(subfield) ? prev.filter(s => s !== subfield) : [...prev, subfield]
+    );
   };
-
-  const handleSaveExperience = async () => {
-    await saveProfile('experience', {
-      experience: JSON.stringify({
-        jobTitle: expJobTitle.trim(),
-        organisation: expOrganisation.trim(),
-        duration: expDuration.trim(),
-        description: expDescription.trim(),
-      }),
-    });
-  };
-
-  const handleSaveEducation = async () => {
-    await saveProfile('education', {
-      education: JSON.stringify({
-        institution: eduInstitution.trim(),
-        degree: eduDegree.trim(),
-        graduationYear: eduGradYear.trim(),
-        grade: eduGrade.trim(),
-      }),
-    });
-  };
-
-  const addInterest = (tag?: string) => {
-    const value = (tag ?? newInterest).trim();
-    if (!value || interestTags.includes(value)) return;
-    setInterestTags(prev => [...prev, value]);
-    if (!tag) setNewInterest('');
-  };
-
-  const removeInterest = (tag: string) => {
-    setInterestTags(prev => prev.filter(t => t !== tag));
-  };
-
-  const availableSuggestions = RESEARCH_SUGGESTIONS.filter(s => !interestTags.includes(s));
 
   return (
     <>
       {saveError && (
-        <p className="text-sm text-red-600" role="alert">
-          {saveError}
-        </p>
+        <p className="text-sm text-red-600" role="alert">{saveError}</p>
       )}
 
       <div className="space-y-2">
@@ -444,7 +410,6 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   placeholder="Your full name"
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -455,7 +420,6 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   className="bg-muted cursor-not-allowed"
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="nationality">Nationality</Label>
                 <AutocompleteInput
@@ -466,7 +430,6 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   placeholder="Your nationality"
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="currentInstitution">Current institution</Label>
                 <Input
@@ -476,7 +439,6 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   placeholder="Where you study or work now"
                 />
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="intendedDegree">Intended degree</Label>
@@ -497,7 +459,6 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   />
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="intendedStartTerm">Intended start term</Label>
                 <select
@@ -512,12 +473,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   ))}
                 </select>
               </div>
-
-              <Button
-                onClick={handleSavePersonal}
-                disabled={savingTab === 'personal'}
-                className="min-h-[44px]"
-              >
+              <Button onClick={handleSavePersonal} disabled={savingTab === 'personal'} className="min-h-[44px]">
                 {savingTab === 'personal' ? 'Saving...' : 'Save Changes'}
               </Button>
             </CardContent>
@@ -570,11 +526,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   />
                 </div>
               </div>
-              <Button
-                onClick={handleSaveEducation}
-                disabled={savingTab === 'education'}
-                className="min-h-[44px]"
-              >
+              <Button onClick={handleSaveEducation} disabled={savingTab === 'education'} className="min-h-[44px]">
                 {savingTab === 'education' ? 'Saving...' : 'Save Changes'}
               </Button>
             </CardContent>
@@ -592,74 +544,32 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="greVerbal">GRE Verbal</Label>
-                  <Input
-                    id="greVerbal"
-                    type="number"
-                    value={greVerbal}
-                    onChange={e => setGreVerbal(e.target.value)}
-                    placeholder="—"
-                  />
+                  <Input id="greVerbal" type="number" value={greVerbal} onChange={e => setGreVerbal(e.target.value)} placeholder="—" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="greQuant">GRE Quant</Label>
-                  <Input
-                    id="greQuant"
-                    type="number"
-                    value={greQuant}
-                    onChange={e => setGreQuant(e.target.value)}
-                    placeholder="—"
-                  />
+                  <Input id="greQuant" type="number" value={greQuant} onChange={e => setGreQuant(e.target.value)} placeholder="—" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="greAwa">GRE AWA</Label>
-                  <Input
-                    id="greAwa"
-                    type="number"
-                    step="0.5"
-                    value={greAwa}
-                    onChange={e => setGreAwa(e.target.value)}
-                    placeholder="—"
-                  />
+                  <Input id="greAwa" type="number" step="0.5" value={greAwa} onChange={e => setGreAwa(e.target.value)} placeholder="—" />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="toeflScore">TOEFL</Label>
-                  <Input
-                    id="toeflScore"
-                    type="number"
-                    value={toeflScore}
-                    onChange={e => setToeflScore(e.target.value)}
-                    placeholder="—"
-                  />
+                  <Input id="toeflScore" type="number" value={toeflScore} onChange={e => setToeflScore(e.target.value)} placeholder="—" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ieltsScore">IELTS</Label>
-                  <Input
-                    id="ieltsScore"
-                    type="number"
-                    step="0.5"
-                    value={ieltsScore}
-                    onChange={e => setIeltsScore(e.target.value)}
-                    placeholder="—"
-                  />
+                  <Input id="ieltsScore" type="number" step="0.5" value={ieltsScore} onChange={e => setIeltsScore(e.target.value)} placeholder="—" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gmatScore">GMAT</Label>
-                  <Input
-                    id="gmatScore"
-                    type="number"
-                    value={gmatScore}
-                    onChange={e => setGmatScore(e.target.value)}
-                    placeholder="—"
-                  />
+                  <Input id="gmatScore" type="number" value={gmatScore} onChange={e => setGmatScore(e.target.value)} placeholder="—" />
                 </div>
               </div>
-              <Button
-                onClick={handleSaveTests}
-                disabled={savingTab === 'tests'}
-                className="min-h-[44px]"
-              >
+              <Button onClick={handleSaveTests} disabled={savingTab === 'tests'} className="min-h-[44px]">
                 {savingTab === 'tests' ? 'Saving...' : 'Save Changes'}
               </Button>
             </CardContent>
@@ -671,62 +581,111 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
           <Card>
             <CardHeader>
               <CardTitle>Research Interests</CardTitle>
-              <CardDescription>Topics and areas you want to study</CardDescription>
+              <CardDescription>
+                Select your broad areas then specific subfields within each
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Input to add a custom tag */}
-              <div className="flex gap-2">
-                <Input
-                  value={newInterest}
-                  onChange={e => setNewInterest(e.target.value)}
-                  placeholder="Type an interest and press Enter"
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addInterest();
-                    }
-                  }}
-                />
-                <Button type="button" variant="outline" onClick={() => addInterest()}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+            <CardContent className="space-y-6">
 
-              {/* Added tags */}
-              <div className="flex flex-wrap gap-2 min-h-[40px] p-3 rounded-md border border-border">
-                {interestTags.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">No interests added yet</span>
-                ) : (
-                  interestTags.map(tag => (
-                    <Badge key={tag} variant="secondary" className="gap-1 pr-1">
-                      {tag}
+              {/* Domain chips */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Broad Areas
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {RESEARCH_INTERESTS.map(({ domain }) => {
+                    const isSelected = selectedDomains.includes(domain);
+                    return (
                       <button
+                        key={domain}
                         type="button"
-                        onClick={() => removeInterest(tag)}
-                        className="ml-1 hover:text-destructive"
-                        aria-label={`Remove ${tag}`}
+                        onClick={() => toggleDomain(domain)}
+                        className={cn(
+                          'px-3 py-1.5 text-sm rounded-lg border transition-colors',
+                          isSelected
+                            ? 'bg-[#4F46E5] text-white border-[#4F46E5]'
+                            : 'bg-background text-muted-foreground border-border hover:border-[#4F46E5] hover:text-[#4F46E5]'
+                        )}
                       >
-                        <X className="h-3 w-3" />
+                        {domain}
                       </button>
-                    </Badge>
-                  ))
-                )}
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Suggestion chips */}
-              {availableSuggestions.length > 0 && (
+              {/* Subfield sections — only when domains selected */}
+              {selectedDomains.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Specific Subfields
+                  </p>
+                  {RESEARCH_INTERESTS
+                    .filter(d => selectedDomains.includes(d.domain))
+                    .map(({ domain, subfields }) => {
+                      const isExpanded = expandedDomains.includes(domain);
+                      return (
+                        <div key={domain} className="rounded-lg border border-border overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(domain)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-accent/50 transition-colors"
+                          >
+                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              {domain}
+                            </span>
+                            {isExpanded
+                              ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                              : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                            }
+                          </button>
+                          {isExpanded && (
+                            <div className="px-4 pb-3 pt-2 flex flex-wrap gap-2 border-t border-border bg-muted/20">
+                              {subfields.map(subfield => {
+                                const isChosen = selectedSubfields.includes(subfield);
+                                return (
+                                  <button
+                                    key={subfield}
+                                    type="button"
+                                    onClick={() => toggleSubfield(subfield)}
+                                    className={cn(
+                                      'px-3 py-1 text-xs rounded-full border transition-colors',
+                                      isChosen
+                                        ? 'bg-[#4F46E5] text-white border-[#4F46E5]'
+                                        : 'bg-background text-muted-foreground border-border hover:border-[#4F46E5] hover:text-[#4F46E5]'
+                                    )}
+                                  >
+                                    {subfield}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              {/* Selected subfields summary */}
+              {selectedSubfields.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Suggestions — click to add</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Your selected interests ({selectedSubfields.length})
+                  </p>
                   <div className="flex flex-wrap gap-2">
-                    {availableSuggestions.map(s => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => addInterest(s)}
-                        className="text-xs px-3 py-1 rounded-full border border-border bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
-                      >
-                        + {s}
-                      </button>
+                    {selectedSubfields.map(tag => (
+                      <Badge key={tag} variant="secondary" className="gap-1 pr-1">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => toggleSubfield(tag)}
+                          className="ml-1 hover:text-destructive"
+                          aria-label={`Remove ${tag}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
                     ))}
                   </div>
                 </div>
@@ -789,11 +748,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   className="resize-y"
                 />
               </div>
-              <Button
-                onClick={handleSaveExperience}
-                disabled={savingTab === 'experience'}
-                className="min-h-[44px]"
-              >
+              <Button onClick={handleSaveExperience} disabled={savingTab === 'experience'} className="min-h-[44px]">
                 {savingTab === 'experience' ? 'Saving...' : 'Save Changes'}
               </Button>
             </CardContent>
@@ -816,7 +771,6 @@ export function Profile() {
       setFetchError('');
 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-
       if (userError || !user) {
         setFetchError(userError?.message || 'Not signed in');
         setProfile(null);
@@ -840,30 +794,20 @@ export function Profile() {
       }
 
       if (!data) {
-        const { error: upsertError } = await supabase
-          .from('profiles')
-          .upsert({ id: user.id });
-
+        const { error: upsertError } = await supabase.from('profiles').upsert({ id: user.id });
         if (upsertError) {
           setFetchError(upsertError.message);
           setProfile(null);
           setLoading(false);
           return;
         }
-
-        const refetch = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
-
+        const refetch = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
         if (refetch.error) {
           setFetchError(refetch.error.message);
           setProfile(null);
           setLoading(false);
           return;
         }
-
         data = refetch.data;
       }
 
@@ -874,16 +818,12 @@ export function Profile() {
     fetchProfile();
   }, []);
 
-  if (loading) {
-    return <ProfileSkeleton />;
-  }
+  if (loading) return <ProfileSkeleton />;
 
   if (fetchError) {
     return (
       <div className="p-4 md:p-8">
-        <p className="text-sm text-red-600" role="alert">
-          {fetchError}
-        </p>
+        <p className="text-sm text-red-600" role="alert">{fetchError}</p>
       </div>
     );
   }
@@ -917,9 +857,7 @@ export function Profile() {
         </div>
         <div className="min-w-0">
           <p className="text-base font-semibold truncate">{displayName}</p>
-          {email && (
-            <p className="text-[13px] text-muted-foreground truncate">{email}</p>
-          )}
+          {email && <p className="text-[13px] text-muted-foreground truncate">{email}</p>}
         </div>
       </div>
 
