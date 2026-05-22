@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { LogOut } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Button } from '../ui/button';
-import { ThemeToggle } from '../theme-toggle';
 import {
   Sheet,
   SheetContent,
@@ -100,29 +99,15 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
           <div className="py-2 space-y-1">
             <Button
               variant="ghost"
-              className="w-full justify-start min-h-[44px]"
+              className="w-full justify-start min-h-[44px] gap-2"
               onClick={() => {
                 setIsDrawerOpen(false);
                 navigate('/profile');
               }}
             >
-              Edit Profile
+              <User className="h-4 w-4" />
+              Profile
             </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start min-h-[44px]"
-              onClick={() => {
-                setIsDrawerOpen(false);
-                navigate('/settings');
-              }}
-            >
-              Settings
-            </Button>
-
-            <div className="flex items-center justify-between px-3 py-2 min-h-[44px]">
-              <span className="text-sm font-medium">Dark mode</span>
-              <ThemeToggle />
-            </div>
           </div>
 
           <div className="border-t border-border pt-2 mt-2">

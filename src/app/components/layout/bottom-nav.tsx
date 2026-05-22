@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router';
-import { LayoutDashboard, School, Calendar, FileText, User } from 'lucide-react';
+import { LayoutDashboard, School, Calendar, FileText, Settings } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
 const navItems = [
@@ -7,7 +7,7 @@ const navItems = [
   { name: 'Applications', path: '/applications', icon: School },
   { name: 'Deadlines', path: '/deadlines', icon: Calendar },
   { name: 'Documents', path: '/documents', icon: FileText },
-  { name: 'Profile', path: '/profile', icon: User },
+  { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
 export function BottomNav() {

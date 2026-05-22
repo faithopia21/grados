@@ -212,7 +212,7 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-3">
           {showNewCard && draft && (
             <NoteEditCard
               draft={draft}

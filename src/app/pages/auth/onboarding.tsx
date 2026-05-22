@@ -16,6 +16,26 @@ import { supabase } from '../../../lib/supabase';
 import { AutocompleteInput } from '../../components/autocomplete-input';
 import { COUNTRIES } from '../../../data/countries';
 
+function generateTermOptions(): string[] {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const terms: string[] = [];
+  const startYear = currentYear;
+  const startWithSpring = currentMonth >= 8;
+  for (let i = 0; i < 3; i++) {
+    const year = startYear + i;
+    if (startWithSpring || i > 0) {
+      terms.push(`Spring ${year + 1}`);
+    }
+    terms.push(`Fall ${year + 1}`);
+    terms.push(`Summer ${year + 1}`);
+  }
+  return terms;
+}
+
+const TERM_OPTIONS = generateTermOptions();
+
 function parseGreScore(value: string): number | null {
   if (!value.trim()) return null;
   const num = Number(value);
@@ -205,10 +225,9 @@ export function Onboarding() {
                   <SelectValue placeholder="Select term" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Fall 2025">Fall 2025</SelectItem>
-                  <SelectItem value="Spring 2026">Spring 2026</SelectItem>
-                  <SelectItem value="Fall 2026">Fall 2026</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  {TERM_OPTIONS.map(term => (
+                    <SelectItem key={term} value={term}>{term}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -56,6 +56,7 @@ import {
   Link2,
   Unlink,
   Download,
+  X,
 } from 'lucide-react';
 
 interface DbProgram {
@@ -279,6 +280,14 @@ export function SchoolWorkspace() {
   const [newItemLabel, setNewItemLabel] = useState('');
   const [showAddItem, setShowAddItem] = useState(false);
   const [recommenderDeleteId, setRecommenderDeleteId] = useState<string | null>(null);
+  const [briefingOverlayId, setBriefingOverlayId] = useState<string | null>(null);
+  // Portal inline-editing state
+  const [editingPortalUrl, setEditingPortalUrl] = useState(false);
+  const [portalUrlDraft, setPortalUrlDraft] = useState('');
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [editingLinkDraft, setEditingLinkDraft] = useState({ label: '', url: '' });
+  const [showAddLink, setShowAddLink] = useState(false);
+  const [addLinkDraft, setAddLinkDraft] = useState({ label: '', url: '' });
   const briefingDebounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const lastSavedBriefingRef = useRef<Record<string, string>>({});
   const checklistCompleteToastShown = useRef(false);
@@ -636,70 +645,54 @@ export function SchoolWorkspace() {
     setChecklistItems(prev => prev.filter(i => i.id !== itemId));
   };
 
-  const handleEditPortalUrl = async () => {
-    if (!program) return;
-    const url = window.prompt('Application portal URL', program.portal_url ?? '');
-    if (url === null) return;
+  const handleStartEditPortalUrl = () => {
+    setPortalUrlDraft(program?.portal_url ?? '');
+    setEditingPortalUrl(true);
+  };
 
+  const handleSavePortalUrl = async () => {
+    if (!program) return;
+    const url = portalUrlDraft.trim();
     const { error } = await supabase
       .from('programs')
-      .update({ portal_url: url.trim() || null })
+      .update({ portal_url: url || null })
       .eq('id', program.id);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    setProgram(prev => (prev ? { ...prev, portal_url: url.trim() || null } : prev));
+    if (error) { toast.error(error.message); return; }
+    setProgram(prev => (prev ? { ...prev, portal_url: url || null } : prev));
+    setEditingPortalUrl(false);
     toast.success('Portal URL updated');
   };
 
-  const handleAddPortalLink = async () => {
-    if (!program) return;
-    const label = window.prompt('Link label (e.g. Department Page)');
-    if (!label?.trim()) return;
-    const url = window.prompt('URL');
-    if (!url?.trim()) return;
-
+  const handleSaveNewLink = async () => {
+    if (!program || !addLinkDraft.label.trim() || !addLinkDraft.url.trim()) return;
     const { data, error } = await supabase
       .from('portal_links')
-      .insert({
-        program_id: program.id,
-        label: label.trim(),
-        url: url.trim(),
-      })
+      .insert({ program_id: program.id, label: addLinkDraft.label.trim(), url: addLinkDraft.url.trim() })
       .select()
       .single();
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
+    if (error) { toast.error(error.message); return; }
     setPortalLinks(prev => [...prev, data as PortalLink]);
+    setAddLinkDraft({ label: '', url: '' });
+    setShowAddLink(false);
     toast.success('Link added');
   };
 
-  const handleEditPortalLink = async (link: PortalLink) => {
-    const label = window.prompt('Link label', link.label);
-    if (!label?.trim()) return;
-    const url = window.prompt('URL', link.url);
-    if (!url?.trim()) return;
+  const handleStartEditLink = (link: PortalLink) => {
+    setEditingLinkId(link.id);
+    setEditingLinkDraft({ label: link.label, url: link.url });
+  };
 
+  const handleSaveEditLink = async () => {
+    if (!editingLinkId || !editingLinkDraft.label.trim() || !editingLinkDraft.url.trim()) return;
     const { error } = await supabase
       .from('portal_links')
-      .update({ label: label.trim(), url: url.trim() })
-      .eq('id', link.id);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
+      .update({ label: editingLinkDraft.label.trim(), url: editingLinkDraft.url.trim() })
+      .eq('id', editingLinkId);
+    if (error) { toast.error(error.message); return; }
     setPortalLinks(prev =>
-      prev.map(l => (l.id === link.id ? { ...l, label: label.trim(), url: url.trim() } : l))
+      prev.map(l => l.id === editingLinkId ? { ...l, label: editingLinkDraft.label.trim(), url: editingLinkDraft.url.trim() } : l)
     );
+    setEditingLinkId(null);
   };
 
   const handleOpenLibrary = async () => {
@@ -1341,23 +1334,22 @@ export function SchoolWorkspace() {
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label className="text-xs">Briefing note</Label>
-                    <BriefingNoteTextarea
-                      value={rec.briefing_note ?? ''}
-                      onChange={value => handleBriefingChange(rec, value)}
-                      placeholder={BRIEFING_PLACEHOLDER}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(rec.briefing_note ?? '');
-                        toast.success('Briefing note copied');
-                      }}
+                    {rec.briefing_note?.trim() ? (
+                      <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed">
+                        {rec.briefing_note}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] text-muted-foreground italic">No briefing note yet</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setBriefingOverlayId(rec.id)}
+                      className="text-xs text-[#4F46E5] hover:underline mt-0.5 block"
                     >
-                      Copy note
-                    </Button>
+                      View / Edit note →
+                    </button>
                   </div>
                 </CardContent>
               </Card>
@@ -1378,91 +1370,218 @@ export function SchoolWorkspace() {
 
         <TabsContent value="portal">
           <div className="space-y-4">
+            {/* Application Portal */}
             <Card>
               <CardHeader>
                 <CardTitle>Application Portal</CardTitle>
               </CardHeader>
-              <CardContent>
-                {program.portal_url ? (
-                  <Button asChild size="lg" className="w-full h-auto py-4">
-                    <a href={program.portal_url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-5 w-5 mr-3" />
-                      Open Application Portal
+              <CardContent className="space-y-3">
+                {editingPortalUrl ? (
+                  <div className="space-y-3">
+                    <Label className="text-sm">Portal URL</Label>
+                    <Input
+                      value={portalUrlDraft}
+                      onChange={e => setPortalUrlDraft(e.target.value)}
+                      placeholder="https://apply.university.edu"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSavePortalUrl}>Save</Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingPortalUrl(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : program.portal_url ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a
+                      href={program.portal_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-[#4F46E5] hover:underline truncate flex-1 min-w-0"
+                    >
+                      {program.portal_url}
                     </a>
-                  </Button>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(program.portal_url!, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        Open ↗
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleStartEditPortalUrl}
+                      >
+                        <Pencil className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="text-center py-6 space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      No portal URL saved — add one when editing this school
-                    </p>
-                    <Button variant="outline" onClick={handleEditPortalUrl}>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">No portal URL saved yet.</p>
+                    <Button variant="outline" size="sm" onClick={handleStartEditPortalUrl}>
                       <Pencil className="h-4 w-4 mr-2" />
                       Add portal URL
                     </Button>
                   </div>
                 )}
-                {program.portal_url && (
-                  <Button variant="ghost" size="sm" className="mt-2" onClick={handleEditPortalUrl}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit portal URL
-                  </Button>
-                )}
               </CardContent>
             </Card>
 
+            {/* Saved Links */}
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div>
                   <CardTitle>Saved Links</CardTitle>
-                  <Button variant="outline" size="sm" onClick={handleAddPortalLink}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add link
-                  </Button>
+                  <CardDescription>Quick access to important pages</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {portalLinks.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">
+                {portalLinks.length === 0 && !showAddLink && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
                     No additional links saved yet.
                   </p>
-                ) : (
-                  portalLinks.map(link => (
-                    <div
-                      key={link.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-border"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{link.label}</p>
-                          <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-                        </div>
+                )}
+
+                {portalLinks.length > 0 && (
+                  <div className="space-y-2">
+                    {portalLinks.map(link => (
+                      <div key={link.id}>
+                        {editingLinkId === link.id ? (
+                          <div className="space-y-2 p-3 rounded-lg border border-border">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <Input
+                                value={editingLinkDraft.label}
+                                onChange={e => setEditingLinkDraft(d => ({ ...d, label: e.target.value }))}
+                                placeholder="Link label"
+                              />
+                              <Input
+                                value={editingLinkDraft.url}
+                                onChange={e => setEditingLinkDraft(d => ({ ...d, url: e.target.value }))}
+                                placeholder="https://..."
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={handleSaveEditLink}>Save</Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingLinkId(null)}>Cancel</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{link.label}</p>
+                                <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button variant="ghost" size="sm" asChild>
+                                <a href={link.url} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleStartEditLink(link)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeletePortalLink(link.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex gap-1 shrink-0">
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={link.url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleEditPortalLink(link)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeletePortalLink(link.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new link inline form */}
+                {showAddLink ? (
+                  <div className="space-y-2 p-3 rounded-lg border border-dashed border-border">
+                    <p className="text-xs font-medium text-muted-foreground">New Link</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Input
+                        value={addLinkDraft.label}
+                        onChange={e => setAddLinkDraft(d => ({ ...d, label: e.target.value }))}
+                        placeholder="Link label (e.g. Department Page)"
+                      />
+                      <Input
+                        value={addLinkDraft.url}
+                        onChange={e => setAddLinkDraft(d => ({ ...d, url: e.target.value }))}
+                        placeholder="https://cs.mit.edu"
+                      />
                     </div>
-                  ))
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSaveNewLink}>Save</Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setShowAddLink(false); setAddLinkDraft({ label: '', url: '' }); }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddLink(true)}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add link
+                  </Button>
                 )}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Briefing Note Overlay */}
+      {briefingOverlayId && (() => {
+        const rec = recommenders.find(r => r.id === briefingOverlayId);
+        if (!rec) return null;
+        return (
+          <div
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            onClick={() => setBriefingOverlayId(null)}
+          >
+            <div
+              className="bg-card rounded-xl w-full max-w-[90%] max-h-[80vh] overflow-y-auto p-6 space-y-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <h3 className="font-semibold text-base">
+                  {rec.name || 'Recommender'} — Briefing Note
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setBriefingOverlayId(null)}
+                  className="p-2 rounded-lg hover:bg-accent transition-colors shrink-0"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <BriefingNoteTextarea
+                value={rec.briefing_note ?? ''}
+                onChange={value => handleBriefingChange(rec, value)}
+                placeholder={BRIEFING_PLACEHOLDER}
+              />
+              <p className="text-xs text-muted-foreground">Auto-saves as you type</p>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

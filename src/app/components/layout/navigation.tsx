@@ -7,7 +7,6 @@ import {
   Settings,
   Calendar,
   LogOut,
-  User,
   Moon,
   Sun,
 } from 'lucide-react';
@@ -25,7 +24,6 @@ const navItems = [
   { name: 'Applications', path: '/applications', icon: School },
   { name: 'Deadlines', path: '/deadlines', icon: Calendar },
   { name: 'Documents', path: '/documents', icon: FileText },
-  { name: 'Profile', path: '/profile', icon: User },
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
@@ -70,21 +68,23 @@ export function Navigation({
     location.pathname === path ||
     (path === '/dashboard' && location.pathname === '/');
 
-  const navLinkClass = (isActive: boolean) =>
+  // Desktop (lg+): full row with icon + text
+  const desktopLinkClass = (isActive: boolean) =>
     cn(
-      'flex items-center w-full transition-colors min-h-[44px] rounded-lg',
-      'md:justify-center md:px-0 md:py-2.5 md:gap-0',
-      'lg:justify-start lg:gap-3 lg:px-4 lg:py-2.5 lg:text-[13px] lg:font-medium',
+      'flex flex-row items-center gap-3 w-full px-4 py-2.5 rounded-lg transition-colors min-h-[44px]',
+      'text-[13px] font-medium',
       isActive
-        ? cn(
-            'lg:bg-[#EEF2FF] lg:text-[#4F46E5] lg:border-l-2 lg:border-[#4F46E5]',
-            'dark:lg:bg-indigo-950/40',
-            'md:bg-[--primary-light] md:text-primary md:border-l-2 md:border-primary'
-          )
-        : cn(
-            'lg:text-[#888780] lg:hover:bg-accent/60',
-            'md:text-muted-foreground md:hover:bg-accent md:hover:text-accent-foreground'
-          )
+        ? 'bg-[#EEF2FF] text-[#4F46E5] border-l-2 border-[#4F46E5] dark:bg-indigo-950/40'
+        : 'text-[#888780] hover:bg-accent/60'
+    );
+
+  // Tablet (md, not lg): icon-only centered
+  const tabletLinkClass = (isActive: boolean) =>
+    cn(
+      'flex items-center justify-center w-full min-h-[44px] rounded-lg transition-colors',
+      isActive
+        ? 'bg-[--primary-light] text-primary border-l-2 border-primary'
+        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
     );
 
   return (
@@ -104,6 +104,7 @@ export function Navigation({
           tabletOverlayOpen ? 'md:w-60 md:shadow-xl' : 'md:translate-x-0'
         )}
       >
+        {/* Logo / Brand */}
         <div className="p-4 border-b border-border flex items-center justify-center lg:justify-start lg:px-6 lg:py-6">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 lg:hidden"
@@ -117,28 +118,43 @@ export function Navigation({
           </div>
         </div>
 
+        {/* Nav items */}
         <div className="flex-1 overflow-y-auto py-4">
           <div className="space-y-1 px-2 lg:px-3">
             {navItems.map(item => {
               const Icon = item.icon;
               const isActive = isNavActive(item.path);
 
-              const link = (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={closeOverlay}
-                  className={navLinkClass(isActive)}
-                >
-                  <Icon className="h-4 w-4 shrink-0 lg:h-5 lg:w-5" />
-                  <span className="hidden lg:inline">{item.name}</span>
-                </Link>
-              );
-
               return (
                 <Tooltip key={item.path}>
-                  <TooltipTrigger asChild className="md:flex lg:contents w-full">
-                    {link}
+                  <TooltipTrigger asChild className="w-full">
+                    {/* Desktop: icon + text in a row. Tablet: icon only, centered */}
+                    <Link
+                      to={item.path}
+                      onClick={closeOverlay}
+                      className={cn(
+                        // Shared base
+                        'transition-colors min-h-[44px] rounded-lg w-full',
+                        // Tablet (md, not lg): icon-only centered
+                        'md:flex md:items-center md:justify-center md:px-0 md:py-2.5',
+                        // Desktop (lg+): row with icon + text
+                        'lg:flex lg:flex-row lg:items-center lg:gap-3 lg:px-4 lg:py-2.5 lg:justify-start',
+                        isActive
+                          ? cn(
+                              'lg:bg-[#EEF2FF] lg:text-[#4F46E5] lg:border-l-2 lg:border-[#4F46E5]',
+                              'dark:lg:bg-indigo-950/40',
+                              'md:bg-[--primary-light] md:text-primary md:border-l-2 md:border-primary'
+                            )
+                          : cn(
+                              'lg:text-[#888780] lg:hover:bg-accent/60',
+                              'md:text-muted-foreground md:hover:bg-accent md:hover:text-accent-foreground'
+                            )
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0 lg:h-5 lg:w-5" />
+                      {/* Always visible on desktop (lg+), hidden on tablet (md) */}
+                      <span className="hidden lg:inline text-[13px] font-medium">{item.name}</span>
+                    </Link>
                   </TooltipTrigger>
                   <TooltipContent side="right" className="lg:hidden">
                     {item.name}
@@ -176,14 +192,14 @@ export function Navigation({
           </Tooltip>
         </div>
 
-        {/* Desktop bottom: divider, theme row, sign out row */}
+        {/* Desktop bottom: theme row + sign out row */}
         <div className="hidden lg:flex flex-col border-t border-border">
           <div className="px-3 pt-3 pb-2 space-y-1">
             <button
               type="button"
               onClick={toggleTheme}
               className={cn(
-                'flex items-center gap-3 w-full px-4 py-2.5 rounded-lg min-h-[44px]',
+                'flex flex-row items-center gap-3 w-full px-4 py-2.5 rounded-lg min-h-[44px]',
                 'text-[13px] font-medium text-[#888780] hover:bg-accent/60 transition-colors'
               )}
             >
@@ -198,7 +214,7 @@ export function Navigation({
               type="button"
               onClick={handleSignOut}
               className={cn(
-                'flex items-center gap-3 w-full px-4 py-2.5 rounded-lg min-h-[44px]',
+                'flex flex-row items-center gap-3 w-full px-4 py-2.5 rounded-lg min-h-[44px]',
                 'text-[13px] font-medium text-[#888780] transition-colors',
                 'hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30'
               )}

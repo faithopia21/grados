@@ -90,6 +90,64 @@ function getProfileInitials(fullName: string | null, email: string): string {
   return 'G';
 }
 
+/**
+ * Dynamically generate term options starting from the next relevant cycle,
+ * going 3 years forward. Since it is May 2026 (month < 8) we start with Fall 2026.
+ */
+function generateTermOptions(): string[] {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-based
+
+  const terms: string[] = [];
+  const startYear = currentYear;
+  const startWithSpring = currentMonth >= 8;
+
+  for (let i = 0; i < 3; i++) {
+    const year = startYear + i;
+    if (startWithSpring || i > 0) {
+      terms.push(`Spring ${year + 1}`);
+    }
+    terms.push(`Fall ${year + 1}`);
+    terms.push(`Summer ${year + 1}`);
+  }
+
+  return terms;
+}
+
+const TERM_OPTIONS = generateTermOptions();
+
+const RESEARCH_SUGGESTIONS = [
+  'Machine Learning',
+  'Computer Science',
+  'Data Science',
+  'Artificial Intelligence',
+  'Robotics',
+  'Neuroscience',
+  'Public Health',
+  'Economics',
+  'Finance',
+  'Law',
+  'Environmental Science',
+  'Biomedical Engineering',
+  'Psychology',
+  'Political Science',
+  'International Relations',
+  'Architecture',
+  'Urban Planning',
+  'Education',
+  'Sociology',
+  'Physics',
+  'Chemistry',
+  'Mathematics',
+  'Software Engineering',
+  'Cybersecurity',
+  'Human-Computer Interaction',
+  'Business',
+  'Marketing',
+  'Entrepreneurship',
+];
+
 function ProfileSkeleton() {
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -140,12 +198,49 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
   const [ieltsScore, setIeltsScore] = useState(profile.ielts_score?.toString() ?? '');
   const [gmatScore, setGmatScore] = useState(profile.gmat_score?.toString() ?? '');
 
+  // Research interests
   const [interestTags, setInterestTags] = useState<string[]>(
     profile.research_interests ? parseResearchInterests(profile.research_interests) : []
   );
   const [newInterest, setNewInterest] = useState('');
-  const [experience, setExperience] = useState(profile.experience ?? '');
-  const [education, setEducation] = useState(profile.education ?? '');
+
+  // Education (structured form)
+  const parseEducation = (raw: string | null) => {
+    if (!raw?.trim()) return { institution: '', degree: '', graduationYear: '', grade: '' };
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      // legacy plain text — put in institution field
+      return { institution: raw, degree: '', graduationYear: '', grade: '' };
+    }
+    return { institution: '', degree: '', graduationYear: '', grade: '' };
+  };
+
+  const initialEdu = parseEducation(profile.education);
+  const [eduInstitution, setEduInstitution] = useState(initialEdu.institution ?? '');
+  const [eduDegree, setEduDegree] = useState(initialEdu.degree ?? '');
+  const [eduGradYear, setEduGradYear] = useState(initialEdu.graduationYear ?? '');
+  const [eduGrade, setEduGrade] = useState(initialEdu.grade ?? '');
+
+  // Experience (structured form)
+  const parseExperience = (raw: string | null) => {
+    if (!raw?.trim()) return { jobTitle: '', organisation: '', duration: '', description: '' };
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      // legacy plain text — put in description field
+      return { jobTitle: '', organisation: '', duration: '', description: raw };
+    }
+    return { jobTitle: '', organisation: '', duration: '', description: '' };
+  };
+
+  const initialExp = parseExperience(profile.experience);
+  const [expJobTitle, setExpJobTitle] = useState(initialExp.jobTitle ?? '');
+  const [expOrganisation, setExpOrganisation] = useState(initialExp.organisation ?? '');
+  const [expDuration, setExpDuration] = useState(initialExp.duration ?? '');
+  const [expDescription, setExpDescription] = useState(initialExp.description ?? '');
 
   const [savingTab, setSavingTab] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
@@ -173,8 +268,16 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
         ? parseResearchInterests(profile.research_interests)
         : []
     );
-    setExperience(profile.experience ?? '');
-    setEducation(profile.education ?? '');
+    const edu = parseEducation(profile.education);
+    setEduInstitution(edu.institution ?? '');
+    setEduDegree(edu.degree ?? '');
+    setEduGradYear(edu.graduationYear ?? '');
+    setEduGrade(edu.grade ?? '');
+    const exp = parseExperience(profile.experience);
+    setExpJobTitle(exp.jobTitle ?? '');
+    setExpOrganisation(exp.organisation ?? '');
+    setExpDuration(exp.duration ?? '');
+    setExpDescription(exp.description ?? '');
   }, [profile]);
 
   const nationalityOptions = useMemo(() => {
@@ -242,26 +345,38 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
 
   const handleSaveExperience = async () => {
     await saveProfile('experience', {
-      experience: experience.trim() || null,
+      experience: JSON.stringify({
+        jobTitle: expJobTitle.trim(),
+        organisation: expOrganisation.trim(),
+        duration: expDuration.trim(),
+        description: expDescription.trim(),
+      }),
     });
   };
 
   const handleSaveEducation = async () => {
     await saveProfile('education', {
-      education: education.trim() || null,
+      education: JSON.stringify({
+        institution: eduInstitution.trim(),
+        degree: eduDegree.trim(),
+        graduationYear: eduGradYear.trim(),
+        grade: eduGrade.trim(),
+      }),
     });
   };
 
-  const addInterest = () => {
-    const tag = newInterest.trim();
-    if (!tag || interestTags.includes(tag)) return;
-    setInterestTags(prev => [...prev, tag]);
-    setNewInterest('');
+  const addInterest = (tag?: string) => {
+    const value = (tag ?? newInterest).trim();
+    if (!value || interestTags.includes(value)) return;
+    setInterestTags(prev => [...prev, value]);
+    if (!tag) setNewInterest('');
   };
 
   const removeInterest = (tag: string) => {
     setInterestTags(prev => prev.filter(t => t !== tag));
   };
+
+  const availableSuggestions = RESEARCH_SUGGESTIONS.filter(s => !interestTags.includes(s));
 
   return (
     <>
@@ -312,6 +427,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
           </TabsTrigger>
         </TabsList>
 
+        {/* ── PERSONAL ── */}
         <TabsContent value="personal">
           <Card>
             <CardHeader>
@@ -384,12 +500,17 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
 
               <div className="space-y-2">
                 <Label htmlFor="intendedStartTerm">Intended start term</Label>
-                <Input
+                <select
                   id="intendedStartTerm"
                   value={intendedStartTerm}
                   onChange={e => setIntendedStartTerm(e.target.value)}
-                  placeholder="e.g. Fall 2026"
-                />
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Select a term</option>
+                  {TERM_OPTIONS.map(term => (
+                    <option key={term} value={term}>{term}</option>
+                  ))}
+                </select>
               </div>
 
               <Button
@@ -403,6 +524,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
           </Card>
         </TabsContent>
 
+        {/* ── EDUCATION ── */}
         <TabsContent value="education">
           <Card>
             <CardHeader>
@@ -411,15 +533,42 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="education">Education history</Label>
-                <Textarea
-                  id="education"
-                  value={education}
-                  onChange={e => setEducation(e.target.value)}
-                  placeholder="List your degrees, institutions, graduation dates..."
-                  rows={8}
-                  className="resize-y"
+                <Label htmlFor="eduInstitution">Institution</Label>
+                <Input
+                  id="eduInstitution"
+                  value={eduInstitution}
+                  onChange={e => setEduInstitution(e.target.value)}
+                  placeholder="e.g. University of Lagos"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="eduDegree">Degree</Label>
+                <Input
+                  id="eduDegree"
+                  value={eduDegree}
+                  onChange={e => setEduDegree(e.target.value)}
+                  placeholder="e.g. BSc Computer Science"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="eduGradYear">Year of Graduation</Label>
+                  <Input
+                    id="eduGradYear"
+                    value={eduGradYear}
+                    onChange={e => setEduGradYear(e.target.value)}
+                    placeholder="e.g. 2025"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="eduGrade">Grade / GPA</Label>
+                  <Input
+                    id="eduGrade"
+                    value={eduGrade}
+                    onChange={e => setEduGrade(e.target.value)}
+                    placeholder="e.g. 4.8/5.0 or First Class"
+                  />
+                </div>
               </div>
               <Button
                 onClick={handleSaveEducation}
@@ -432,6 +581,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
           </Card>
         </TabsContent>
 
+        {/* ── TESTS ── */}
         <TabsContent value="tests">
           <Card>
             <CardHeader>
@@ -516,6 +666,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
           </Card>
         </TabsContent>
 
+        {/* ── RESEARCH INTERESTS ── */}
         <TabsContent value="research">
           <Card>
             <CardHeader>
@@ -523,6 +674,25 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
               <CardDescription>Topics and areas you want to study</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Input to add a custom tag */}
+              <div className="flex gap-2">
+                <Input
+                  value={newInterest}
+                  onChange={e => setNewInterest(e.target.value)}
+                  placeholder="Type an interest and press Enter"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addInterest();
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" onClick={() => addInterest()}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Added tags */}
               <div className="flex flex-wrap gap-2 min-h-[40px] p-3 rounded-md border border-border">
                 {interestTags.length === 0 ? (
                   <span className="text-sm text-muted-foreground">No interests added yet</span>
@@ -542,22 +712,26 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
                   ))
                 )}
               </div>
-              <div className="flex gap-2">
-                <Input
-                  value={newInterest}
-                  onChange={e => setNewInterest(e.target.value)}
-                  placeholder="Add a research interest"
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addInterest();
-                    }
-                  }}
-                />
-                <Button type="button" variant="outline" onClick={addInterest}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+
+              {/* Suggestion chips */}
+              {availableSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Suggestions — click to add</p>
+                  <div className="flex flex-wrap gap-2">
+                    {availableSuggestions.map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => addInterest(s)}
+                        className="text-xs px-3 py-1 rounded-full border border-border bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                      >
+                        + {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Button
                 onClick={handleSaveResearch}
                 disabled={savingTab === 'research'}
@@ -569,6 +743,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
           </Card>
         </TabsContent>
 
+        {/* ── EXPERIENCE ── */}
         <TabsContent value="experience">
           <Card>
             <CardHeader>
@@ -577,13 +752,40 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="experience">Experience</Label>
+                <Label htmlFor="expJobTitle">Job Title</Label>
+                <Input
+                  id="expJobTitle"
+                  value={expJobTitle}
+                  onChange={e => setExpJobTitle(e.target.value)}
+                  placeholder="e.g. Research Assistant"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expOrganisation">Organisation</Label>
+                <Input
+                  id="expOrganisation"
+                  value={expOrganisation}
+                  onChange={e => setExpOrganisation(e.target.value)}
+                  placeholder="e.g. Google DeepMind"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expDuration">Duration</Label>
+                <Input
+                  id="expDuration"
+                  value={expDuration}
+                  onChange={e => setExpDuration(e.target.value)}
+                  placeholder="e.g. June 2023 – August 2024"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expDescription">Description</Label>
                 <Textarea
-                  id="experience"
-                  value={experience}
-                  onChange={e => setExperience(e.target.value)}
-                  placeholder="Describe your work experience, internships, research roles..."
-                  rows={8}
+                  id="expDescription"
+                  value={expDescription}
+                  onChange={e => setExpDescription(e.target.value)}
+                  placeholder="Brief description of your role and key achievements..."
+                  rows={3}
                   className="resize-y"
                 />
               </div>
