@@ -19,6 +19,7 @@ import { AuthCallback } from './pages/auth/callback';
 import { BottomNav } from './components/layout/bottom-nav';
 import { MobileHeader } from './components/layout/mobile-header';
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import { OfflineBanner } from './components/offline-banner';
 
 function LegacyApplicationRedirect() {
   const { id } = useParams();
@@ -54,6 +55,7 @@ function AppLayout() {
           onTabletOverlayClose={() => setTabletSidebarOpen(false)}
         />
         <main className="flex-1 overflow-y-auto pt-[52px] md:pt-12 lg:pt-0 pb-[60px] md:pb-0 relative md:pl-0">
+          <OfflineBanner />
           <button
             type="button"
             className="hidden md:flex lg:hidden items-center justify-center fixed top-3 left-3 z-30 w-10 h-10 rounded-lg border border-border bg-card text-foreground shadow-sm hover:bg-accent"

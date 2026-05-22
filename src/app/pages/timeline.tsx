@@ -13,6 +13,8 @@ import {
 } from '../../lib/program-status';
 import { Calendar, Clock, AlertCircle, ArrowRight, Download } from 'lucide-react';
 import { PageHeader } from '../components/page-header';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { OfflinePage } from '../components/offline-page';
 
 interface DbProgram {
   id: string;
@@ -71,6 +73,8 @@ export function Timeline() {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState<ProgramWithUrgency[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const isOnline = useOnlineStatus();
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
@@ -89,10 +93,13 @@ export function Timeline() {
       .order('deadline', { ascending: true });
 
     if (error) {
+      if (!navigator.onLine) setFetchError(true);
       setPrograms([]);
       setLoading(false);
       return;
     }
+
+    setFetchError(false);
 
     const withUrgency = ((data ?? []) as DbProgram[]).map(program => {
       const daysLeft = getDaysLeft(program.deadline);
@@ -110,6 +117,15 @@ export function Timeline() {
   useEffect(() => {
     fetchPrograms();
   }, [fetchPrograms]);
+
+  // Auto-retry when coming back online
+  useEffect(() => {
+    if (isOnline && fetchError) {
+      setFetchError(false);
+      fetchPrograms();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   const urgent = useMemo(() => programs.filter(p => p.bucket === 'urgent'), [programs]);
   const soon = useMemo(() => programs.filter(p => p.bucket === 'soon'), [programs]);
@@ -183,6 +199,22 @@ export function Timeline() {
       </div>
     </div>
   );
+
+  if (fetchError || (!isOnline && !loading && programs.length === 0)) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <PageHeader
+          title="Deadlines"
+          subtitle="All application deadlines in one place"
+          backTo="/dashboard"
+        />
+        <OfflinePage
+          onRetry={() => { setFetchError(false); fetchPrograms(); }}
+          pageName="your deadlines"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

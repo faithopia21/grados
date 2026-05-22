@@ -10,6 +10,8 @@ import { displayProgramStatus } from '../../lib/program-status';
 import { Calendar, Clock, ArrowRight, Plus, DollarSign, Check } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { supabase } from '../../lib/supabase';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { OfflinePage } from '../components/offline-page';
 
 export interface DbProgram {
   id: string;
@@ -39,6 +41,8 @@ export function Dashboard() {
   const [isAddSchoolOpen, setIsAddSchoolOpen] = useState(false);
   const [programs, setPrograms] = useState<DbProgram[]>([]);
   const [loadingPrograms, setLoadingPrograms] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const isOnline = useOnlineStatus();
   const navigate = useNavigate();
 
   const fetchPrograms = useCallback(async () => {
@@ -55,7 +59,15 @@ export function Dashboard() {
       .eq('user_id', user.id)
       .order('deadline', { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      if (!navigator.onLine) setFetchError(true);
+      setLoadingPrograms(false);
+      return;
+    }
+
+    setFetchError(false);
+
+    if (data) {
       const programsWithNextStep = await Promise.all(
         (data as DbProgram[]).map(async program => {
           const { count } = await supabase
@@ -89,6 +101,15 @@ export function Dashboard() {
   useEffect(() => {
     fetchPrograms();
   }, [fetchPrograms]);
+
+  // Auto-retry when coming back online
+  useEffect(() => {
+    if (isOnline && fetchError) {
+      setFetchError(false);
+      fetchPrograms();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   const stats = useMemo(() => {
     const total = programs.length;
@@ -137,6 +158,15 @@ export function Dashboard() {
       return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
     }
   };
+
+  if (fetchError || (!isOnline && !loadingPrograms && programs.length === 0)) {
+    return (
+      <OfflinePage
+        onRetry={() => { setFetchError(false); fetchPrograms(); }}
+        pageName="your dashboard"
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 space-y-8">

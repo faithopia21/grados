@@ -24,6 +24,8 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { displayProgramStatus } from '../../lib/program-status';
 import { PageHeader } from '../components/page-header';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { OfflinePage } from '../components/offline-page';
 
 interface DbProgram {
   id: string;
@@ -268,6 +270,8 @@ export function Applications() {
   const [sortBy, setSortBy] = useState<SortOption>('deadline');
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<SchoolFormData | undefined>(undefined);
+  const [fetchError, setFetchError] = useState(false);
+  const isOnline = useOnlineStatus();
 
   const navigate = useNavigate();
 
@@ -288,11 +292,17 @@ export function Applications() {
       .order('deadline', { ascending: true });
 
     if (error) {
-      toast.error(error.message);
+      if (!navigator.onLine) {
+        setFetchError(true);
+      } else {
+        toast.error(error.message);
+      }
       setPrograms([]);
       setLoading(false);
       return;
     }
+
+    setFetchError(false);
 
     const rows = (programRows ?? []) as DbProgram[];
 
@@ -322,6 +332,15 @@ export function Applications() {
   useEffect(() => {
     fetchPrograms();
   }, [fetchPrograms]);
+
+  // Auto-retry when coming back online
+  useEffect(() => {
+    if (isOnline && fetchError) {
+      setFetchError(false);
+      fetchPrograms();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   const handleEditProgram = (program: ProgramWithProgress) => {
     setEditFormData(programToFormData(program));
@@ -452,6 +471,22 @@ export function Applications() {
   };
 
   const isSubmitted = (status: string) => normalizeStatus(status) === 'submitted';
+
+  if (fetchError || (!isOnline && !loading && programs.length === 0)) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <PageHeader
+          title="All Applications"
+          subtitle="Manage all your graduate school applications"
+          backTo="/dashboard"
+        />
+        <OfflinePage
+          onRetry={() => { setFetchError(false); fetchPrograms(); }}
+          pageName="your applications"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

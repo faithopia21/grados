@@ -21,6 +21,8 @@ import { cn } from '../../lib/utils';
 import { FileText, Upload, Download, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { OfflinePage } from '../components/offline-page';
 
 function DocumentRowSkeleton() {
   return <Skeleton className="h-20 w-full rounded-lg" />;
@@ -33,6 +35,8 @@ export function Documents() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [fetchError, setFetchError] = useState(false);
+  const isOnline = useOnlineStatus();
 
   const fetchDocuments = useCallback(async () => {
     setLoading(true);
@@ -52,9 +56,14 @@ export function Documents() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error(error.message);
+      if (!navigator.onLine) {
+        setFetchError(true);
+      } else {
+        toast.error(error.message);
+      }
       setDocuments([]);
     } else {
+      setFetchError(false);
       setDocuments((data ?? []) as DbDocument[]);
     }
     setLoading(false);
@@ -63,6 +72,15 @@ export function Documents() {
   useEffect(() => {
     fetchDocuments();
   }, [fetchDocuments]);
+
+  // Auto-retry when coming back online
+  useEffect(() => {
+    if (isOnline && fetchError) {
+      setFetchError(false);
+      fetchDocuments();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   const storage = useMemo(() => getTotalStorageMb(documents), [documents]);
 
@@ -123,6 +141,22 @@ export function Documents() {
     setDocuments(prev => prev.filter(d => d.id !== doc.id));
     toast.success('Document deleted');
   };
+
+  if (fetchError || (!isOnline && !loading && documents.length === 0)) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <PageHeader
+          title="Documents Hub"
+          subtitle="Centralised library for all your documents"
+          backTo="/dashboard"
+        />
+        <OfflinePage
+          onRetry={() => { setFetchError(false); fetchDocuments(); }}
+          pageName="your documents"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

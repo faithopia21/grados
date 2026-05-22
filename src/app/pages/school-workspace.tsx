@@ -1395,7 +1395,7 @@ export function SchoolWorkspace() {
                         onClick={() => window.open(program.portal_url!, '_blank')}
                       >
                         <ExternalLink className="h-4 w-4 mr-1" />
-                        Open ↗
+                        Open
                       </Button>
                       <Button
                         size="sm"
