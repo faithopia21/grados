@@ -19,11 +19,15 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
   const navigate = useNavigate();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [initials, setInitials] = useState('G');
+  const [displayName, setDisplayName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     const loadUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      setUserEmail(user.email ?? '');
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -33,15 +37,20 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
 
       const name =
         profile?.full_name ||
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
+        (user.user_metadata?.full_name as string | undefined) ||
+        (user.user_metadata?.name as string | undefined) ||
         user.email ||
-        'G';
+        '';
+
+      setDisplayName(name);
+
       const parts = String(name).trim().split(/\s+/);
       if (parts.length >= 2) {
         setInitials(`${parts[0][0]}${parts[1][0]}`.toUpperCase());
-      } else {
+      } else if (name) {
         setInitials(String(name).slice(0, 2).toUpperCase());
+      } else {
+        setInitials('G');
       }
     };
 
@@ -67,25 +76,28 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
           {pageName}
         </h2>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => setIsDrawerOpen(true)}
-            className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium"
-            aria-label="Open account menu"
-          >
-            {initials}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsDrawerOpen(true)}
+          className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium shrink-0"
+          aria-label="Open account menu"
+        >
+          {initials}
+        </button>
       </header>
 
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <SheetContent side="bottom" className="h-auto rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle>Account</SheetTitle>
+        <SheetContent side="bottom" className="h-auto rounded-t-2xl pb-8">
+          <SheetHeader className="text-left border-b border-border pb-4">
+            <SheetTitle className="text-base font-semibold">
+              {displayName || 'Account'}
+            </SheetTitle>
+            {userEmail && (
+              <p className="text-sm text-muted-foreground font-normal">{userEmail}</p>
+            )}
           </SheetHeader>
-          <div className="py-4 space-y-2">
+
+          <div className="py-2 space-y-1">
             <Button
               variant="ghost"
               className="w-full justify-start min-h-[44px]"
@@ -94,7 +106,7 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
                 navigate('/profile');
               }}
             >
-              Profile
+              Edit Profile
             </Button>
             <Button
               variant="ghost"
@@ -106,6 +118,14 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
             >
               Settings
             </Button>
+
+            <div className="flex items-center justify-between px-3 py-2 min-h-[44px]">
+              <span className="text-sm font-medium">Dark mode</span>
+              <ThemeToggle />
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-2 mt-2">
             <Button
               variant="ghost"
               className="w-full justify-start text-[#DC2626] hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px]"
@@ -115,7 +135,7 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
               }}
             >
               <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
+              Sign out
             </Button>
           </div>
         </SheetContent>

@@ -1,4 +1,4 @@
-import { Application, University, Program, UserProfile, Supervisor } from '../types';
+import { Application, University, Program, Supervisor } from '../types';
 
 export const mockUniversities: University[] = [
   {
@@ -225,74 +225,3 @@ export const mockApplications: Application[] = [
   },
 ];
 
-export const mockUserProfile: UserProfile = {
-  id: 'user-1',
-  personalInfo: {
-    firstName: 'Amara',
-    lastName: 'Okonkwo',
-    email: 'amara.okonkwo@email.com',
-    phone: '+234 802 123 4567',
-    nationality: 'Nigerian',
-  },
-  education: [
-    {
-      id: 'edu-1',
-      institution: 'University of Lagos',
-      degree: 'Bachelor of Science',
-      field: 'Computer Science',
-      startDate: '2020-09',
-      endDate: '2024-06',
-      gpa: 4.75,
-      maxGpa: 5.0,
-    },
-  ],
-  testScores: [
-    {
-      id: 'test-1',
-      type: 'GRE',
-      score: '330',
-      date: '2025-08-15',
-      breakdown: { verbal: 165, quant: 165, writing: 4.5 },
-    },
-    {
-      id: 'test-2',
-      type: 'TOEFL',
-      score: '115',
-      date: '2025-09-10',
-      breakdown: { reading: 29, listening: 30, speaking: 28, writing: 28 },
-    },
-  ],
-  publications: [
-    {
-      id: 'pub-1',
-      title: 'Efficient Deep Learning Models for Resource-Constrained Environments',
-      authors: ['A. Okonkwo', 'J. Smith', 'K. Johnson'],
-      venue: 'NeurIPS 2024',
-      year: 2024,
-      citations: 12,
-    },
-  ],
-  projects: [
-    {
-      id: 'proj-1',
-      title: 'Distributed Machine Learning Framework',
-      description: 'Built a scalable ML framework for training models across distributed systems',
-      technologies: ['Python', 'TensorFlow', 'Kubernetes', 'gRPC'],
-      startDate: '2023-01',
-      endDate: '2024-03',
-      link: 'https://github.com/user/project',
-    },
-  ],
-  experience: [
-    {
-      id: 'exp-1',
-      company: 'TechAfrica Labs',
-      position: 'Machine Learning Research Intern',
-      startDate: '2023-06',
-      endDate: '2024-01',
-      description: 'Developed NLP models for low-resource African languages',
-      location: 'Lagos, Nigeria',
-    },
-  ],
-  researchInterests: ['Machine Learning', 'Computer Vision', 'AI for Social Good', 'Edge Computing'],
-};

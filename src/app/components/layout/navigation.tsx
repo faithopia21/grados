@@ -6,6 +6,7 @@ import {
   Settings,
   Calendar,
   LogOut,
+  User,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { ThemeToggle } from '../theme-toggle';
@@ -21,6 +22,7 @@ const navItems = [
   { name: 'Applications', path: '/applications', icon: School },
   { name: 'Deadlines', path: '/deadlines', icon: Calendar },
   { name: 'Documents', path: '/documents', icon: FileText },
+  { name: 'Profile', path: '/profile', icon: User },
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
