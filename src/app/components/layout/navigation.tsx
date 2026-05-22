@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   School,
@@ -7,6 +8,8 @@ import {
   Calendar,
   LogOut,
   User,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { ThemeToggle } from '../theme-toggle';
@@ -37,6 +40,24 @@ export function Navigation({
 }: NavigationProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+    const initialTheme = savedTheme || systemTheme;
+    setTheme(initialTheme);
+    document.documentElement.classList.toggle('dark', initialTheme === 'dark');
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -44,6 +65,27 @@ export function Navigation({
   };
 
   const closeOverlay = () => onTabletOverlayClose?.();
+
+  const isNavActive = (path: string) =>
+    location.pathname === path ||
+    (path === '/dashboard' && location.pathname === '/');
+
+  const navLinkClass = (isActive: boolean) =>
+    cn(
+      'flex items-center w-full transition-colors min-h-[44px] rounded-lg',
+      'md:justify-center md:px-0 md:py-2.5 md:gap-0',
+      'lg:justify-start lg:gap-3 lg:px-4 lg:py-2.5 lg:text-[13px] lg:font-medium',
+      isActive
+        ? cn(
+            'lg:bg-[#EEF2FF] lg:text-[#4F46E5] lg:border-l-2 lg:border-[#4F46E5]',
+            'dark:lg:bg-indigo-950/40',
+            'md:bg-[--primary-light] md:text-primary md:border-l-2 md:border-primary'
+          )
+        : cn(
+            'lg:text-[#888780] lg:hover:bg-accent/60',
+            'md:text-muted-foreground md:hover:bg-accent md:hover:text-accent-foreground'
+          )
+    );
 
   return (
     <>
@@ -58,10 +100,8 @@ export function Navigation({
       <nav
         className={cn(
           'hidden md:flex fixed md:sticky top-0 h-screen border-r border-border bg-card flex-col z-50 transition-all duration-300',
-          'md:w-16 lg:w-60',
-          tabletOverlayOpen
-            ? 'md:w-60 md:shadow-xl'
-            : 'md:translate-x-0'
+          'md:w-16 lg:w-[240px]',
+          tabletOverlayOpen ? 'md:w-60 md:shadow-xl' : 'md:translate-x-0'
         )}
       >
         <div className="p-4 border-b border-border flex items-center justify-center lg:justify-start lg:px-6 lg:py-6">
@@ -81,24 +121,16 @@ export function Navigation({
           <div className="space-y-1 px-2 lg:px-3">
             {navItems.map(item => {
               const Icon = item.icon;
-              const isActive =
-                location.pathname === item.path ||
-                (item.path === '/dashboard' && location.pathname === '/');
+              const isActive = isNavActive(item.path);
 
               const link = (
                 <Link
                   key={item.path}
                   to={item.path}
                   onClick={closeOverlay}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]',
-                    'md:justify-center lg:justify-start',
-                    isActive
-                      ? 'bg-[--primary-light] text-primary border-l-2 border-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
+                  className={navLinkClass(isActive)}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
+                  <Icon className="h-4 w-4 shrink-0 lg:h-5 lg:w-5" />
                   <span className="hidden lg:inline">{item.name}</span>
                 </Link>
               );
@@ -114,32 +146,67 @@ export function Navigation({
                 </Tooltip>
               );
             })}
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full min-h-[44px]',
-                    'md:justify-center lg:justify-start',
-                    'text-muted-foreground hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30'
-                  )}
-                >
-                  <LogOut className="h-4 w-4 shrink-0" />
-                  <span className="hidden lg:inline">Sign Out</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="lg:hidden">
-                Sign Out
-              </TooltipContent>
-            </Tooltip>
           </div>
         </div>
 
-        <div className="p-2 lg:p-3 border-t border-border flex items-center justify-center lg:justify-between lg:px-3">
-          <span className="hidden lg:inline text-xs text-muted-foreground">Theme</span>
-          <ThemeToggle />
+        {/* Tablet bottom: icon-only theme + sign out */}
+        <div className="md:flex lg:hidden flex-col border-t border-border p-2 items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex justify-center w-full">
+                <ThemeToggle />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right">Theme</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className={cn(
+                  'flex items-center justify-center w-full min-h-[44px] rounded-lg transition-colors',
+                  'text-muted-foreground hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30'
+                )}
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Sign Out</TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Desktop bottom: divider, theme row, sign out row */}
+        <div className="hidden lg:flex flex-col border-t border-border">
+          <div className="px-3 pt-3 pb-2 space-y-1">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={cn(
+                'flex items-center gap-3 w-full px-4 py-2.5 rounded-lg min-h-[44px]',
+                'text-[13px] font-medium text-[#888780] hover:bg-accent/60 transition-colors'
+              )}
+            >
+              {theme === 'light' ? (
+                <Moon className="h-5 w-5 shrink-0" />
+              ) : (
+                <Sun className="h-5 w-5 shrink-0" />
+              )}
+              <span>Theme</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className={cn(
+                'flex items-center gap-3 w-full px-4 py-2.5 rounded-lg min-h-[44px]',
+                'text-[13px] font-medium text-[#888780] transition-colors',
+                'hover:bg-red-50 hover:text-[#DC2626] dark:hover:bg-red-950/30'
+              )}
+            >
+              <LogOut className="h-5 w-5 shrink-0" />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
       </nav>
     </>

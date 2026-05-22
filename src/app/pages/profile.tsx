@@ -76,6 +76,20 @@ function getCompletionPercent(profile: ProfileRow): number {
   return Math.round((filledFields / 6) * 100);
 }
 
+function getProfileInitials(fullName: string | null, email: string): string {
+  if (fullName?.trim()) {
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return fullName.trim().slice(0, 2).toUpperCase();
+  }
+  if (email) {
+    return email.slice(0, 2).toUpperCase();
+  }
+  return 'G';
+}
+
 function ProfileSkeleton() {
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -135,12 +149,33 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
 
   const [savingTab, setSavingTab] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
-  const [localProfile, setLocalProfile] = useState(profile);
 
   const profileCompletion = useMemo(
-    () => getCompletionPercent(localProfile),
-    [localProfile]
+    () => getCompletionPercent(profile),
+    [profile]
   );
+
+  useEffect(() => {
+    setFullName(profile.full_name ?? '');
+    setNationality(profile.nationality ?? '');
+    setCurrentInstitution(profile.current_institution ?? '');
+    setIntendedDegree(profile.intended_degree ?? '');
+    setFieldOfStudy(profile.field_of_study ?? '');
+    setIntendedStartTerm(profile.intended_start_term ?? '');
+    setGreVerbal(profile.gre_verbal?.toString() ?? '');
+    setGreQuant(profile.gre_quant?.toString() ?? '');
+    setGreAwa(profile.gre_awa?.toString() ?? '');
+    setToeflScore(profile.toefl_score?.toString() ?? '');
+    setIeltsScore(profile.ielts_score?.toString() ?? '');
+    setGmatScore(profile.gmat_score?.toString() ?? '');
+    setInterestTags(
+      profile.research_interests
+        ? parseResearchInterests(profile.research_interests)
+        : []
+    );
+    setExperience(profile.experience ?? '');
+    setEducation(profile.education ?? '');
+  }, [profile]);
 
   const nationalityOptions = useMemo(() => {
     const q = nationality.trim();
@@ -172,7 +207,6 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
     }
 
     const updated = data as ProfileRow;
-    setLocalProfile(updated);
     onProfileUpdated(updated);
     toast.success('Profile saved');
     return true;
@@ -660,6 +694,9 @@ export function Profile() {
     );
   }
 
+  const displayName = profile.full_name?.trim() || email || 'Your profile';
+  const initials = getProfileInitials(profile.full_name, email);
+
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div>
@@ -669,8 +706,23 @@ export function Profile() {
         </p>
       </div>
 
+      <div className="flex items-center gap-4">
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold"
+          style={{ backgroundColor: '#4F46E5' }}
+        >
+          {initials}
+        </div>
+        <div className="min-w-0">
+          <p className="text-base font-semibold truncate">{displayName}</p>
+          {email && (
+            <p className="text-[13px] text-muted-foreground truncate">{email}</p>
+          )}
+        </div>
+      </div>
+
       <ProfilePageContent
-        key={profile.id}
+        key={`${profile.id}-${profile.full_name ?? ''}`}
         profile={profile}
         email={email}
         onProfileUpdated={setProfile}
