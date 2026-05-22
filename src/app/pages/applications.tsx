@@ -38,6 +38,7 @@ interface DbProgram {
   funding_available: boolean;
   portal_url: string | null;
   status: string;
+  created_at: string;
 }
 
 interface ProgramWithProgress extends DbProgram {
@@ -434,7 +435,7 @@ export function Applications() {
         return a.daysUntil - b.daysUntil;
       }
       if (sortBy === 'recent') {
-        return b.id.localeCompare(a.id);
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
       if (sortBy === 'progress-high') {
         const aProgress = a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0;

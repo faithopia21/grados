@@ -6,7 +6,7 @@ export interface University {
   ranking?: string;
 }
 
-const FALLBACK_UNIVERSITIES: University[] = [
+export const LOCAL_UNIVERSITIES: University[] = [
   { name: "Massachusetts Institute of Technology", country: "United States", web_pages: ["https://mit.edu"], tuition: "$59,750", ranking: "#1 QS World" },
   { name: "Stanford University", country: "United States", web_pages: ["https://stanford.edu"], tuition: "$62,484", ranking: "#5 QS World" },
   { name: "Harvard University", country: "United States", web_pages: ["https://harvard.edu"], tuition: "$54,768", ranking: "#4 QS World" },
@@ -127,7 +127,7 @@ export async function searchUniversities(
 
   // If API returned nothing or failed, use fallback
   if (results.length === 0) {
-    results = FALLBACK_UNIVERSITIES.filter(u => 
+    results = LOCAL_UNIVERSITIES.filter(u => 
       u.name.toLowerCase().includes(normalizedQuery)
     );
   }

@@ -21,7 +21,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { AutocompleteInput } from './autocomplete-input';
-import { searchUniversities } from '../../data/universities';
+import { searchUniversities, LOCAL_UNIVERSITIES } from '../../data/universities';
 import { COUNTRIES } from '../../data/countries';
 
 interface AddSchoolDialogProps {
@@ -363,13 +363,18 @@ export function AddSchoolDialog({
                   handleChange('universityName', option.value);
                   return;
                 }
+
+                const localMatch = LOCAL_UNIVERSITIES.find(
+                  u => u.name.toLowerCase() === option.value.toLowerCase()
+                );
+
                 setFormData(prev => ({
                   ...prev,
                   universityName: option.value,
-                  country: option.secondary || prev.country,
-                  portalUrl: prev.portalUrl || (option as any).web_pages?.[0] || '',
-                  tuition: (option as any).tuition || '',
-                  ranking: (option as any).ranking || '',
+                  country: option.secondary || localMatch?.country || prev.country,
+                  portalUrl: prev.portalUrl || (option as any).web_pages?.[0] || localMatch?.web_pages?.[0] || '',
+                  tuition: localMatch?.tuition || '',
+                  ranking: localMatch?.ranking || '',
                 }));
                 if (fieldErrors.universityName) {
                   setFieldErrors(prev => ({ ...prev, universityName: undefined }));
@@ -495,7 +500,7 @@ export function AddSchoolDialog({
                 type="date"
                 value={formData.applicationDeadline}
                 onChange={e => handleChange('applicationDeadline', e.target.value)}
-                style={{ colorScheme: 'auto' }}
+                className="[color-scheme:light] dark:[color-scheme:dark]"
               />
               {fieldErrors.applicationDeadline && (
                 <p className="text-sm text-red-600">{fieldErrors.applicationDeadline}</p>
@@ -509,7 +514,7 @@ export function AddSchoolDialog({
                 type="date"
                 value={formData.fundingDeadline}
                 onChange={e => handleChange('fundingDeadline', e.target.value)}
-                style={{ colorScheme: 'auto' }}
+                className="[color-scheme:light] dark:[color-scheme:dark]"
               />
             </div>
           </div>
