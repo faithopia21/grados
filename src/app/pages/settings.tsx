@@ -374,9 +374,14 @@ export function Settings() {
                   Help us improve GradOS
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => window.open('mailto:support@grados.app?subject=GradOS Feedback')}>
+              <a
+                href="https://forms.google.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+              >
                 Open feedback form
-              </Button>
+              </a>
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5 pr-4">
@@ -385,9 +390,12 @@ export function Settings() {
                   Something not working correctly?
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => window.open('mailto:support@grados.app?subject=Bug Report - GradOS')}>
-                Report
-              </Button>
+              <a
+                href="mailto:support@grados.app?subject=Bug Report - GradOS&body=Describe the bug here..."
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+              >
+                Report a bug
+              </a>
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5 pr-4">
@@ -396,9 +404,14 @@ export function Settings() {
                   Common questions and how-tos
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => window.open('https://grados.app/help')}>
+              <a
+                href="https://grados.app/help"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+              >
                 View FAQs
-              </Button>
+              </a>
             </div>
             <div className="flex items-center justify-between pt-2">
               <div className="space-y-0.5">

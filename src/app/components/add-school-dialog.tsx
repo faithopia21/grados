@@ -216,18 +216,23 @@ export function AddSchoolDialog({
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('research_interests')
+        .select('research_interests, field_of_study')
         .eq('id', user.id)
         .maybeSingle();
-      if (!data?.research_interests) return;
-      try {
-        const parsed = JSON.parse(data.research_interests);
-        if (Array.isArray(parsed)) {
-          setProfileInterests(parsed.filter((t): t is string => typeof t === 'string'));
-        }
-      } catch { /* ignore */ }
+      const interests: string[] = [];
+      if (profile?.research_interests) {
+        try {
+          const parsed = JSON.parse(profile.research_interests);
+          if (Array.isArray(parsed)) interests.push(...parsed.filter((t): t is string => typeof t === 'string'));
+        } catch { /* ignore */ }
+      }
+      const fieldOfStudy = profile?.field_of_study as string | undefined;
+      const allSuggestions = fieldOfStudy
+        ? [fieldOfStudy, ...interests.filter(i => i !== fieldOfStudy)]
+        : interests;
+      setProfileInterests(allSuggestions.slice(0, 8));
     })();
   }, [open]);
 
@@ -303,6 +308,19 @@ export function AddSchoolDialog({
       .map(c => ({ value: c, label: c }));
   }, [formData.country]);
 
+  const programNameOptions = useMemo(() => {
+    if (profileInterests.length === 0) return [];
+    const q = formData.programName.trim().toLowerCase();
+    const filtered = q
+      ? profileInterests.filter(i => i.toLowerCase().includes(q))
+      : profileInterests;
+    if (filtered.length === 0) return [];
+    return [
+      { value: '', label: 'FROM YOUR PROFILE', disabled: true, isCustom: false },
+      ...filtered.slice(0, 5).map(i => ({ value: i, label: i })),
+    ];
+  }, [profileInterests, formData.programName]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] md:max-h-[90vh] max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-t-2xl max-md:h-[90vh] max-md:flex max-md:flex-col p-0 gap-0 overflow-hidden">
@@ -356,26 +374,22 @@ export function AddSchoolDialog({
               <Label htmlFor="programName">
                 Program Name <span className="text-destructive">*</span>
               </Label>
-              <Input
+              <AutocompleteInput
                 id="programName"
                 placeholder="e.g., Computer Science"
                 value={formData.programName}
-                onChange={e => handleChange('programName', e.target.value)}
+                onChange={value => handleChange('programName', value)}
+                options={programNameOptions}
+                maxResults={6}
+                onSelect={option => {
+                  handleChange('programName', option.value);
+                  if (fieldErrors.programName) {
+                    setFieldErrors(prev => ({ ...prev, programName: undefined }));
+                  }
+                }}
               />
               {fieldErrors.programName && (
                 <p className="text-sm text-red-600">{fieldErrors.programName}</p>
-              )}
-              {/* Research interests context — display only */}
-              {profileInterests.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Based on your profile:{' '}
-                  {profileInterests.slice(0, 3).map((t, i) => (
-                    <span key={t}>
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[11px]">{t}</span>
-                      {i < Math.min(profileInterests.length, 3) - 1 ? ' ' : ''}
-                    </span>
-                  ))}
-                </p>
               )}
             </div>
 

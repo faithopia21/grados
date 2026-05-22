@@ -286,6 +286,7 @@ export function SchoolWorkspace() {
   // Portal inline-editing state
   const [editingPortalUrl, setEditingPortalUrl] = useState(false);
   const [portalUrlDraft, setPortalUrlDraft] = useState('');
+  const [portalSaving, setPortalSaving] = useState(false);
   const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
   const [editingLinkDraft, setEditingLinkDraft] = useState({ label: '', url: '' });
   const [showAddLink, setShowAddLink] = useState(false);
@@ -653,16 +654,22 @@ export function SchoolWorkspace() {
   };
 
   const handleSavePortalUrl = async () => {
-    if (!program) return;
+    if (!program?.id) return;
     const url = portalUrlDraft.trim();
+    setPortalSaving(true);
     const { error } = await supabase
       .from('programs')
       .update({ portal_url: url || null })
       .eq('id', program.id);
-    if (error) { toast.error(error.message); return; }
-    setProgram(prev => (prev ? { ...prev, portal_url: url || null } : prev));
+    if (error) {
+      toast.error('Failed to save portal URL');
+      setPortalSaving(false);
+      return;
+    }
+    setProgram(prev => prev ? { ...prev, portal_url: url || null } : prev);
     setEditingPortalUrl(false);
-    toast.success('Portal URL updated');
+    setPortalSaving(false);
+    toast.success('Portal URL saved');
   };
 
   const handleSaveNewLink = async () => {
@@ -1374,8 +1381,10 @@ export function SchoolWorkspace() {
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={handleSavePortalUrl}>Save</Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingPortalUrl(false)}>Cancel</Button>
+                      <Button size="sm" onClick={handleSavePortalUrl} disabled={portalSaving}>
+                        {portalSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingPortalUrl(false)} disabled={portalSaving}>Cancel</Button>
                     </div>
                   </div>
                 ) : program.portal_url ? (
