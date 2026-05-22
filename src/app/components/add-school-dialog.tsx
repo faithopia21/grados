@@ -45,6 +45,9 @@ export interface SchoolFormData {
   fundingDeadline?: string;
   fundingAvailable: boolean;
   notes?: string;
+  tuition?: string;
+  ranking?: string;
+  round?: string;
 }
 
 const emptyForm: SchoolFormData = {
@@ -58,6 +61,9 @@ const emptyForm: SchoolFormData = {
   fundingDeadline: '',
   fundingAvailable: false,
   notes: '',
+  tuition: '',
+  ranking: '',
+  round: 'Regular Decision',
 };
 
 export function AddSchoolDialog({
@@ -128,6 +134,9 @@ export function AddSchoolDialog({
       deadline: formData.applicationDeadline,
       funding_available: formData.fundingAvailable,
       portal_url: formData.portalUrl.trim() || null,
+      tuition: formData.tuition?.trim() || null,
+      ranking: formData.ranking?.trim() || null,
+      application_round: formData.round || null,
     };
 
     if (isEditing && editingProgramId) {
@@ -358,6 +367,9 @@ export function AddSchoolDialog({
                   ...prev,
                   universityName: option.value,
                   country: option.secondary || prev.country,
+                  portalUrl: prev.portalUrl || (option as any).web_pages?.[0] || '',
+                  tuition: (option as any).tuition || '',
+                  ranking: (option as any).ranking || '',
                 }));
                 if (fieldErrors.universityName) {
                   setFieldErrors(prev => ({ ...prev, universityName: undefined }));
@@ -437,6 +449,28 @@ export function AddSchoolDialog({
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="tuition">Tuition (Annual)</Label>
+              <Input
+                id="tuition"
+                placeholder="e.g. $58,000 or £12,000"
+                value={formData.tuition || ''}
+                onChange={e => handleChange('tuition', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ranking">University Ranking</Label>
+              <Input
+                id="ranking"
+                placeholder="e.g. #1 QS World or #3 THE"
+                value={formData.ranking || ''}
+                onChange={e => handleChange('ranking', e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="portalUrl">Application Portal URL</Label>
             <Input
@@ -490,6 +524,24 @@ export function AddSchoolDialog({
               />
               Funding Available
             </Label>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="round">Application Round</Label>
+            <Select
+              value={formData.round}
+              onValueChange={value => handleChange('round', value)}
+            >
+              <SelectTrigger id="round">
+                <SelectValue placeholder="Select round" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Early Decision">Early Decision</SelectItem>
+                <SelectItem value="Early Action">Early Action</SelectItem>
+                <SelectItem value="Regular Decision">Regular Decision</SelectItem>
+                <SelectItem value="Rolling Admission">Rolling Admission</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

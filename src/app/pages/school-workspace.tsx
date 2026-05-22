@@ -56,8 +56,8 @@ import {
   Link2,
   Unlink,
   Download,
-  Download,
   X,
+  ChevronRight,
 } from 'lucide-react';
 import { PageHeader } from '../components/page-header';
 
@@ -805,6 +805,12 @@ export function SchoolWorkspace() {
   const checklistDone = checklistItems.filter(i => i.is_done).length;
   const checklistTotal = checklistItems.length;
   const checklistProgress = checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0;
+
+  const nextSteps = useMemo(() => {
+    return [...checklistItems]
+      .filter(item => !item.is_done)
+      .slice(0, 5);
+  }, [checklistItems]);
   const statusLabel = displayProgramStatus(program.status);
   const statusKey = normalizeProgramStatus(program.status);
 
@@ -903,8 +909,8 @@ export function SchoolWorkspace() {
         </div>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
+          <div className="flex flex-col md:flex-row gap-4">
+            <Card className="w-full md:w-[220px] shrink-0">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm">Application Deadline</CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -917,21 +923,64 @@ export function SchoolWorkspace() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm">Checklist Progress</CardTitle>
-                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            <Card className="flex-1 bg-white dark:bg-card border-border rounded-xl">
+              <CardHeader className="pb-2">
+                <CardTitle>Next Steps</CardTitle>
+                <CardDescription>Your top priorities</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-xl">
-                  {checklistDone}/{checklistTotal}
-                </div>
-                <Progress value={checklistProgress} className="mt-2" />
+              <CardContent className="p-4 pt-0">
+                {checklistItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">No checklist added yet</p>
+                    <button
+                      onClick={() => {
+                        setActiveTab('requirements');
+                        handleGenerateDefaultChecklist();
+                      }}
+                      className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      Generate checklist &rarr;
+                    </button>
+                  </div>
+                ) : nextSteps.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
+                    <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">All requirements complete</p>
+                      <p className="text-xs text-muted-foreground">Ready to review and submit</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    {nextSteps.map((step, idx) => (
+                      <div
+                        key={step.id}
+                        onClick={() => setActiveTab('requirements')}
+                        className={`flex items-center gap-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors px-2 rounded-md ${
+                          idx !== nextSteps.length - 1 ? 'border-b border-border/50' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#4F46E5] text-white text-[10px] font-bold shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 text-[13px] text-foreground truncate">
+                          {step.label}
+                        </div>
+                        {step.is_required && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                            Required
+                          </Badge>
+                        )}
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Card>
               <CardHeader>
                 <CardTitle>Quick Info</CardTitle>
@@ -957,41 +1006,6 @@ export function SchoolWorkspace() {
                   }
                 />
                 <InfoRow label="Application round" value={program.application_round} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Application Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Badge
-                  variant={getStatusBadgeVariant(program.status)}
-                  className={`text-base px-3 py-1 ${getStatusBadgeClassName(program.status)}`}
-                >
-                  {statusLabel}
-                </Badge>
-                {statusKey !== 'accepted' && statusKey !== 'rejected' && (
-                  <>
-                    {statusKey === 'submitted' ? (
-                      <Button
-                        variant="outline"
-                        className="w-full border-green-600 text-green-700 dark:text-green-400"
-                        disabled
-                      >
-                        Submitted ✓
-                      </Button>
-                    ) : (
-                      <Button
-                        className="w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white"
-                        onClick={handleMarkAsSubmitted}
-                        disabled={statusSaving}
-                      >
-                        Mark as Submitted
-                      </Button>
-                    )}
-                  </>
-                )}
               </CardContent>
             </Card>
           </div>

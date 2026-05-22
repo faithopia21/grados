@@ -2,15 +2,27 @@ export interface University {
   name: string;
   country: string;
   web_pages?: string[];
+  tuition?: string;
+  ranking?: string;
 }
 
 const FALLBACK_UNIVERSITIES: University[] = [
-  // US - Ivy & Elite
-  { name: 'Harvard University', country: 'United States' },
-  { name: 'Stanford University', country: 'United States' },
-  { name: 'Massachusetts Institute of Technology (MIT)', country: 'United States' },
+  { name: "Massachusetts Institute of Technology", country: "United States", web_pages: ["https://mit.edu"], tuition: "$59,750", ranking: "#1 QS World" },
+  { name: "Stanford University", country: "United States", web_pages: ["https://stanford.edu"], tuition: "$62,484", ranking: "#5 QS World" },
+  { name: "Harvard University", country: "United States", web_pages: ["https://harvard.edu"], tuition: "$54,768", ranking: "#4 QS World" },
+  { name: "University of California Berkeley", country: "United States", web_pages: ["https://berkeley.edu"], tuition: "$29,026", ranking: "#10 QS World" },
+  { name: "Carnegie Mellon University", country: "United States", web_pages: ["https://cmu.edu"], tuition: "$58,924", ranking: "#52 QS World" },
+  { name: "Princeton University", country: "United States", web_pages: ["https://princeton.edu"], tuition: "$59,710", ranking: "#20 QS World" },
+  { name: "University of Oxford", country: "United Kingdom", web_pages: ["https://ox.ac.uk"], tuition: "£35,725", ranking: "#3 QS World" },
+  { name: "University of Cambridge", country: "United Kingdom", web_pages: ["https://cam.ac.uk"], tuition: "£35,517", ranking: "#2 QS World" },
+  { name: "Imperial College London", country: "United Kingdom", web_pages: ["https://imperial.ac.uk"], tuition: "£37,900", ranking: "#8 QS World" },
+  { name: "University College London", country: "United Kingdom", web_pages: ["https://ucl.ac.uk"], tuition: "£35,000", ranking: "#9 QS World" },
+  { name: "ETH Zurich", country: "Switzerland", web_pages: ["https://ethz.ch"], tuition: "CHF 730", ranking: "#7 QS World" },
+  { name: "University of Toronto", country: "Canada", web_pages: ["https://utoronto.ca"], tuition: "CAD $14,180", ranking: "#25 QS World" },
+  { name: "McGill University", country: "Canada", web_pages: ["https://mcgill.ca"], tuition: "CAD $21,000", ranking: "#30 QS World" },
+  { name: "National University of Singapore", country: "Singapore", web_pages: ["https://nus.edu.sg"], tuition: "SGD $17,550", ranking: "#11 QS World" },
+  // US - Ivy & Elite (Fallbacks without ranking/tuition for broad search)
   { name: 'Yale University', country: 'United States' },
-  { name: 'Princeton University', country: 'United States' },
   { name: 'Columbia University', country: 'United States' },
   { name: 'University of Pennsylvania', country: 'United States' },
   { name: 'Cornell University', country: 'United States' },
@@ -22,22 +34,16 @@ const FALLBACK_UNIVERSITIES: University[] = [
   { name: 'Northwestern University', country: 'United States' },
   { name: 'Duke University', country: 'United States' },
   // US - Top Public/CS
-  { name: 'University of California, Berkeley (UCB)', country: 'United States' },
   { name: 'University of California, Los Angeles (UCLA)', country: 'United States' },
   { name: 'University of Michigan, Ann Arbor', country: 'United States' },
   { name: 'University of Washington', country: 'United States' },
   { name: 'University of Texas at Austin', country: 'United States' },
   { name: 'University of Illinois at Urbana-Champaign', country: 'United States' },
   { name: 'Georgia Institute of Technology', country: 'United States' },
-  { name: 'Carnegie Mellon University', country: 'United States' },
   { name: 'University of California, San Diego (UCSD)', country: 'United States' },
   { name: 'New York University (NYU)', country: 'United States' },
   { name: 'University of Southern California (USC)', country: 'United States' },
   // UK - Russell Group & Top
-  { name: 'University of Oxford', country: 'United Kingdom' },
-  { name: 'University of Cambridge', country: 'United Kingdom' },
-  { name: 'Imperial College London', country: 'United Kingdom' },
-  { name: 'University College London (UCL)', country: 'United Kingdom' },
   { name: 'London School of Economics and Political Science (LSE)', country: 'United Kingdom' },
   { name: 'King\'s College London', country: 'United Kingdom' },
   { name: 'University of Edinburgh', country: 'United Kingdom' },
@@ -48,15 +54,12 @@ const FALLBACK_UNIVERSITIES: University[] = [
   { name: 'University of Southampton', country: 'United Kingdom' },
   { name: 'University of Nottingham', country: 'United Kingdom' },
   // Canada
-  { name: 'University of Toronto', country: 'Canada' },
   { name: 'University of British Columbia', country: 'Canada' },
-  { name: 'McGill University', country: 'Canada' },
   { name: 'University of Waterloo', country: 'Canada' },
   { name: 'McMaster University', country: 'Canada' },
   { name: 'University of Montreal', country: 'Canada' },
   { name: 'University of Alberta', country: 'Canada' },
   // Europe
-  { name: 'ETH Zurich', country: 'Switzerland' },
   { name: 'EPFL', country: 'Switzerland' },
   { name: 'Technical University of Munich (TUM)', country: 'Germany' },
   { name: 'LMU Munich', country: 'Germany' },
@@ -71,7 +74,6 @@ const FALLBACK_UNIVERSITIES: University[] = [
   { name: 'Ecole Polytechnique', country: 'France' },
   { name: 'Politecnico di Milano', country: 'Italy' },
   // Asia
-  { name: 'National University of Singapore (NUS)', country: 'Singapore' },
   { name: 'Nanyang Technological University (NTU)', country: 'Singapore' },
   { name: 'Tsinghua University', country: 'China' },
   { name: 'Peking University', country: 'China' },
