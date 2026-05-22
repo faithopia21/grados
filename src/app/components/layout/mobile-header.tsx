@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Sun, Moon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Button } from '../ui/button';
 import {
@@ -20,6 +20,21 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
   const [initials, setInitials] = useState('G');
   const [displayName, setDisplayName] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [isDark, setIsDark] = useState(
+    document.documentElement.classList.contains('dark')
+  );
+
+  const toggleTheme = () => {
+    const newDark = !isDark;
+    setIsDark(newDark);
+    if (newDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   useEffect(() => {
     const loadUser = async () => {
@@ -75,14 +90,23 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
           {pageName}
         </h2>
 
-        <button
-          type="button"
-          onClick={() => setIsDrawerOpen(true)}
-          className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium shrink-0"
-          aria-label="Open account menu"
-        >
-          {initials}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={toggleTheme}
+            className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-accent transition-colors"
+            aria-label="Toggle theme"
+          >
+            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsDrawerOpen(true)}
+            className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium"
+            aria-label="Open account menu"
+          >
+            {initials}
+          </button>
+        </div>
       </header>
 
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>

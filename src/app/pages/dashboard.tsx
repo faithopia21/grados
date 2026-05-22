@@ -46,56 +46,76 @@ export function Dashboard() {
   const navigate = useNavigate();
 
   const fetchPrograms = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setPrograms([]);
+    setLoadingPrograms(true);
+
+    if (!navigator.onLine) {
+      setFetchError(true);
       setLoadingPrograms(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from('programs')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('deadline', { ascending: true });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setPrograms([]);
+        setLoadingPrograms(false);
+        return;
+      }
 
-    if (error) {
-      if (!navigator.onLine) setFetchError(true);
+      const { data, error } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('deadline', { ascending: true });
+
+      if (error) throw error;
+
+      setFetchError(false);
+
+      if (data) {
+        const programsWithNextStep = await Promise.all(
+          (data as DbProgram[]).map(async program => {
+            const { count } = await supabase
+              .from('checklist_items')
+              .select('*', { count: 'exact', head: true })
+              .eq('program_id', program.id);
+
+            const hasChecklist = (count ?? 0) > 0;
+
+            const { data: nextItem } = await supabase
+              .from('checklist_items')
+              .select('label')
+              .eq('program_id', program.id)
+              .eq('is_done', false)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle();
+
+            return {
+              ...program,
+              nextStep: nextItem?.label ?? null,
+              hasChecklist,
+            };
+          })
+        );
+        setPrograms(programsWithNextStep);
+      }
+    } catch (err: any) {
+      if (
+        !navigator.onLine ||
+        err.message?.includes('Failed to fetch') ||
+        err.message?.includes('NetworkError') ||
+        err.message?.includes('network') ||
+        err.code === 'NETWORK_ERROR'
+      ) {
+        setFetchError(true);
+      } else {
+        toast.error('Failed to load data');
+        setFetchError(false);
+      }
+    } finally {
       setLoadingPrograms(false);
-      return;
     }
-
-    setFetchError(false);
-
-    if (data) {
-      const programsWithNextStep = await Promise.all(
-        (data as DbProgram[]).map(async program => {
-          const { count } = await supabase
-            .from('checklist_items')
-            .select('*', { count: 'exact', head: true })
-            .eq('program_id', program.id);
-
-          const hasChecklist = (count ?? 0) > 0;
-
-          const { data: nextItem } = await supabase
-            .from('checklist_items')
-            .select('label')
-            .eq('program_id', program.id)
-            .eq('is_done', false)
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .maybeSingle();
-
-          return {
-            ...program,
-            nextStep: nextItem?.label ?? null,
-            hasChecklist,
-          };
-        })
-      );
-      setPrograms(programsWithNextStep);
-    }
-    setLoadingPrograms(false);
   }, []);
 
   useEffect(() => {
@@ -159,7 +179,7 @@ export function Dashboard() {
     }
   };
 
-  if (fetchError || (!isOnline && !loadingPrograms && programs.length === 0)) {
+  if (fetchError || !isOnline) {
     return (
       <OfflinePage
         onRetry={() => { setFetchError(false); fetchPrograms(); }}

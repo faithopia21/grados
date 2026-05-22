@@ -278,55 +278,68 @@ export function Applications() {
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setPrograms([]);
+    if (!navigator.onLine) {
+      setFetchError(true);
       setLoading(false);
       return;
     }
 
-    const { data: programRows, error } = await supabase
-      .from('programs')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('deadline', { ascending: true });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setPrograms([]);
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
-      if (!navigator.onLine) {
+      const { data: programRows, error } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('deadline', { ascending: true });
+
+      if (error) throw error;
+
+      setFetchError(false);
+
+      const rows = (programRows ?? []) as DbProgram[];
+
+      const withProgress = await Promise.all(
+        rows.map(async program => {
+          const { data: items } = await supabase
+            .from('checklist_items')
+            .select('id, is_done')
+            .eq('program_id', program.id);
+
+          const checklistItems = items ?? [];
+          const checklistDone = checklistItems.filter(i => i.is_done).length;
+          const checklistTotal = checklistItems.length;
+
+          return {
+            ...program,
+            checklistDone,
+            checklistTotal,
+          };
+        })
+      );
+
+      setPrograms(withProgress);
+    } catch (err: any) {
+      if (
+        !navigator.onLine ||
+        err.message?.includes('Failed to fetch') ||
+        err.message?.includes('NetworkError') ||
+        err.message?.includes('network') ||
+        err.code === 'NETWORK_ERROR'
+      ) {
         setFetchError(true);
       } else {
-        toast.error(error.message);
+        toast.error('Failed to load data');
+        setFetchError(false);
       }
-      setPrograms([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setFetchError(false);
-
-    const rows = (programRows ?? []) as DbProgram[];
-
-    const withProgress = await Promise.all(
-      rows.map(async program => {
-        const { data: items } = await supabase
-          .from('checklist_items')
-          .select('id, is_done')
-          .eq('program_id', program.id);
-
-        const checklistItems = items ?? [];
-        const checklistDone = checklistItems.filter(i => i.is_done).length;
-        const checklistTotal = checklistItems.length;
-
-        return {
-          ...program,
-          checklistDone,
-          checklistTotal,
-        };
-      })
-    );
-
-    setPrograms(withProgress);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -472,12 +485,12 @@ export function Applications() {
 
   const isSubmitted = (status: string) => normalizeStatus(status) === 'submitted';
 
-  if (fetchError || (!isOnline && !loading && programs.length === 0)) {
+  if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <PageHeader
-          title="All Applications"
-          subtitle="Manage all your graduate school applications"
+          title="Applications"
+          subtitle="Manage and track all your program applications"
           backTo="/dashboard"
         />
         <OfflinePage

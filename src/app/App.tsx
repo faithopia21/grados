@@ -55,7 +55,6 @@ function AppLayout() {
           onTabletOverlayClose={() => setTabletSidebarOpen(false)}
         />
         <main className="flex-1 overflow-y-auto pt-[52px] md:pt-12 lg:pt-0 pb-[60px] md:pb-0 relative md:pl-0">
-          <OfflineBanner />
           <button
             type="button"
             className="hidden md:flex lg:hidden items-center justify-center fixed top-3 left-3 z-30 w-10 h-10 rounded-lg border border-border bg-card text-foreground shadow-sm hover:bg-accent"
@@ -85,22 +84,25 @@ function AppLayout() {
 
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/signin" element={<SignIn />} />
-      <Route path="/sign-in" element={<Navigate to="/signin" replace />} />
-      <Route path="/sign-up" element={<SignUp />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
+    <div className="min-h-screen bg-background flex flex-col">
+      <OfflineBanner />
+      <Routes>
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/sign-in" element={<Navigate to="/signin" replace />} />
+        <Route path="/sign-up" element={<SignUp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            <AppLayout />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </div>
   );
 }
 

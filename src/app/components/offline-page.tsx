@@ -19,8 +19,7 @@ export function OfflinePage({
           No internet connection
         </h2>
         <p className="text-sm text-muted-foreground max-w-sm">
-          Could not load {pageName}. Your data is safe and will appear once
-          your connection is restored.
+          Could not load {pageName}. Your data is safe and stored securely in the cloud. Nothing has been lost. This page will reload automatically when your connection is restored.
         </p>
       </div>
       <button
@@ -30,9 +29,6 @@ export function OfflinePage({
         <RefreshCw size={14} />
         Try again
       </button>
-      <p className="text-xs text-muted-foreground">
-        All your existing data is stored safely in the cloud and has not been lost.
-      </p>
     </div>
   )
 }

@@ -42,31 +42,46 @@ export function Documents() {
     setLoading(true);
     setDeleteError('');
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setDocuments([]);
+    if (!navigator.onLine) {
+      setFetchError(true);
       setLoading(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      if (!navigator.onLine) {
-        setFetchError(true);
-      } else {
-        toast.error(error.message);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setDocuments([]);
+        setLoading(false);
+        return;
       }
-      setDocuments([]);
-    } else {
+
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
       setFetchError(false);
       setDocuments((data ?? []) as DbDocument[]);
+    } catch (err: any) {
+      if (
+        !navigator.onLine ||
+        err.message?.includes('Failed to fetch') ||
+        err.message?.includes('NetworkError') ||
+        err.message?.includes('network') ||
+        err.code === 'NETWORK_ERROR'
+      ) {
+        setFetchError(true);
+      } else {
+        toast.error('Failed to load data');
+        setFetchError(false);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -142,7 +157,7 @@ export function Documents() {
     toast.success('Document deleted');
   };
 
-  if (fetchError || (!isOnline && !loading && documents.length === 0)) {
+  if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <PageHeader

@@ -25,6 +25,11 @@ export function SignUp() {
     e.preventDefault();
     setError('');
 
+    if (!navigator.onLine) {
+      setError('No internet connection. Please check your network and try again.');
+      return;
+    }
+
     if (!agreedToTerms) {
       setError('Please agree to the Terms of Service and Privacy Policy');
       return;
@@ -36,37 +41,44 @@ export function SignUp() {
 
     setLoading(true);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    if (signUpError) {
-      setLoading(false);
-      setError(signUpError.message);
-      return;
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user) {
-      const fullName = `${firstName} ${lastName}`.trim();
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: fullName,
-        });
-
-      if (profileError) {
-        setLoading(false);
-        setError(profileError.message);
+      if (signUpError) {
+        setError(signUpError.message);
         return;
       }
-    }
 
-    setLoading(false);
-    navigate('/onboarding');
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const fullName = `${firstName} ${lastName}`.trim();
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            full_name: fullName,
+          });
+
+        if (profileError) {
+          setError(profileError.message);
+          return;
+        }
+      }
+
+      navigate('/onboarding');
+    } catch (err: any) {
+      if (!navigator.onLine) {
+        setError('No internet connection. Please check your network and try again.');
+      } else {
+        setError(err.message || 'Sign up failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignUp = async () => {

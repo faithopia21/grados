@@ -79,40 +79,59 @@ export function Timeline() {
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setPrograms([]);
+    if (!navigator.onLine) {
+      setFetchError(true);
       setLoading(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from('programs')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('deadline', { ascending: true });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setPrograms([]);
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
-      if (!navigator.onLine) setFetchError(true);
-      setPrograms([]);
+      const { data, error } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('deadline', { ascending: true });
+
+      if (error) throw error;
+
+      setFetchError(false);
+
+      const withUrgency = ((data ?? []) as DbProgram[]).map(program => {
+        const daysLeft = getDaysLeft(program.deadline);
+        return {
+          ...program,
+          daysLeft,
+          bucket: getUrgencyBucket(daysLeft),
+        };
+      });
+
+      setPrograms(withUrgency);
+    } catch (err: any) {
+      if (
+        !navigator.onLine ||
+        err.message?.includes('Failed to fetch') ||
+        err.message?.includes('NetworkError') ||
+        err.message?.includes('network') ||
+        err.code === 'NETWORK_ERROR'
+      ) {
+        setFetchError(true);
+      } else {
+        toast.error('Failed to load data');
+        setFetchError(false);
+      }
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setFetchError(false);
-
-    const withUrgency = ((data ?? []) as DbProgram[]).map(program => {
-      const daysLeft = getDaysLeft(program.deadline);
-      return {
-        ...program,
-        daysLeft,
-        bucket: getUrgencyBucket(daysLeft),
-      };
-    });
-
-    setPrograms(withUrgency);
-    setLoading(false);
   }, []);
+
+
 
   useEffect(() => {
     fetchPrograms();
@@ -200,7 +219,7 @@ export function Timeline() {
     </div>
   );
 
-  if (fetchError || (!isOnline && !loading && programs.length === 0)) {
+  if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <PageHeader
