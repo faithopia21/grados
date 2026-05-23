@@ -11,11 +11,30 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  selected,
+  defaultMonth,
+  month,
   ...props
 }: React.ComponentProps<typeof DayPicker>) {
+  // Guard: react-day-picker v8 calls .getTime() internally on date props.
+  // If any date prop is undefined, it crashes. Ensure we always pass a valid Date.
+  const safeDefaultMonth = defaultMonth instanceof Date && !isNaN(defaultMonth.getTime())
+    ? defaultMonth
+    : month instanceof Date && !isNaN(month.getTime())
+    ? month
+    : selected instanceof Date && !isNaN(selected.getTime())
+    ? selected
+    : new Date();
+
+  const safeSelected = selected instanceof Date
+    ? (isNaN(selected.getTime()) ? undefined : selected)
+    : selected;
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      defaultMonth={safeDefaultMonth}
+      month={month instanceof Date && !isNaN(month.getTime()) ? month : undefined}
+      selected={safeSelected}
       className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row gap-2",

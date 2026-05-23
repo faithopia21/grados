@@ -17,7 +17,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
-import { getDaysUntil, formatDate } from '../../lib/utils';
+import { getDaysUntil, formatDate, safeGetTime } from '../../lib/utils';
 import { Plus, ArrowRight, Search, ChevronDown, Trash2 } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
@@ -34,7 +34,7 @@ interface DbProgram {
   program_name: string;
   degree_type: string;
   country: string;
-  deadline: string;
+  deadline: string | null;
   funding_available: boolean;
   portal_url: string | null;
   status: string;
@@ -103,7 +103,7 @@ function ApplicationCardSkeleton() {
 }
 
 interface ApplicationCardProps {
-  program: ProgramWithProgress & { daysUntil: number };
+  program: ProgramWithProgress & { daysUntil: number | null };
   navigate: (path: string) => void;
   getStatusBadge: (status: string) => React.ReactNode;
   isSubmitted: (status: string) => boolean;
@@ -175,7 +175,11 @@ function ApplicationCard({
               <p className="text-xs text-muted-foreground">Deadline</p>
               <p className="text-sm mt-1">{formatDate(program.deadline)}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {daysUntil >= 0 ? `${daysUntil} days left` : 'Passed'}
+                {daysUntil === null
+                  ? 'No deadline'
+                  : daysUntil >= 0
+                  ? `${daysUntil} days left`
+                  : 'Passed'}
               </p>
             </div>
 
@@ -425,17 +429,21 @@ export function Applications() {
     }
 
     if (deadlineFilter === 'this_month') {
-      filtered = filtered.filter(program => program.daysUntil >= 0 && program.daysUntil <= 30);
+      filtered = filtered.filter(program => program.daysUntil !== null && program.daysUntil >= 0 && program.daysUntil <= 30);
     } else if (deadlineFilter === 'next_3_months') {
-      filtered = filtered.filter(program => program.daysUntil >= 0 && program.daysUntil <= 90);
+      filtered = filtered.filter(program => program.daysUntil !== null && program.daysUntil >= 0 && program.daysUntil <= 90);
     }
 
     filtered.sort((a, b) => {
       if (sortBy === 'deadline') {
+        // null deadlines sort to the end
+        if (a.daysUntil === null && b.daysUntil === null) return 0;
+        if (a.daysUntil === null) return 1;
+        if (b.daysUntil === null) return -1;
         return a.daysUntil - b.daysUntil;
       }
       if (sortBy === 'recent') {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return safeGetTime(b.created_at) - safeGetTime(a.created_at);
       }
       if (sortBy === 'progress-high') {
         const aProgress = a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0;
