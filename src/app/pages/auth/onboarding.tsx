@@ -155,17 +155,11 @@ export function Onboarding() {
     <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8] dark:bg-background p-4">
       <div className="w-full max-w-[560px] bg-card rounded-2xl p-10 border border-border">
         {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <div 
-            style={{ 
-              backgroundImage: `url(${gradosLogo})`,
-              backgroundSize: 'contain',
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'center'
-            }}
-            className="h-16 w-[180px] mx-auto mb-6"
-            role="img"
-            aria-label="GradOS"
+        <div className="flex justify-center mb-0">
+          <img 
+            src={gradosLogo} 
+            alt="GradOS"
+            className="h-14 w-auto mx-auto mb-3 dark:mix-blend-screen"
           />
         </div>
 

@@ -74,23 +74,17 @@ export function SignIn() {
     <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8] dark:bg-background p-4">
       <div className="w-full max-w-[420px] bg-card rounded-2xl p-10 border border-border">
         {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <div 
-            style={{ 
-              backgroundImage: `url(${gradosLogo})`,
-              backgroundSize: 'contain',
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'center'
-            }}
-            className="h-16 w-[180px] mx-auto mb-6"
-            role="img"
-            aria-label="GradOS"
+        <div className="flex justify-center mb-0">
+          <img 
+            src={gradosLogo} 
+            alt="GradOS"
+            className="h-14 w-auto mx-auto mb-3 dark:mix-blend-screen"
           />
         </div>
 
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-[22px] mb-2">Welcome back</h1>
+          <h1 className="text-2xl font-semibold text-foreground mt-0 mb-1">Welcome back</h1>
           <p className="text-sm text-muted-foreground">Sign in to your GradOS account</p>
         </div>
 
