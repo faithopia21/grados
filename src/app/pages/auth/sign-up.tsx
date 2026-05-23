@@ -6,6 +6,7 @@ import { Label } from '../../components/ui/label';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import gradosLogo from '../../../assets/logo.svg';
 
 export function SignUp() {
   const navigate = useNavigate();
@@ -103,9 +104,11 @@ export function SignUp() {
       <div className="w-full max-w-[420px] bg-card rounded-2xl p-10 border border-border">
         {/* Logo */}
         <div className="flex justify-center mb-6">
-          <div className="w-11 h-11 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#4F46E5' }}>
-            <span className="text-white text-xl font-medium">G</span>
-          </div>
+          <img 
+            src={gradosLogo} 
+            alt="GradOS" 
+            className="h-10 w-auto mx-auto mb-4"
+          />
         </div>
 
         {/* Header */}

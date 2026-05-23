@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { ThemeToggle } from '../theme-toggle';
+import gradosLogo from '../../../assets/logo.svg';
 import { supabase } from '../../../lib/supabase';
 import {
   Tooltip,
@@ -113,8 +114,11 @@ export function Navigation({
             <span className="text-white text-sm font-medium">G</span>
           </div>
           <div className="hidden lg:block min-w-0">
-            <h1 className="text-xl text-foreground">GradOS</h1>
-            <p className="text-xs text-muted-foreground mt-1">Graduate Application OS</p>
+            <img 
+              src={gradosLogo} 
+              alt="GradOS" 
+              className="h-8 w-auto"
+            />
           </div>
         </div>
 

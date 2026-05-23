@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase';
 import { AutocompleteInput } from '../../components/autocomplete-input';
 import { COUNTRIES } from '../../../data/countries';
+import gradosLogo from '../../../assets/logo.svg';
 
 function generateTermOptions(): string[] {
   const now = new Date();
@@ -153,6 +154,15 @@ export function Onboarding() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8] dark:bg-background p-4">
       <div className="w-full max-w-[560px] bg-card rounded-2xl p-10 border border-border">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img 
+            src={gradosLogo} 
+            alt="GradOS" 
+            className="h-10 w-auto mx-auto mb-4"
+          />
+        </div>
+
         {/* Progress Stepper */}
         <div className="flex items-center justify-center gap-0 mb-8">
           <div className="flex items-center">

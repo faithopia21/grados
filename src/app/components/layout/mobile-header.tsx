@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { LogOut, User, Sun, Moon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Button } from '../ui/button';
+import gradosLogo from '../../../assets/logo.svg';
 import {
   Sheet,
   SheetContent,
@@ -79,12 +80,11 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
   return (
     <>
       <header className="md:hidden fixed top-0 left-0 right-0 h-[52px] bg-card border-b border-border z-50 flex items-center justify-between px-4">
-        <div
-          className="w-8 h-8 rounded flex items-center justify-center shrink-0"
-          style={{ backgroundColor: '#4F46E5' }}
-        >
-          <span className="text-white text-sm font-medium">G</span>
-        </div>
+        <img 
+          src={gradosLogo} 
+          alt="GradOS" 
+          className="h-7 w-auto max-w-[100px] object-contain object-left"
+        />
 
         <h2 className="text-[15px] font-medium flex-1 text-center truncate px-2">
           {pageName}
