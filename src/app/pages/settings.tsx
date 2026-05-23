@@ -56,6 +56,7 @@ export function Settings() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
 
   const profileCompletion = useMemo(
@@ -139,10 +140,63 @@ export function Settings() {
   };
 
   const handleDeleteAccount = async () => {
-    setIsDeleteModalOpen(false);
-    await supabase.auth.signOut();
-    toast.success('Your account deletion request has been received.');
-    navigate('/signin');
+    if (!userId) return;
+    
+    setDeleteLoading(true);
+    
+    try {
+      // Step 1: Mark profile for deletion
+      // alter table profiles 
+      // add column if not exists 
+      // deletion_requested_at timestamptz;
+      const { error: markError } = await supabase
+        .from('profiles')
+        .update({ 
+          deletion_requested_at: new Date().toISOString() 
+        })
+        .eq('id', userId);
+      
+      if (markError) throw markError;
+      
+      // Step 2: Delete all user data
+      // Delete programs and cascade
+      const { data: programs } = await supabase
+        .from('programs')
+        .select('id')
+        .eq('user_id', userId);
+      
+      if (programs && programs.length > 0) {
+        const programIds = programs.map(p => p.id);
+        
+        await Promise.all([
+          supabase.from('checklist_items').delete().in('program_id', programIds),
+          supabase.from('program_notes').delete().in('program_id', programIds),
+          supabase.from('recommenders').delete().in('program_id', programIds),
+          supabase.from('portal_links').delete().in('program_id', programIds),
+          supabase.from('program_documents').delete().in('program_id', programIds),
+        ]);
+        
+        await supabase.from('programs').delete().eq('user_id', userId);
+      }
+      
+      // Delete documents
+      await supabase.from('documents').delete().eq('user_id', userId);
+      
+      // Delete profile
+      await supabase.from('profiles').delete().eq('id', userId);
+      
+      // Step 3: Sign out
+      await supabase.auth.signOut();
+      
+      // Step 4: Navigate to sign in with message
+      setIsDeleteModalOpen(false);
+      navigate('/signin?deleted=true');
+      
+    } catch (error: any) {
+      toast.error('Failed to delete account: ' + error.message);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const toggleSection = (section: string) => {
@@ -498,15 +552,15 @@ export function Settings() {
           <DialogHeader>
             <DialogTitle>Delete Account</DialogTitle>
             <DialogDescription>
-              Are you sure? This will permanently delete all your data. This cannot be undone.
+              This will permanently delete all your applications, documents, notes, and profile data. This cannot be undone. Your auth credentials will be removed from our system within 24 hours.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteAccount}>
-              Yes, delete my account
+            <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteLoading}>
+              {deleteLoading ? 'Deleting...' : 'Yes, delete my account'}
             </Button>
           </DialogFooter>
         </DialogContent>

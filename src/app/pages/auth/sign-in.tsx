@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -14,6 +14,9 @@ export function SignIn() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  const wasDeleted = searchParams.get('deleted');
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +84,12 @@ export function SignIn() {
           <h1 className="text-[22px] mb-2">Welcome back</h1>
           <p className="text-sm text-muted-foreground">Sign in to your GradOS account</p>
         </div>
+
+        {wasDeleted && (
+          <div className="mb-6 p-3 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 text-sm text-green-700 dark:text-green-300 text-center">
+            Your account has been deleted. Thank you for using GradOS.
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSignIn} className="space-y-4">
