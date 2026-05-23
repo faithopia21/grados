@@ -20,6 +20,7 @@ import { BottomNav } from './components/layout/bottom-nav';
 import { MobileHeader } from './components/layout/mobile-header';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { OfflineBanner } from './components/offline-banner';
+import { ErrorBoundary } from '@/app/components/error-boundary';
 
 function LegacyApplicationRedirect() {
   const { id } = useParams();
@@ -67,7 +68,11 @@ function AppLayout() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/applications" element={<Applications />} />
-            <Route path="/applications/:id" element={<SchoolWorkspace />} />
+            <Route path="/applications/:id" element={
+              <ErrorBoundary>
+                <SchoolWorkspace />
+              </ErrorBoundary>
+            } />
             <Route path="/application/:id" element={<LegacyApplicationRedirect />} />
             <Route path="/deadlines" element={<Timeline />} />
             <Route path="/documents" element={<Documents />} />

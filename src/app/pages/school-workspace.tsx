@@ -812,7 +812,7 @@ export function SchoolWorkspace() {
   const checklistProgress = checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0;
 
   const nextSteps = useMemo(() => {
-    return [...checklistItems]
+    return (checklistItems || [])
       .filter(item => !item.is_done)
       .slice(0, 5);
   }, [checklistItems]);
