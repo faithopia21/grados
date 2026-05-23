@@ -16,7 +16,7 @@ interface DocumentStatusSelectProps {
 export function DocumentStatusSelect({ value, onChange }: DocumentStatusSelectProps) {
   const getStatusConfig = (status: DocumentStatus) => {
     const configs: Record<DocumentStatus, { label: string; variant: any }> = {
-      not_started: { label: 'Not Started', variant: 'outline' },
+      'Not Started': { label: 'Not Started', variant: 'outline' },
       drafting: { label: 'Drafting', variant: 'warning' },
       ready: { label: 'Ready', variant: 'success' },
       submitted: { label: 'Submitted', variant: 'default' },
@@ -37,7 +37,7 @@ export function DocumentStatusSelect({ value, onChange }: DocumentStatusSelectPr
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="not_started">Not Started</SelectItem>
+        <SelectItem value='Not Started'>Not Started</SelectItem>
         <SelectItem value="drafting">Drafting</SelectItem>
         <SelectItem value="ready">Ready</SelectItem>
         <SelectItem value="submitted">Submitted</SelectItem>

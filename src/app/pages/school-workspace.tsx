@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { InfoRow } from '../components/info-row';
+import { PageSkeleton } from '../components/page-skeleton';
 import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Checkbox } from '../components/ui/checkbox';
@@ -527,6 +529,7 @@ export function SchoolWorkspace() {
 
   const handleToggleChecklistItem = (item: ChecklistItem, checked: boolean) => {
     updateChecklistItem(item, { is_done: checked });
+    toast.success('Checklist updated');
   };
 
   const handleChecklistStatusChange = (item: ChecklistItem, status: string) => {
@@ -620,6 +623,7 @@ export function SchoolWorkspace() {
     const row = data as Recommender;
     lastSavedBriefingRef.current[row.id] = '';
     setRecommenders(prev => [...prev, row]);
+    toast.success('Recommender added');
   };
 
   const handleDeleteRecommender = async (rec: Recommender) => {
@@ -645,7 +649,7 @@ export function SchoolWorkspace() {
         label: newItemLabel.trim(),
         is_done: false,
         is_required: false,
-        status: 'not_started',
+        status: 'Not Started',
       })
       .select()
       .single();
@@ -669,7 +673,7 @@ export function SchoolWorkspace() {
       label,
       is_required: true,
       is_done: false,
-      status: 'not_started',
+      status: 'Not Started',
     }));
 
     const { data, error } = await supabase.from('checklist_items').insert(rows).select();
@@ -729,7 +733,7 @@ export function SchoolWorkspace() {
     setPortalLinks(prev => [...prev, data as PortalLink]);
     setAddLinkDraft({ label: '', url: '' });
     setShowAddLink(false);
-    toast.success('Link added');
+    toast.success('Portal link saved');
   };
 
   const handleStartEditLink = (link: PortalLink) => {
@@ -847,18 +851,7 @@ export function SchoolWorkspace() {
   const statusLabel = displayProgramStatus(program?.status || '');
   const statusKey = normalizeProgramStatus(program?.status || '');
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">
-            Loading workspace...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <PageSkeleton />;
 
   if (workspaceError || !program) {
     return (
@@ -932,7 +925,7 @@ export function SchoolWorkspace() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-none">
-          <TabsList className="w-max min-w-full h-auto p-0 bg-transparent gap-0 rounded-none border-b border-border">
+          <TabsList className="flex w-full justify-start overflow-x-auto pb-1 no-scrollbar bg-transparent gap-0 rounded-none border-b border-border">
             <TabsTrigger
               value="overview"
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#4F46E5] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-none px-4 py-2.5"
@@ -1100,14 +1093,14 @@ export function SchoolWorkspace() {
 
               {checklistItems.length === 0 ? (
                 <div className="text-center py-12 space-y-4">
-                  <p className="text-muted-foreground">No checklist items yet</p>
-                  <div className="flex flex-wrap gap-3 justify-center">
+                  <h3 className="text-lg mb-2 text-foreground font-medium">No requirements added yet</h3>
+                  <div className="flex overflow-x-auto md:grid md:grid-cols-2 gap-3 pb-2 no-scrollbar">
                     <Button onClick={handleGenerateDefaultChecklist} className="min-h-[44px]">
                       Generate default checklist
                     </Button>
                     <Button variant="outline" onClick={() => setShowAddItem(true)} className="min-h-[44px]">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add manually
+                      Add item
                     </Button>
                   </div>
                 </div>
@@ -1144,7 +1137,7 @@ export function SchoolWorkspace() {
                           </p>
                         )}
                         <ChecklistStatusSelect
-                          value={item.status || 'not_started'}
+                          value={item.status || 'Not Started'}
                           onChange={status => handleChecklistStatusChange(item, status)}
                         />
                       </div>

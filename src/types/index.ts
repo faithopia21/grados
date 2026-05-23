@@ -1,7 +1,7 @@
 export type ApplicationStatus =
-  | 'not_started'
-  | 'in_progress'
-  | 'ready_to_submit'
+  | 'Not Started'
+  | 'In Progress'
+  | 'Ready to Submit'
   | 'submitted'
   | 'interview'
   | 'accepted'
@@ -18,7 +18,7 @@ export type DocumentType =
   | 'other';
 
 export type DocumentStatus =
-  | 'not_started'
+  | 'Not Started'
   | 'drafting'
   | 'ready'
   | 'submitted'

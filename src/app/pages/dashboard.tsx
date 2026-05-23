@@ -12,6 +12,7 @@ import { FABButton } from '../components/layout/fab-button';
 import { supabase } from '../../lib/supabase';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
+import { PageSkeleton } from '../components/page-skeleton';
 
 export interface DbProgram {
   id: string;
@@ -30,11 +31,11 @@ export interface DbProgram {
 
 function mapDbStatus(status: string) {
   const normalized = status?.toLowerCase().replace(/\s+/g, '_');
-  if (normalized === 'not_started') return 'not_started';
-  if (normalized === 'in_progress') return 'in_progress';
+  if (normalized === 'Not Started') return 'Not Started';
+  if (normalized === 'In Progress') return 'In Progress';
   if (normalized === 'submitted') return 'submitted';
-  if (normalized === 'ready_to_submit') return 'ready_to_submit';
-  return 'not_started';
+  if (normalized === 'Ready to Submit') return 'Ready to Submit';
+  return 'Not Started';
 }
 
 export function Dashboard() {
@@ -136,8 +137,8 @@ export function Dashboard() {
   const stats = useMemo(() => {
     const total = programs.length;
     const submitted = programs.filter(p => mapDbStatus(p.status) === 'submitted').length;
-    const inProgress = programs.filter(p => mapDbStatus(p.status) === 'in_progress').length;
-    const notStarted = programs.filter(p => mapDbStatus(p.status) === 'not_started').length;
+    const inProgress = programs.filter(p => mapDbStatus(p.status) === 'In Progress').length;
+    const notStarted = programs.filter(p => mapDbStatus(p.status) === 'Not Started').length;
 
     return { total, submitted, inProgress, notStarted };
   }, [programs]);
@@ -159,9 +160,9 @@ export function Dashboard() {
   const getStatusBadge = (status: string) => {
     const mapped = mapDbStatus(status);
     const variants: Record<string, { variant: 'outline' | 'default' | 'secondary' | 'destructive'; label: string }> = {
-      not_started: { variant: 'outline', label: 'Not Started' },
-      in_progress: { variant: 'secondary', label: 'In Progress' },
-      ready_to_submit: { variant: 'default', label: 'Ready to Submit' },
+      'Not Started': { variant: 'outline', label: 'Not Started' },
+      'In Progress': { variant: 'secondary', label: 'In Progress' },
+      'Ready to Submit': { variant: 'default', label: 'Ready to Submit' },
       submitted: { variant: 'default', label: 'Submitted' },
     };
     const config = variants[mapped] || {
@@ -180,6 +181,8 @@ export function Dashboard() {
       return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
     }
   };
+
+  if (loadingPrograms) return <PageSkeleton />;
 
   if (fetchError || !isOnline) {
     return (
@@ -268,9 +271,7 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {loadingPrograms ? (
-        <p className="text-sm text-muted-foreground text-center py-8">Loading programs...</p>
-      ) : programs.length === 0 ? (
+      {programs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 px-4">
           <div className="relative mb-6">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -281,7 +282,7 @@ export function Dashboard() {
           </div>
           <h2 className="text-lg mb-2">Your application hub is empty</h2>
           <p className="text-sm text-muted-foreground text-center mb-6" style={{ maxWidth: '380px' }}>
-            Add your first school and GradOS will help you track every deadline, document, and requirement in one place.
+            Add your first school to start tracking your graduate applications.
           </p>
           <Button onClick={() => setIsAddSchoolOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -395,7 +396,7 @@ export function Dashboard() {
           <CardTitle>Quick Actions</CardTitle>
           <CardDescription>What would you like to do?</CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 flex-nowrap md:flex-wrap">
+        <CardContent className="flex overflow-x-auto md:grid md:grid-cols-2 gap-3 pb-2 no-scrollbar">
           <Button onClick={() => setIsAddSchoolOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add New School

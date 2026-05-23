@@ -152,7 +152,7 @@ export function AddSchoolDialog({
         return;
       }
 
-      toast.success('Application updated');
+      toast.success('Application updated successfully');
       resetForm();
       onOpenChange(false);
       onSuccess?.();
@@ -190,7 +190,7 @@ export function AddSchoolDialog({
       return;
     }
 
-    toast.success('School added successfully');
+    toast.success('Application updated successfully');
     resetForm();
     onOpenChange(false);
     onSuccess?.();
@@ -332,7 +332,7 @@ export function AddSchoolDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] md:max-h-[90vh] max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-t-2xl max-md:h-[90vh] max-md:flex max-md:flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] md:max-h-none overflow-y-auto w-full md:w-auto p-4 md:p-6 mb-0 mt-auto md:mb-auto rounded-b-none md:rounded-b-lg border-b-0 md:border-b transition-transform duration-300">
         <div className="md:hidden w-10 h-1 rounded-full bg-muted mx-auto mt-3 shrink-0" aria-hidden />
         <div className="flex-1 overflow-y-auto px-6 pt-4 pb-4">
         <DialogHeader>

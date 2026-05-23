@@ -7,8 +7,8 @@ import {
 } from './ui/select';
 
 const CHECKLIST_STATUSES = [
-  { value: 'not_started', label: 'Not Started' },
-  { value: 'in_progress', label: 'In Progress' },
+  { value: 'Not Started', label: 'Not Started' },
+  { value: 'In Progress', label: 'In Progress' },
   { value: 'ready', label: 'Ready' },
   { value: 'submitted', label: 'Submitted' },
   { value: 'done', label: 'Done' },
@@ -22,7 +22,7 @@ interface ChecklistStatusSelectProps {
 export function ChecklistStatusSelect({ value, onChange }: ChecklistStatusSelectProps) {
   const normalized = CHECKLIST_STATUSES.some(s => s.value === value)
     ? value
-    : 'not_started';
+    : 'Not Started';
 
   return (
     <Select value={normalized} onValueChange={onChange}>

@@ -2,9 +2,9 @@ import { ApplicationStatus, DocumentStatus } from '../types';
 
 export function formatApplicationStatus(status: ApplicationStatus): string {
   const labels: Record<ApplicationStatus, string> = {
-    not_started: 'Not Started',
-    in_progress: 'In Progress',
-    ready_to_submit: 'Ready to Submit',
+    'Not Started': 'Not Started',
+    'In Progress': 'In Progress',
+    'Ready to Submit': 'Ready to Submit',
     submitted: 'Submitted',
     interview: 'Interview',
     accepted: 'Accepted',
@@ -16,7 +16,7 @@ export function formatApplicationStatus(status: ApplicationStatus): string {
 
 export function formatDocumentStatus(status: DocumentStatus): string {
   const labels: Record<DocumentStatus, string> = {
-    not_started: 'Not Started',
+    'Not Started': 'Not Started',
     drafting: 'Drafting',
     ready: 'Ready',
     submitted: 'Submitted',

@@ -55,6 +55,11 @@ export function Settings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
@@ -113,11 +118,32 @@ export function Settings() {
       return;
     }
 
-    toast.success('Password updated');
+    toast.success('Password updated successfully');
     setIsPasswordModalOpen(false);
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
+  };
+
+  const handleChangeEmail = async () => {
+    setEmailError('');
+    if (!newEmail.trim()) {
+      setEmailError('Please enter a new email address');
+      return;
+    }
+
+    setEmailSaving(true);
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    setEmailSaving(false);
+
+    if (error) {
+      setEmailError(error.message);
+      return;
+    }
+
+    toast.success('Check your new email for a confirmation link');
+    setIsEmailModalOpen(false);
+    setNewEmail('');
   };
 
   const handleExportData = async () => {
@@ -280,17 +306,18 @@ export function Settings() {
         {expandedSection === 'security' && (
           <CardContent className="space-y-6 pt-6">
             <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                readOnly
-                className="bg-muted cursor-not-allowed"
-              />
-              <p className="text-xs text-muted-foreground">
-                Email is managed through your sign-in provider
-              </p>
+              <Label>Email address</Label>
+              <div>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEmailModalOpen(true)}
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span className="flex-1 truncate">{email}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-50" />
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -546,6 +573,58 @@ export function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Email Change Modal */}
+      {isEmailModalOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
+          <div className="fixed inset-x-4 top-[50%] z-50 grid w-full max-w-lg -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg sm:max-w-[425px] sm:rounded-lg md:inset-x-auto md:left-[50%] md:-translate-x-1/2">
+            <div className="flex flex-col space-y-1.5 text-center sm:text-left">
+              <h2 className="text-lg font-semibold leading-none tracking-tight">Change Email</h2>
+              <p className="text-sm text-muted-foreground">
+                Enter your new email address.
+              </p>
+            </div>
+            
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="new-email">New Email</Label>
+                <Input
+                  id="new-email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                />
+              </div>
+
+              {emailError && (
+                <p className="text-sm text-red-600 font-medium">{emailError}</p>
+              )}
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEmailModalOpen(false)}
+                className="mt-2 sm:mt-0"
+                disabled={emailSaving}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleChangeEmail} disabled={emailSaving}>
+                {emailSaving ? 'Saving...' : 'Update Email'}
+              </Button>
+            </div>
+            <button
+              onClick={() => setIsEmailModalOpen(false)}
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </button>
+          </div>
+        </div>
+      )}
+
 
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent>

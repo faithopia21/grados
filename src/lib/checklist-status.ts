@@ -1,9 +1,9 @@
 /** Checklist item status ↔ is_done sync helpers */
 
 export function normalizeChecklistStatus(status: string | null | undefined): string {
-  if (!status) return 'not_started';
+  if (!status) return 'Not Started';
   const n = status.toLowerCase().replace(/\s+/g, '_');
-  if (n === 'drafting') return 'in_progress';
+  if (n === 'drafting') return 'In Progress';
   return n;
 }
 
@@ -13,7 +13,7 @@ export function statusImpliesDone(status: string | null | undefined): boolean {
 }
 
 export function checkboxToStatus(isDone: boolean): string {
-  return isDone ? 'done' : 'not_started';
+  return isDone ? 'done' : 'Not Started';
 }
 
 export function resolveChecklistUpdate(
@@ -30,6 +30,6 @@ export function resolveChecklistUpdate(
   }
   return {
     is_done: current.is_done,
-    status: current.status ?? 'not_started',
+    status: current.status ?? 'Not Started',
   };
 }

@@ -4,8 +4,8 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
-import { Skeleton } from '../components/ui/skeleton';
 import { UploadDocumentFlow } from '../components/upload-document-flow';
+import { PageSkeleton } from '../components/page-skeleton';
 import { supabase } from '../../lib/supabase';
 import {
   type DbDocument,
@@ -157,6 +157,8 @@ export function Documents() {
     toast.success('Document deleted');
   };
 
+  if (loading) return <PageSkeleton />;
+
   if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
@@ -207,23 +209,16 @@ export function Documents() {
 
       {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
 
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <DocumentRowSkeleton key={i} />
-          ))}
-        </div>
-      ) : documents.length === 0 ? (
+      {documents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 px-4">
           <FileText className="h-12 w-12 text-muted-foreground mb-4" />
           <h2 className="text-lg mb-2">No documents yet</h2>
           <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-            Upload your SOP, CV, transcripts and other documents once — then they are available
-            across all your applications.
+            Upload your SOP, CV, and transcripts once — then attach them to any application.
           </p>
           <Button onClick={() => setUploadOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            Upload New Document
+            Upload your first document
           </Button>
         </div>
       ) : (

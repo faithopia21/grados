@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#4F46E5"/>
+  <rect x="80" y="80" width="1040" height="470" rx="16" fill="white" opacity="0.1"/>
+  <text x="600" y="260" font-family="system-ui, sans-serif" font-weight="700" font-size="72" fill="white" text-anchor="middle">GradOS</text>
+  <text x="600" y="340" font-family="system-ui, sans-serif" font-weight="400" font-size="32" fill="white" opacity="0.9" text-anchor="middle">
+    Graduate Application OS
+  </text>
+  <text x="600" y="420" font-family="system-ui, sans-serif" font-weight="400" font-size="24" fill="white" opacity="0.7" text-anchor="middle">
+    Every application. One place.
+  </text>
+</svg>

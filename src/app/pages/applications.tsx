@@ -5,7 +5,8 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
-import { Skeleton } from '../components/ui/skeleton';
+import { ApplicationCardSkeleton } from '../components/application-card-skeleton';
+import { PageSkeleton } from '../components/page-skeleton';
 import { AddSchoolDialog, SchoolFormData } from '../components/add-school-dialog';
 import {
   DropdownMenu,
@@ -48,9 +49,9 @@ interface ProgramWithProgress extends DbProgram {
 
 type StatusFilter =
   | 'all'
-  | 'not_started'
-  | 'in_progress'
-  | 'ready_to_submit'
+  | 'Not Started'
+  | 'In Progress'
+  | 'Ready to Submit'
   | 'submitted'
   | 'accepted'
   | 'rejected';
@@ -58,7 +59,7 @@ type StatusFilter =
 type SortOption = 'deadline' | 'recent' | 'progress-high' | 'progress-low' | 'name';
 
 function normalizeStatus(status: string): string {
-  return status?.toLowerCase().replace(/\s+/g, '_') ?? 'not_started';
+  return status?.toLowerCase().replace(/\s+/g, '_') ?? 'Not Started';
 }
 
 function statusMatchesFilter(programStatus: string, filter: StatusFilter): boolean {
@@ -478,9 +479,9 @@ export function Applications() {
   const getStatusBadge = (status: string) => {
     const key = normalizeStatus(status);
     const variants: Record<string, { variant: 'outline' | 'default' | 'secondary' | 'destructive'; label: string }> = {
-      not_started: { variant: 'outline', label: 'Not Started' },
-      in_progress: { variant: 'secondary', label: 'In Progress' },
-      ready_to_submit: { variant: 'default', label: 'Ready to Submit' },
+      'Not Started': { variant: 'outline', label: 'Not Started' },
+      'In Progress': { variant: 'secondary', label: 'In Progress' },
+      'Ready to Submit': { variant: 'default', label: 'Ready to Submit' },
       submitted: { variant: 'default', label: 'Submitted' },
       accepted: { variant: 'default', label: 'Accepted' },
       rejected: { variant: 'destructive', label: 'Rejected' },
@@ -495,6 +496,8 @@ export function Applications() {
   };
 
   const isSubmitted = (status: string) => normalizeStatus(status) === 'submitted';
+
+  if (loading) return <PageSkeleton />;
 
   if (fetchError || !isOnline) {
     return (
@@ -548,17 +551,11 @@ export function Applications() {
         editingProgramId={editingProgramId}
       />
 
-      {loading ? (
-        <div className="grid grid-cols-1 gap-4">
-          {[1, 2, 3].map(i => (
-            <ApplicationCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : programs.length === 0 ? (
+      {programs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 px-4">
           <h2 className="text-lg mb-2">No applications yet</h2>
           <p className="text-sm text-muted-foreground text-center mb-6 max-w-sm">
-            Add your first school to start tracking deadlines, documents, and requirements.
+            Add a school to create your first application workspace.
           </p>
           <Button onClick={() => setIsAddSchoolOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -584,11 +581,11 @@ export function Applications() {
                 <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3">
                   {statusFilter === 'all'
                     ? 'All'
-                    : statusFilter === 'not_started'
+                    : statusFilter === 'Not Started'
                       ? 'Not Started'
-                      : statusFilter === 'in_progress'
+                      : statusFilter === 'In Progress'
                         ? 'In Progress'
-                        : statusFilter === 'ready_to_submit'
+                        : statusFilter === 'Ready to Submit'
                           ? 'Ready to Submit'
                           : statusFilter === 'submitted'
                             ? 'Submitted'
@@ -607,20 +604,20 @@ export function Applications() {
                     All
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'not_started'}
-                    onCheckedChange={() => setStatusFilter('not_started')}
+                    checked={statusFilter === 'Not Started'}
+                    onCheckedChange={() => setStatusFilter('Not Started')}
                   >
                     Not Started
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'in_progress'}
-                    onCheckedChange={() => setStatusFilter('in_progress')}
+                    checked={statusFilter === 'In Progress'}
+                    onCheckedChange={() => setStatusFilter('In Progress')}
                   >
                     In Progress
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'ready_to_submit'}
-                    onCheckedChange={() => setStatusFilter('ready_to_submit')}
+                    checked={statusFilter === 'Ready to Submit'}
+                    onCheckedChange={() => setStatusFilter('Ready to Submit')}
                   >
                     Ready to Submit
                   </DropdownMenuCheckboxItem>

@@ -38,9 +38,9 @@ function normalizeStatus(status: string): string {
 function statusesMatch(a: string, b: string): boolean {
   if (a === b) return true;
   const map: Record<string, string> = {
-    not_started: 'not started',
-    in_progress: 'in progress',
-    ready_to_submit: 'ready to submit',
+    'Not Started': 'not started',
+    'In Progress': 'in progress',
+    'Ready to Submit': 'ready to submit',
     submitted: 'submitted',
     interview: 'interview',
     accepted: 'accepted',

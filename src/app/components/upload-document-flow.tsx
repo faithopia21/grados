@@ -129,7 +129,7 @@ export function UploadDocumentFlow({
     }
 
     setUploadProgress(100);
-    toast.success('Document uploaded');
+    toast.success('Document uploaded successfully');
     setUploading(false);
     reset();
     onOpenChange(false);

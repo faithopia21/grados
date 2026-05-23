@@ -23,7 +23,9 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react';
+import { PageSkeleton } from '../components/page-skeleton';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
 
@@ -291,10 +293,10 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
       .eq('id', profile.id)
       .select('*')
       .single();
-    setSavingTab(null);
-    if (error) { setSaveError(error.message); return false; }
+    if (error) { setSaveError(error.message); setSavingTab(null); return false; }
     onProfileUpdated(data as ProfileRow);
-    toast.success('Profile saved');
+    toast.success('Profile updated successfully');
+    setSavingTab(null);
     return true;
   };
 
@@ -388,7 +390,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
       </div>
 
       <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1">
+        <TabsList className="flex w-full justify-start overflow-x-auto pb-1 no-scrollbar">
           <TabsTrigger value="personal" className="text-xs md:text-sm">
             <User className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Personal</span>
@@ -836,7 +838,7 @@ export function Profile() {
     fetchProfile();
   }, []);
 
-  if (loading) return <ProfileSkeleton />;
+  if (loading) return <PageSkeleton />;
 
   if (fetchError) {
     return (

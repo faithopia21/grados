@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Skeleton } from '../components/ui/skeleton';
+import { PageSkeleton } from '../components/page-skeleton';
+import { DeadlineCardSkeleton } from '../components/deadline-card-skeleton';
 import { supabase } from '../../lib/supabase';
 import { formatDate } from '../../lib/utils';
 import {
@@ -256,6 +257,8 @@ export function Timeline() {
     </div>
   );
 
+  if (loading) return <PageSkeleton />;
+
   if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
@@ -338,17 +341,11 @@ export function Timeline() {
         </Card>
       </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <DeadlineCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : programs.length === 0 ? (
+      {programs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 px-4">
-          <h3 className="text-base mb-2">No deadlines yet</h3>
+          <h3 className="text-base mb-2">No deadlines to track</h3>
           <p className="text-sm text-muted-foreground text-center mb-6 max-w-sm">
-            Add schools from your dashboard and their deadlines will appear here.
+            Add schools to your dashboard and their deadlines will appear here.
           </p>
           <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
         </div>
