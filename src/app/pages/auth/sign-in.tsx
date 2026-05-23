@@ -75,10 +75,16 @@ export function SignIn() {
       <div className="w-full max-w-[420px] bg-card rounded-2xl p-10 border border-border">
         {/* Logo */}
         <div className="flex justify-center mb-6">
-          <img 
-            src={gradosLogo} 
-            alt="GradOS" 
-            className="h-10 w-auto mx-auto mb-4"
+          <div 
+            style={{ 
+              backgroundImage: `url(${gradosLogo})`,
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'center'
+            }}
+            className="h-16 w-[180px] mx-auto mb-6"
+            role="img"
+            aria-label="GradOS"
           />
         </div>
 

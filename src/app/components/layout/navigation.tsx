@@ -114,10 +114,16 @@ export function Navigation({
             <span className="text-white text-sm font-medium">G</span>
           </div>
           <div className="hidden lg:block min-w-0">
-            <img 
-              src={gradosLogo} 
-              alt="GradOS" 
-              className="h-8 w-auto"
+            <div 
+              style={{ 
+                backgroundImage: `url(${gradosLogo})`,
+                backgroundSize: 'contain',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'left center'
+              }}
+              className="h-8 w-40"
+              role="img"
+              aria-label="GradOS"
             />
           </div>
         </div>
