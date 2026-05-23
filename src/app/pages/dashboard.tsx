@@ -64,7 +64,7 @@ export function Dashboard() {
 
       const { data, error } = await supabase
         .from('programs')
-        .select('*')
+        .select('id, school_name, program_name, status, deadline, created_at, funding_available, country')
         .eq('user_id', user.id)
         .order('deadline', { ascending: true });
 
@@ -75,21 +75,23 @@ export function Dashboard() {
       if (data) {
         const programsWithNextStep = await Promise.all(
           (data as DbProgram[]).map(async program => {
-            const { count } = await supabase
-              .from('checklist_items')
-              .select('*', { count: 'exact', head: true })
-              .eq('program_id', program.id);
+            const [countRes, nextItemRes] = await Promise.all([
+              supabase
+                .from('checklist_items')
+                .select('*', { count: 'exact', head: true })
+                .eq('program_id', program.id),
+              supabase
+                .from('checklist_items')
+                .select('label')
+                .eq('program_id', program.id)
+                .eq('is_done', false)
+                .order('created_at', { ascending: true })
+                .limit(1)
+                .maybeSingle()
+            ]);
 
-            const hasChecklist = (count ?? 0) > 0;
-
-            const { data: nextItem } = await supabase
-              .from('checklist_items')
-              .select('label')
-              .eq('program_id', program.id)
-              .eq('is_done', false)
-              .order('created_at', { ascending: true })
-              .limit(1)
-              .maybeSingle();
+            const hasChecklist = (countRes.count ?? 0) > 0;
+            const nextItem = nextItemRes.data;
 
             return {
               ...program,

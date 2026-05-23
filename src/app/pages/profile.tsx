@@ -87,15 +87,32 @@ function deriveDomains(subfields: string[]): string[] {
 }
 
 function getCompletionPercent(profile: ProfileRow): number {
+  const educationData = profile?.education
+    ? (() => {
+        try {
+          return JSON.parse(profile.education)
+        } catch {
+          return null
+        }
+      })()
+    : null;
+
+  const hasEducation = !!(
+    educationData?.institution && 
+    educationData?.degree
+  );
+
   const filledFields = [
-    profile.full_name,
-    profile.nationality,
-    profile.current_institution,
-    profile.intended_degree,
-    profile.field_of_study,
-    profile.intended_start_term,
+    profile?.full_name,
+    profile?.nationality,
+    profile?.current_institution,
+    profile?.intended_degree,
+    profile?.field_of_study,
+    profile?.intended_start_term,
+    hasEducation ? 'filled' : null,
   ].filter(f => f != null && String(f).trim() !== '').length;
-  return Math.round((filledFields / 6) * 100);
+
+  return Math.round((filledFields / 7) * 100);
 }
 
 function getProfileInitials(fullName: string | null, email: string): string {

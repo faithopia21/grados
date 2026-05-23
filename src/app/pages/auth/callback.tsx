@@ -56,7 +56,6 @@ export function AuthCallback() {
           .from('profiles')
           .upsert({
             id: user.id,
-            email: user.email ?? '',
             full_name:
               user.user_metadata?.full_name ||
               user.user_metadata?.name ||

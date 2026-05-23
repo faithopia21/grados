@@ -134,11 +134,13 @@ function ApplicationCard({
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await supabase.from('checklist_items').delete().eq('program_id', program.id);
-      await supabase.from('program_notes').delete().eq('program_id', program.id);
-      await supabase.from('recommenders').delete().eq('program_id', program.id);
-      await supabase.from('portal_links').delete().eq('program_id', program.id);
-      await supabase.from('program_documents').delete().eq('program_id', program.id);
+      await Promise.all([
+        supabase.from('checklist_items').delete().eq('program_id', program.id),
+        supabase.from('program_notes').delete().eq('program_id', program.id),
+        supabase.from('recommenders').delete().eq('program_id', program.id),
+        supabase.from('portal_links').delete().eq('program_id', program.id),
+        supabase.from('program_documents').delete().eq('program_id', program.id)
+      ]);
       const { error } = await supabase.from('programs').delete().eq('id', program.id);
       if (error) throw error;
       onDeleted(program.id);
@@ -299,7 +301,7 @@ export function Applications() {
 
       const { data: programRows, error } = await supabase
         .from('programs')
-        .select('*')
+        .select('id, school_name, program_name, status, deadline, created_at, degree_type, country, funding_available')
         .eq('user_id', user.id)
         .order('deadline', { ascending: true });
 

@@ -158,22 +158,51 @@ export function Timeline() {
   const future = useMemo(() => programs.filter(p => p.bucket === 'future'), [programs]);
 
   const handleExportIcs = () => {
+    const events: string[] = [];
+    programs.forEach(program => {
+      if (!program.deadline) return
+      
+      const deadlineDate = new Date(program.deadline)
+      
+      // Start event the day BEFORE deadline
+      const startDate = new Date(deadlineDate)
+      startDate.setDate(startDate.getDate() - 1)
+      
+      // End event ON the deadline day
+      const endDate = deadlineDate
+      
+      // Format as YYYYMMDD
+      const formatICSDate = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(
+          date.getMonth() + 1
+        ).padStart(2, '0')
+        const day = String(
+          date.getDate()
+        ).padStart(2, '0')
+        return `${year}${month}${day}`
+      }
+      
+      events.push([
+        'BEGIN:VEVENT',
+        `DTSTART:${formatICSDate(startDate)}`,
+        `DTEND:${formatICSDate(endDate)}`,
+        `SUMMARY:DEADLINE: ${program.school_name} - ${program.program_name}`,
+        `DESCRIPTION:Application deadline for ${program.program_name} at ${program.school_name}. Status: ${program.status || 'Not Started'}`,
+        `BEGIN:VALARM`,
+        `TRIGGER:-PT12H`,
+        `ACTION:DISPLAY`,
+        `DESCRIPTION:Reminder: ${program.school_name} application deadline tomorrow`,
+        `END:VALARM`,
+        'END:VEVENT'
+      ].join('\r\n'))
+    });
+
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//GradOS//Application Deadlines//EN',
-      ...programs
-        .filter(p => !!p.deadline)
-        .map(p => [
-        'BEGIN:VEVENT',
-        `DTSTART:${new Date(p.deadline!)
-          .toISOString()
-          .replace(/-|:|\.\d{3}/g, '')
-          .slice(0, 8)}`,
-        `SUMMARY:${p.school_name} - ${p.program_name} deadline`,
-        `DESCRIPTION:Application deadline for ${p.program_name} at ${p.school_name}`,
-        'END:VEVENT',
-      ].join('\r\n')),
+      ...events,
       'END:VCALENDAR',
     ].join('\r\n');
 

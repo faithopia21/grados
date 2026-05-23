@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router';
 import { Menu } from 'lucide-react';
 import { ApplicationProvider } from '../contexts/ApplicationContext';
@@ -6,11 +6,11 @@ import { Toaster } from './components/ui/sonner';
 import { Navigation } from './components/layout/navigation';
 import { Dashboard } from './pages/dashboard';
 import { Applications } from './pages/applications';
-import { SchoolWorkspace } from './pages/school-workspace';
-import { Documents } from './pages/documents';
-import { Timeline } from './pages/timeline';
-import { Settings } from './pages/settings';
-import { Profile } from './pages/profile';
+const SchoolWorkspace = lazy(() => import('./pages/school-workspace').then(m => ({ default: m.SchoolWorkspace })));
+const Documents = lazy(() => import('./pages/documents').then(m => ({ default: m.Documents })));
+const Timeline = lazy(() => import('./pages/timeline').then(m => ({ default: m.Timeline })));
+const Settings = lazy(() => import('./pages/settings').then(m => ({ default: m.Settings })));
+const Profile = lazy(() => import('./pages/profile').then(m => ({ default: m.Profile })));
 import { SignIn } from './pages/auth/sign-in';
 import { SignUp } from './pages/auth/sign-up';
 import { Onboarding } from './pages/auth/onboarding';
@@ -70,14 +70,32 @@ function AppLayout() {
             <Route path="/applications" element={<Applications />} />
             <Route path="/applications/:id" element={
               <ErrorBoundary>
-                <SchoolWorkspace />
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                  <SchoolWorkspace />
+                </Suspense>
               </ErrorBoundary>
             } />
             <Route path="/application/:id" element={<LegacyApplicationRedirect />} />
-            <Route path="/deadlines" element={<Timeline />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/deadlines" element={
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                <Timeline />
+              </Suspense>
+            } />
+            <Route path="/documents" element={
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                <Documents />
+              </Suspense>
+            } />
+            <Route path="/settings" element={
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                <Settings />
+              </Suspense>
+            } />
+            <Route path="/profile" element={
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                <Profile />
+              </Suspense>
+            } />
             <Route path="/onboarding" element={<Onboarding />} />
           </Routes>
         </main>

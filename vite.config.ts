@@ -35,5 +35,25 @@ export default defineConfig({
   assetsInclude: ['**/*.svg', '**/*.csv'],
   build: {
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': [
+            'react', 
+            'react-dom', 
+            'react-router'
+          ],
+          'supabase': [
+            '@supabase/supabase-js'
+          ],
+          'ui': [
+            'lucide-react',
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-select'
+          ],
+        }
+      }
+    }
   },
 })
