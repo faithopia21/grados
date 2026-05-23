@@ -22,21 +22,26 @@ interface DbProgram {
   program_name: string;
   degree_type: string;
   country: string;
-  deadline: string;
+  deadline: string | null;
   status: string;
 }
 
 type UrgencyBucket = 'urgent' | 'soon' | 'upcoming' | 'future';
 
 interface ProgramWithUrgency extends DbProgram {
-  daysLeft: number;
+  daysLeft: number | null;
   bucket: UrgencyBucket;
 }
 
-function getDaysLeft(deadline: string): number {
-  return Math.ceil(
-    (new Date(deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-  );
+function getDaysLeft(deadline: string | null | undefined): number | null {
+  if (!deadline) return null;
+  try {
+    const d = new Date(deadline);
+    if (isNaN(d.getTime())) return null;
+    return Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
 }
 
 function getUrgencyBucket(daysLeft: number): UrgencyBucket {
@@ -103,13 +108,14 @@ export function Timeline() {
 
       setFetchError(false);
 
-      const withUrgency = ((data ?? []) as DbProgram[]).map(program => {
+      const withUrgency = ((data ?? []) as DbProgram[]).flatMap(program => {
         const daysLeft = getDaysLeft(program.deadline);
-        return {
+        if (daysLeft === null) return []; // skip programs with no deadline
+        return [{
           ...program,
           daysLeft,
           bucket: getUrgencyBucket(daysLeft),
-        };
+        }];
       });
 
       setPrograms(withUrgency);
@@ -156,9 +162,11 @@ export function Timeline() {
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//GradOS//Application Deadlines//EN',
-      ...programs.map(p => [
+      ...programs
+        .filter(p => !!p.deadline)
+        .map(p => [
         'BEGIN:VEVENT',
-        `DTSTART:${new Date(p.deadline)
+        `DTSTART:${new Date(p.deadline!)
           .toISOString()
           .replace(/-|:|\.\d{3}/g, '')
           .slice(0, 8)}`,

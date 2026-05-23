@@ -20,7 +20,7 @@ export interface DbProgram {
   program_name: string;
   degree_type: string;
   country: string;
-  deadline: string;
+  deadline: string | null;
   funding_available: boolean;
   portal_url: string | null;
   status: string;
@@ -147,8 +147,8 @@ export function Dashboard() {
         daysUntil: getDaysUntil(program.deadline),
         status: mapDbStatus(program.status),
       }))
-      .filter(program => program.daysUntil >= 0 && program.status !== 'submitted')
-      .sort((a, b) => a.daysUntil - b.daysUntil)
+      .filter(program => program.daysUntil !== null && program.daysUntil >= 0 && program.status !== 'submitted')
+      .sort((a, b) => (a.daysUntil as number) - (b.daysUntil as number))
       .slice(0, 5);
   }, [programs]);
 
@@ -304,9 +304,15 @@ export function Dashboard() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="truncate">{program.school_name}</h4>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getUrgencyPillStyle(program.daysUntil)}`}>
-                      {program.daysUntil}d
-                    </span>
+                    {program.daysUntil !== null ? (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getUrgencyPillStyle(program.daysUntil as number)}`}>
+                        {program.daysUntil}d
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                        No deadline
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {program.degree_type} in {program.program_name}

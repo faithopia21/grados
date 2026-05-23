@@ -5,16 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return 'No date set';
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return 'Invalid date';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return 'No date set';
+  }
 }
 
-export function getDaysUntil(date: Date | string): number {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const today = new Date();
-  const diff = d.getTime() - today.getTime();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+export function getDaysUntil(date: Date | string | null | undefined): number | null {
+  if (!date) return null;
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return null;
+    const today = new Date();
+    const diff = d.getTime() - today.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
 }
 
 export function getDeadlineStatus(daysUntil: number): 'urgent' | 'soon' | 'upcoming' | 'future' {

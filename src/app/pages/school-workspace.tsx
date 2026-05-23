@@ -68,7 +68,7 @@ interface DbProgram {
   program_name: string;
   degree_type: string;
   country: string;
-  deadline: string;
+  deadline: string | null;
   funding_available: boolean;
   portal_url: string | null;
   status: string;
@@ -105,6 +105,34 @@ const BRIEFING_PLACEHOLDER = `Suggested structure:
 • Key project or achievement to highlight
 • Skills relevant to this specific program
 • Why this program fits my goals`;
+
+function getDaysRemaining(deadline: string | null | undefined): number | null {
+  if (!deadline) return null;
+  try {
+    const deadlineDate = new Date(deadline);
+    if (isNaN(deadlineDate.getTime())) return null;
+    return Math.ceil(
+      (deadlineDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function formatDeadline(deadline: string | null | undefined): string {
+  if (!deadline) return 'No deadline set';
+  try {
+    const date = new Date(deadline);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    return date.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return 'No deadline set';
+  }
+}
 
 function getRecommenderBorderClass(status: string): string {
   const n = status?.toLowerCase();
@@ -806,7 +834,7 @@ export function SchoolWorkspace() {
     setPortalLinks(prev => prev.filter(l => l.id !== linkId));
   };
 
-  const daysUntil = getDaysUntil(program?.deadline);
+  const daysUntil = getDaysRemaining(program?.deadline);
   const checklistDone = checklistItems.filter(i => i.is_done).length;
   const checklistTotal = checklistItems.length;
   const checklistProgress = checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0;
@@ -952,9 +980,13 @@ export function SchoolWorkspace() {
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-xl">{formatDate(program.deadline)}</div>
+                <div className="text-xl">{program.deadline ? formatDeadline(program.deadline) : 'No deadline set'}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {daysUntil >= 0 ? `${daysUntil} days remaining` : 'Deadline passed'}
+                  {daysUntil === null
+                    ? 'No deadline'
+                    : daysUntil >= 0
+                    ? `${daysUntil} days remaining`
+                    : 'Deadline passed'}
                 </p>
               </CardContent>
             </Card>
