@@ -1,3 +1,6 @@
+# GradOS — Project Dependencies
+
+```text
 # GradOS — Project Requirements
 # Generated: May 2026
 # Node.js: v20.20.2
@@ -115,3 +118,4 @@ vite@6.3.5
 @vitejs/plugin-react@4.7.0
 tailwindcss@4.1.12
 @tailwindcss/vite@4.1.12
+```
