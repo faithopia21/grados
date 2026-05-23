@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router';
 import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../components/page-header';
 import { exportApplicationsPDF } from '../../lib/export-pdf';
+import { FAQModal } from '../components/faq-modal';
 
 interface ProfileSummary {
   full_name: string | null;
@@ -55,6 +56,7 @@ export function Settings() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
 
   const profileCompletion = useMemo(
     () => getProfileCompletion(profileSummary),
@@ -375,7 +377,7 @@ export function Settings() {
                 </p>
               </div>
               <a
-                href="https://forms.google.com"
+                href="https://forms.gle/Z3XPaAfByit73HDb8"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
@@ -404,14 +406,12 @@ export function Settings() {
                   Common questions and how-tos
                 </p>
               </div>
-              <a
-                href="https://grados.app/help"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => setIsFaqModalOpen(true)}
                 className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
               >
                 View FAQs
-              </a>
+              </button>
             </div>
             <div className="flex items-center justify-between pt-2">
               <div className="space-y-0.5">
@@ -511,6 +511,8 @@ export function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FAQModal open={isFaqModalOpen} onOpenChange={setIsFaqModalOpen} />
       </div>
     </div>
   );
