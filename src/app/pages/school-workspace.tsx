@@ -973,8 +973,9 @@ export function SchoolWorkspace() {
         </div>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <Card className="w-full md:w-[220px] shrink-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Column 1 — Application Deadline */}
+            <Card className="bg-white dark:bg-card border border-border/50 rounded-xl">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm">Application Deadline</CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -991,7 +992,8 @@ export function SchoolWorkspace() {
               </CardContent>
             </Card>
 
-            <Card className="flex-1 bg-white dark:bg-card border-border rounded-xl">
+            {/* Column 2 — Next Steps */}
+            <Card className="bg-white dark:bg-card border border-border/50 rounded-xl">
               <CardHeader className="pb-2">
                 <CardTitle>Next Steps</CardTitle>
                 <CardDescription>Your top priorities</CardDescription>
@@ -1046,10 +1048,9 @@ export function SchoolWorkspace() {
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            <Card>
+            {/* Column 3 — Quick Info */}
+            <Card className="bg-white dark:bg-card border border-border/50 rounded-xl">
               <CardHeader>
                 <CardTitle>Quick Info</CardTitle>
               </CardHeader>
