@@ -55,7 +55,7 @@ function AutoExpandTextarea({
       }}
       placeholder={placeholder}
       className={`w-full bg-transparent px-0 py-2 text-[14px] leading-[1.7] resize-none overflow-hidden focus-visible:outline-none focus-visible:ring-0 ${className}`}
-      style={{ minHeight: '150px', height: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}
+      style={{ minHeight: '60px', height: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}
     />
   );
 }
@@ -470,11 +470,11 @@ function NoteOverlayEditor({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 sm:p-6"
       onClick={onClose}
     >
       <div
-        className="bg-card w-full max-w-[680px] max-h-[calc(100vh-2rem)] md:max-h-[85vh] rounded-[12px] flex flex-col shadow-lg overflow-hidden"
+        className="bg-card w-full max-w-[680px] max-h-full sm:max-h-[85dvh] rounded-[12px] flex flex-col shadow-lg overflow-hidden"
         onClick={handleOverlayClick}
       >
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border shrink-0">
