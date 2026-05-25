@@ -8,6 +8,15 @@ import { Input } from '../components/ui/input';
 import { ApplicationCardSkeleton } from '../components/application-card-skeleton';
 import { PageSkeleton } from '../components/page-skeleton';
 import { AddSchoolDialog, SchoolFormData } from '../components/add-school-dialog';
+import { Checkbox } from '../components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +28,7 @@ import {
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
 import { getDaysUntil, formatDate, safeGetTime } from '../../lib/utils';
-import { Plus, ArrowRight, Search, ChevronDown, Trash2 } from 'lucide-react';
+import { Plus, ArrowRight, Search, ChevronDown, Trash2, AlertTriangle } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
@@ -111,6 +120,8 @@ interface ApplicationCardProps {
   handleMarkSubmitted: (program: ProgramWithProgress) => void;
   handleEditProgram: (program: ProgramWithProgress) => void;
   onDeleted: (id: string) => void;
+  isSelected: boolean;
+  onSelect: (id: string, selected: boolean) => void;
 }
 
 function ApplicationCard({
@@ -121,6 +132,8 @@ function ApplicationCard({
   handleMarkSubmitted,
   handleEditProgram,
   onDeleted,
+  isSelected,
+  onSelect,
 }: ApplicationCardProps) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -155,20 +168,34 @@ function ApplicationCard({
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className={`hover:shadow-md transition-shadow ${isSelected ? 'border-[#4F46E5] ring-1 ring-[#4F46E5]' : ''}`}>
       <CardContent className="p-4 md:p-6">
         <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
+          <div className="pt-1 hidden md:block">
+            <Checkbox 
+              checked={isSelected}
+              onCheckedChange={(checked) => onSelect(program.id, checked as boolean)}
+            />
+          </div>
           <div className="flex-1 space-y-4">
             <div>
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h3 className="text-base md:text-lg">{program.school_name}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {program.degree_type} in {program.program_name}
-                  </p>
-                  {program.country && (
-                    <p className="text-xs text-muted-foreground mt-1">{program.country}</p>
-                  )}
+                <div className="flex-1 flex items-start gap-3">
+                  <div className="md:hidden pt-1">
+                    <Checkbox 
+                      checked={isSelected}
+                      onCheckedChange={(checked) => onSelect(program.id, checked as boolean)}
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-base md:text-lg">{program.school_name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {program.degree_type} in {program.program_name}
+                    </p>
+                    {program.country && (
+                      <p className="text-xs text-muted-foreground mt-1">{program.country}</p>
+                    )}
+                  </div>
                 </div>
                 {getStatusBadge(program.status)}
               </div>
@@ -279,9 +306,46 @@ export function Applications() {
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<SchoolFormData | undefined>(undefined);
   const [fetchError, setFetchError] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const isOnline = useOnlineStatus();
 
   const navigate = useNavigate();
+
+  const toggleSelection = (id: string, selected: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (selected) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    const idsToDelete = Array.from(selectedIds);
+    try {
+      await Promise.all([
+        supabase.from('checklist_items').delete().in('program_id', idsToDelete),
+        supabase.from('program_notes').delete().in('program_id', idsToDelete),
+        supabase.from('recommenders').delete().in('program_id', idsToDelete),
+        supabase.from('portal_links').delete().in('program_id', idsToDelete),
+        supabase.from('program_documents').delete().in('program_id', idsToDelete)
+      ]);
+      const { error } = await supabase.from('programs').delete().in('id', idsToDelete);
+      if (error) throw error;
+      
+      setPrograms(prev => prev.filter(p => !selectedIds.has(p.id)));
+      setSelectedIds(new Set());
+      setShowBulkDeleteModal(false);
+      toast.success(`${idsToDelete.length} applications deleted`);
+    } catch {
+      toast.error('Failed to delete applications');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
@@ -732,6 +796,39 @@ export function Applications() {
             </p>
           </div>
 
+          {selectedIds.size > 0 && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <Checkbox 
+                  checked={selectedIds.size === filteredPrograms.length && filteredPrograms.length > 0}
+                  onCheckedChange={() => {
+                    if (selectedIds.size === filteredPrograms.length) {
+                      setSelectedIds(new Set());
+                    } else {
+                      setSelectedIds(new Set(filteredPrograms.map(p => p.id)));
+                    }
+                  }}
+                />
+                <span className="text-sm font-medium">
+                  {selectedIds.size} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => setShowBulkDeleteModal(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected
+                </Button>
+              </div>
+            </div>
+          )}
+
           {filteredPrograms.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               No applications match your search or filters.
@@ -747,13 +844,40 @@ export function Applications() {
                   isSubmitted={isSubmitted}
                   handleMarkSubmitted={handleMarkSubmitted}
                   handleEditProgram={handleEditProgram}
-                  onDeleted={id =>
-                    setPrograms(prev => prev.filter(p => p.id !== id))
-                  }
+                  onDeleted={id => {
+                    setPrograms(prev => prev.filter(p => p.id !== id));
+                    if (selectedIds.has(id)) {
+                      toggleSelection(id, false);
+                    }
+                  }}
+                  isSelected={selectedIds.has(program.id)}
+                  onSelect={toggleSelection}
                 />
               ))}
             </div>
           )}
+
+          <Dialog open={showBulkDeleteModal} onOpenChange={setShowBulkDeleteModal}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Delete Applications
+                </DialogTitle>
+                <DialogDescription className="pt-2">
+                  Are you sure you want to delete {selectedIds.size} selected {selectedIds.size === 1 ? 'application' : 'applications'}? This action is <strong>irreversible</strong> and will delete all associated checklists, notes, recommenders, and links.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-4">
+                <Button variant="outline" onClick={() => setShowBulkDeleteModal(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleBulkDelete} disabled={isBulkDeleting}>
+                  {isBulkDeleting ? 'Deleting...' : 'Yes, delete'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
       </div>

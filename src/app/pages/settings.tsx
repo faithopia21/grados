@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { ChevronDown, ChevronRight, CheckCircle2, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle2, ExternalLink, Mail, X, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import { supabase } from '../../lib/supabase';
@@ -62,6 +62,8 @@ export function Settings() {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [isClearDataModalOpen, setIsClearDataModalOpen] = useState(false);
+  const [clearDataLoading, setClearDataLoading] = useState(false);
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
 
   const profileCompletion = useMemo(
@@ -163,6 +165,61 @@ export function Settings() {
 
     await exportApplicationsPDF(programs || [], profile);
     toast.success('PDF downloaded successfully');
+  };
+
+  const handleClearData = async () => {
+    if (!userId) return;
+    setClearDataLoading(true);
+
+    try {
+      const { data: programs } = await supabase
+        .from('programs')
+        .select('id')
+        .eq('user_id', userId);
+
+      if (programs && programs.length > 0) {
+        const programIds = programs.map(p => p.id);
+        await Promise.all([
+          supabase.from('checklist_items').delete().in('program_id', programIds),
+          supabase.from('program_notes').delete().in('program_id', programIds),
+          supabase.from('recommenders').delete().in('program_id', programIds),
+          supabase.from('portal_links').delete().in('program_id', programIds),
+          supabase.from('program_documents').delete().in('program_id', programIds),
+        ]);
+        await supabase.from('programs').delete().eq('user_id', userId);
+      }
+
+      const { data: docs } = await supabase
+        .from('documents')
+        .select('storage_path, file_url')
+        .eq('user_id', userId);
+
+      if (docs && docs.length > 0) {
+        const paths = docs
+          .map(d => {
+            if (d.storage_path) return d.storage_path;
+            if (!d.file_url) return null;
+            const marker = '/documents/';
+            const idx = d.file_url.indexOf(marker);
+            if (idx === -1) return null;
+            return decodeURIComponent(d.file_url.slice(idx + marker.length).split('?')[0]);
+          })
+          .filter(Boolean) as string[];
+
+        if (paths.length > 0) {
+          await supabase.storage.from('documents').remove(paths);
+        }
+        await supabase.from('documents').delete().eq('user_id', userId);
+      }
+
+      toast.success('All application data cleared successfully.');
+      setIsClearDataModalOpen(false);
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast.error('Failed to clear data: ' + error.message);
+    } finally {
+      setClearDataLoading(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -419,16 +476,34 @@ export function Settings() {
         </CardHeader>
         {expandedSection === 'privacy' && (
           <CardContent className="space-y-4 pt-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Export my data</Label>
-                <p className="text-xs text-muted-foreground">
-                  Download all your application data
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Export my data</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Download all your application data
+                  </p>
+                </div>
+                <Button variant="outline" onClick={handleExportData}>
+                  Export as PDF
+                </Button>
               </div>
-              <Button variant="outline" onClick={handleExportData}>
-                Export as PDF
-              </Button>
+
+              <div className="pt-4 border-t border-border flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-destructive">Clear application data</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Delete all uploaded documents and applications. Your profile will be kept.
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsClearDataModalOpen(true)}
+                  className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  Clear Data
+                </Button>
+              </div>
             </div>
           </CardContent>
         )}
@@ -640,6 +715,28 @@ export function Settings() {
             </Button>
             <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteLoading}>
               {deleteLoading ? 'Deleting...' : 'Yes, delete my account'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isClearDataModalOpen} onOpenChange={setIsClearDataModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Clear All Data
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              This action is <strong>irreversible</strong>. It will permanently delete all your applications, uploaded documents, notes, and preferences. Your profile and account will remain untouched.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsClearDataModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleClearData} disabled={clearDataLoading}>
+              {clearDataLoading ? 'Clearing Data...' : 'Yes, clear all data'}
             </Button>
           </DialogFooter>
         </DialogContent>
