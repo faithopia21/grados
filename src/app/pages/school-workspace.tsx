@@ -272,6 +272,8 @@ function BriefingNoteTextarea({
       rows={1}
       className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{
+        minHeight: '150px',
+        height: '100%',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
         overflowWrap: 'break-word',
@@ -1848,7 +1850,7 @@ export function SchoolWorkspace() {
             onClick={() => setBriefingOverlayId(null)}
           >
             <div
-              className="bg-card rounded-xl w-full max-w-[90%] max-h-[80vh] flex flex-col shadow-xl overflow-hidden"
+              className="bg-card rounded-xl w-full max-w-[680px] max-h-[calc(100vh-2rem)] md:max-h-[85vh] flex flex-col shadow-xl overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border shrink-0">
@@ -1865,7 +1867,7 @@ export function SchoolWorkspace() {
                 </button>
               </div>
               
-              <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
                 <BriefingNoteTextarea
                   value={rec.briefing_note ?? ''}
                   onChange={value => handleBriefingChange(rec, value)}

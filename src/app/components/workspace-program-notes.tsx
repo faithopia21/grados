@@ -55,7 +55,7 @@ function AutoExpandTextarea({
       }}
       placeholder={placeholder}
       className={`w-full bg-transparent px-0 py-2 text-[14px] leading-[1.7] resize-none overflow-hidden focus-visible:outline-none focus-visible:ring-0 ${className}`}
-      style={{ minHeight: '300px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}
+      style={{ minHeight: '150px', height: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}
     />
   );
 }
@@ -474,7 +474,7 @@ function NoteOverlayEditor({
       onClick={onClose}
     >
       <div
-        className="bg-card w-full max-w-[680px] max-h-[85vh] rounded-[12px] flex flex-col shadow-lg overflow-hidden"
+        className="bg-card w-full max-w-[680px] max-h-[calc(100vh-2rem)] md:max-h-[85vh] rounded-[12px] flex flex-col shadow-lg overflow-hidden"
         onClick={handleOverlayClick}
       >
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border shrink-0">
@@ -494,7 +494,7 @@ function NoteOverlayEditor({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
           <AutoExpandTextarea
             value={content}
             onChange={handleChangeContent}

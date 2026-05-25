@@ -159,7 +159,7 @@ export function Onboarding() {
           <img 
             src={gradosLogo} 
             alt="GradOS"
-            className="h-19 w-auto mx-auto mb-3"
+            className="h-20 w-auto mx-auto mb-3"
           />
         </div>
 

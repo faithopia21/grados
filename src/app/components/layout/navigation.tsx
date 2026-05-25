@@ -117,7 +117,7 @@ export function Navigation({
             <img 
               src={gradosLogo} 
               alt="GradOS"
-              className="h-12 w-auto object-contain"
+              className="h-13 w-auto object-contain"
             />
           </div>
         </div>
