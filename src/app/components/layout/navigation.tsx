@@ -117,7 +117,7 @@ export function Navigation({
             <img 
               src={gradosLogo} 
               alt="GradOS"
-              className="h-8 w-auto max-w-[160px] object-contain object-left dark:mix-blend-screen"
+              className="h-10 w-auto max-w-[120px] object-contain"
             />
           </div>
         </div>

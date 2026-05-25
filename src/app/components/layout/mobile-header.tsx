@@ -83,7 +83,7 @@ export function MobileHeader({ pageName }: MobileHeaderProps) {
         <img 
           src={gradosLogo} 
           alt="GradOS" 
-          className="h-10 w-auto max-w-[120px] object-contain object-left dark:mix-blend-screen"
+          className="h-10 w-auto max-w-[120px] object-contain"
         />
 
         <h2 className="text-[15px] font-medium flex-1 text-center truncate px-2">
