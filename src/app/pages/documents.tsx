@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSelection } from '../../hooks/useSelection';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -45,19 +46,17 @@ export function Documents() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const isOnline = useOnlineStatus();
 
-  const toggleSelection = (id: string, selected: boolean) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (selected) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  };
+  const {
+    selectedIds,
+    toggleSelection,
+    selectAll,
+    clearSelection,
+    isSelectionMode,
+  } = useSelection();
 
   const handleBulkDelete = async () => {
     setIsBulkDeleting(true);
@@ -75,7 +74,7 @@ export function Documents() {
       if (error) throw error;
 
       setDocuments(prev => prev.filter(d => !selectedIds.has(d.id)));
-      setSelectedIds(new Set());
+      clearSelection();
       setShowBulkDeleteModal(false);
       toast.success(`${idsToDelete.length} documents deleted`);
     } catch (err: any) {
@@ -110,7 +109,6 @@ export function Documents() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
       setFetchError(false);
       setDocuments((data ?? []) as DbDocument[]);
     } catch (err: any) {
@@ -123,7 +121,7 @@ export function Documents() {
       ) {
         setFetchError(true);
       } else {
-        toast.error('Failed to load data');
+        toast.error('Failed to load documents');
         setFetchError(false);
       }
     } finally {
@@ -144,65 +142,64 @@ export function Documents() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
-  const storage = useMemo(() => getTotalStorageMb(documents), [documents]);
+  const handleDelete = async (doc: DbDocument) => {
+    setDeleteError('');
+    try {
+      const path = getStoragePath(doc);
+      if (path) {
+        const { error: storageError } = await supabase.storage.from('documents').remove([path]);
+        if (storageError) throw storageError;
+      }
 
-  const filteredDocuments = useMemo(() => {
-    let list = documents.filter(d => matchesDocFilter(d, activeFilter));
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(d => d.name.toLowerCase().includes(q));
+      const { error: dbError } = await supabase.from('documents').delete().eq('id', doc.id);
+      if (dbError) throw dbError;
+
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
+      if (selectedIds.has(doc.id)) {
+        toggleSelection(doc.id, false);
+      }
+      toast.success('Document deleted');
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      toast.error(err.message || 'Failed to delete document');
+      setDeleteError(err.message || 'Failed to delete document. Please try again.');
     }
-    return list;
-  }, [documents, activeFilter, searchQuery]);
+  };
 
   const handleDownload = async (doc: DbDocument) => {
-    const storagePath = doc.storage_path?.trim();
-    if (storagePath) {
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(storagePath, 3600);
+    try {
+      if (doc.storage_path) {
+        const { data, error } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(doc.storage_path, 60);
 
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
-        return;
+        if (error) throw error;
+        if (data?.signedUrl) {
+          window.open(data.signedUrl, '_blank');
+        }
+      } else if (doc.file_url) {
+        window.open(doc.file_url, '_blank');
       }
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
+    } catch (err: any) {
+      console.error('Download error:', err);
+      toast.error('Failed to download document');
     }
-
-    if (doc.file_url?.trim()) {
-      window.open(doc.file_url, '_blank');
-      return;
-    }
-
-    toast.error('Could not download file');
   };
 
-  const handleDelete = async (doc: DbDocument) => {
-    if (!window.confirm('Delete this document? This cannot be undone.')) return;
+  const filteredDocuments = useMemo(() => {
+    let filtered = documents;
 
-    const filePath = getStoragePath(doc);
-    if (filePath) {
-      const { error: storageError } = await supabase.storage.from('documents').remove([filePath]);
-      if (storageError) {
-        setDeleteError(storageError.message);
-        return;
-      }
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(doc => doc.name.toLowerCase().includes(query));
     }
 
-    const { error } = await supabase.from('documents').delete().eq('id', doc.id);
-
-    if (error) {
-      setDeleteError(error.message);
-      return;
+    if (activeFilter !== 'all') {
+      filtered = filtered.filter(doc => matchesDocFilter(doc.doc_type, activeFilter));
     }
 
-    setDocuments(prev => prev.filter(d => d.id !== doc.id));
-    toast.success('Document deleted');
-  };
+    return filtered;
+  }, [documents, searchQuery, activeFilter]);
 
   if (loading) return <PageSkeleton />;
 
@@ -210,8 +207,8 @@ export function Documents() {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <PageHeader
-          title="Documents Hub"
-          subtitle="Centralised library for all your documents"
+          title="Documents"
+          subtitle="Manage all your application documents"
           backTo="/dashboard"
         />
         <OfflinePage
@@ -224,180 +221,165 @@ export function Documents() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <PageHeader 
-        title="Documents Hub"
-        subtitle="Centralised library for all your documents"
+      <PageHeader
+        title="All Documents"
+        subtitle="Manage your application materials across all schools"
         backTo="/dashboard"
       />
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
-        <div className="flex justify-end">
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload New Document
-          </Button>
-        </div>
-
-      <div className="space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {storage.usedMb < 0.1
-              ? '0 MB'
-              : `${storage.usedMb < 1 ? storage.usedMb.toFixed(2) : storage.usedMb.toFixed(1)} MB`}{' '}
-            of {storage.limitMb} MB used
-          </p>
-        </div>
-        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-2 rounded-full transition-all"
-            style={{ width: `${storage.percent}%`, backgroundColor: '#4F46E5' }}
-          />
-        </div>
-      </div>
-
-      {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
-
-      {documents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4">
-          <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-lg mb-2">No documents yet</h2>
-          <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-            Upload your SOP, CV, and transcripts once — then attach them to any application.
-          </p>
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload your first document
-          </Button>
-        </div>
-      ) : (
-        <>
-          <div className="space-y-4">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search documents..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {DOC_FILTER_TABS.map(tab => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setActiveFilter(tab.value)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-full text-sm border transition-colors',
-                    activeFilter === tab.value
-                      ? 'border-[#4F46E5] bg-[#4F46E5] text-white'
-                      : 'border-border bg-background hover:bg-accent'
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+        {deleteError && (
+          <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-4 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <p>{deleteError}</p>
           </div>
+        )}
 
-          {selectedIds.size > 0 && (
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between sticky top-0 z-10 mb-4">
-              <div className="flex items-center gap-3">
-                <Checkbox 
-                  checked={selectedIds.size === filteredDocuments.length && filteredDocuments.length > 0}
-                  onCheckedChange={() => {
-                    if (selectedIds.size === filteredDocuments.length) {
-                      setSelectedIds(new Set());
-                    } else {
-                      setSelectedIds(new Set(filteredDocuments.map(d => d.id)));
-                    }
-                  }}
+        <div className="flex justify-between items-center gap-4">
+          <Button onClick={() => setUploadOpen(true)} className="hidden md:flex shrink-0 ml-auto">
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Document
+          </Button>
+        </div>
+
+        {documents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 border rounded-xl bg-card">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <h2 className="text-lg font-medium mb-2">No documents yet</h2>
+            <p className="text-sm text-muted-foreground text-center mb-6 max-w-sm">
+              Upload your CV, transcripts, and statements to use them across your applications.
+            </p>
+            <Button onClick={() => setUploadOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Document
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search documents..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-background"
                 />
-                <span className="text-sm font-medium">
-                  {selectedIds.size} selected
-                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                  Cancel
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={() => setShowBulkDeleteModal(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Selected
-                </Button>
+
+              <div className="flex flex-wrap gap-2">
+                {DOC_FILTER_TABS.map(tab => (
+                  <Badge
+                    key={tab.id}
+                    variant={activeFilter === tab.id ? 'default' : 'secondary'}
+                    className="cursor-pointer"
+                    onClick={() => setActiveFilter(tab.id)}
+                  >
+                    {tab.label}
+                  </Badge>
+                ))}
               </div>
             </div>
-          )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Your documents</CardTitle>
-              <CardDescription>
-                {filteredDocuments.length}{' '}
-                {filteredDocuments.length === 1 ? 'document' : 'documents'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {filteredDocuments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No documents match your search or filter.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {filteredDocuments.map(doc => (
-                    <div
-                      key={doc.id}
-                      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border transition-colors ${selectedIds.has(doc.id) ? 'border-[#4F46E5] bg-accent/30' : 'border-border hover:bg-accent/50'}`}
-                    >
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="pt-0.5">
-                          <Checkbox 
-                            checked={selectedIds.has(doc.id)}
-                            onCheckedChange={(checked) => toggleSelection(doc.id, checked as boolean)}
-                          />
-                        </div>
-                        <FileText className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <Badge
-                              className={cn('text-xs border-0', getDocTypeBadgeClass(doc.doc_type))}
-                            >
-                              {getDocTypeLabel(doc.doc_type)}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">v{doc.version}</span>
-                          </div>
-                          <p className="text-sm font-medium truncate">{doc.name}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatDocumentDate(doc.created_at)} · {doc.file_size}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(doc)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+            {isSelectionMode && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between sticky top-0 z-10 mb-4">
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    checked={selectedIds.size === filteredDocuments.length && filteredDocuments.length > 0}
+                    onCheckedChange={() => selectAll(filteredDocuments.map(d => d.id))}
+                  />
+                  <span className="text-sm font-medium">
+                    {selectedIds.size} selected
+                  </span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={clearSelection}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setShowBulkDeleteModal(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Your documents</CardTitle>
+                <CardDescription>
+                  {filteredDocuments.length}{' '}
+                  {filteredDocuments.length === 1 ? 'document' : 'documents'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredDocuments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No documents match your search or filter.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredDocuments.map(doc => {
+                      const isSelected = selectedIds.has(doc.id);
+                      return (
+                      <div
+                        key={doc.id}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          toggleSelection(doc.id, true);
+                        }}
+                        onClick={(e) => {
+                          if (isSelectionMode) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSelection(doc.id);
+                          }
+                        }}
+                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border transition-colors ${isSelected ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'border-border hover:bg-accent/50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+                      >
+                        <div className="flex items-start gap-3 min-w-0 pointer-events-none">
+                          <FileText className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <Badge
+                                className={cn('text-xs border-0', getDocTypeBadgeClass(doc.doc_type))}
+                              >
+                                {getDocTypeLabel(doc.doc_type)}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">v{doc.version}</span>
+                            </div>
+                            <p className="text-sm font-medium truncate">{doc.name}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatDocumentDate(doc.created_at)} · {doc.file_size}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); handleDelete(doc); }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )})}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
 
       <Dialog open={showBulkDeleteModal} onOpenChange={setShowBulkDeleteModal}>
         <DialogContent>

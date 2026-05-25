@@ -121,7 +121,8 @@ interface ApplicationCardProps {
   handleEditProgram: (program: ProgramWithProgress) => void;
   onDeleted: (id: string) => void;
   isSelected: boolean;
-  onSelect: (id: string, selected: boolean) => void;
+  isSelectionMode: boolean;
+  toggleSelection: (id: string, force?: boolean) => void;
 }
 
 function ApplicationCard({
@@ -133,7 +134,8 @@ function ApplicationCard({
   handleEditProgram,
   onDeleted,
   isSelected,
-  onSelect,
+  isSelectionMode,
+  toggleSelection,
 }: ApplicationCardProps) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -167,26 +169,31 @@ function ApplicationCard({
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    toggleSelection(program.id, true);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isSelectionMode) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSelection(program.id);
+    }
+  };
+
   return (
-    <Card className={`hover:shadow-md transition-shadow ${isSelected ? 'border-[#4F46E5] ring-1 ring-[#4F46E5]' : ''}`}>
+    <Card 
+      className={`transition-shadow ${isSelected ? 'border-[#4F46E5] ring-1 ring-[#4F46E5] bg-[#4F46E5]/5' : 'hover:shadow-md'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+      onContextMenu={handleContextMenu}
+      onClick={handleClick}
+    >
       <CardContent className="p-4 md:p-6">
         <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-          <div className="pt-1 hidden md:block">
-            <Checkbox 
-              checked={isSelected}
-              onCheckedChange={(checked) => onSelect(program.id, checked as boolean)}
-            />
-          </div>
           <div className="flex-1 space-y-4">
             <div>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 flex items-start gap-3">
-                  <div className="md:hidden pt-1">
-                    <Checkbox 
-                      checked={isSelected}
-                      onCheckedChange={(checked) => onSelect(program.id, checked as boolean)}
-                    />
-                  </div>
                   <div>
                     <h3 className="text-base md:text-lg">{program.school_name}</h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -292,6 +299,8 @@ function ApplicationCard({
   );
 }
 
+import { useSelection } from '../../hooks/useSelection';
+
 export function Applications() {
   const [isAddSchoolOpen, setIsAddSchoolOpen] = useState(false);
   const [programs, setPrograms] = useState<ProgramWithProgress[]>([]);
@@ -306,21 +315,19 @@ export function Applications() {
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<SchoolFormData | undefined>(undefined);
   const [fetchError, setFetchError] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const isOnline = useOnlineStatus();
 
-  const navigate = useNavigate();
+  const {
+    selectedIds,
+    toggleSelection,
+    selectAll,
+    clearSelection,
+    isSelectionMode,
+  } = useSelection();
 
-  const toggleSelection = (id: string, selected: boolean) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (selected) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  };
+  const navigate = useNavigate();
 
   const handleBulkDelete = async () => {
     setIsBulkDeleting(true);
@@ -337,7 +344,7 @@ export function Applications() {
       if (error) throw error;
       
       setPrograms(prev => prev.filter(p => !selectedIds.has(p.id)));
-      setSelectedIds(new Set());
+      clearSelection();
       setShowBulkDeleteModal(false);
       toast.success(`${idsToDelete.length} applications deleted`);
     } catch {
@@ -796,25 +803,19 @@ export function Applications() {
             </p>
           </div>
 
-          {selectedIds.size > 0 && (
+          {isSelectionMode && (
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between sticky top-0 z-10">
               <div className="flex items-center gap-3">
                 <Checkbox 
                   checked={selectedIds.size === filteredPrograms.length && filteredPrograms.length > 0}
-                  onCheckedChange={() => {
-                    if (selectedIds.size === filteredPrograms.length) {
-                      setSelectedIds(new Set());
-                    } else {
-                      setSelectedIds(new Set(filteredPrograms.map(p => p.id)));
-                    }
-                  }}
+                  onCheckedChange={() => selectAll(filteredPrograms.map(p => p.id))}
                 />
                 <span className="text-sm font-medium">
                   {selectedIds.size} selected
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                <Button variant="ghost" size="sm" onClick={clearSelection}>
                   Cancel
                 </Button>
                 <Button 
@@ -851,7 +852,8 @@ export function Applications() {
                     }
                   }}
                   isSelected={selectedIds.has(program.id)}
-                  onSelect={toggleSelection}
+                  isSelectionMode={isSelectionMode}
+                  toggleSelection={toggleSelection}
                 />
               ))}
             </div>

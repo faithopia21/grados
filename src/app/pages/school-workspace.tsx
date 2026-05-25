@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSelection } from '../../hooks/useSelection';
 import { useParams, useNavigate } from 'react-router';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -325,6 +326,59 @@ export function SchoolWorkspace() {
   const briefingDebounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const lastSavedBriefingRef = useRef<Record<string, string>>({});
   const checklistCompleteToastShown = useRef(false);
+
+  const checklistSelection = useSelection();
+  const documentSelection = useSelection();
+  const recommenderSelection = useSelection();
+  const linkSelection = useSelection();
+
+  const handleBulkDeleteChecklist = async () => {
+    const ids = Array.from(checklistSelection.selectedIds);
+    const { error } = await supabase.from('checklist_items').delete().in('id', ids);
+    if (!error) {
+      setChecklistItems(prev => prev.filter(i => !checklistSelection.selectedIds.has(i.id)));
+      checklistSelection.clearSelection();
+      toast.success(`${ids.length} requirements deleted`);
+    } else {
+      toast.error('Failed to delete requirements');
+    }
+  };
+
+  const handleBulkUnlinkDocuments = async () => {
+    const ids = Array.from(documentSelection.selectedIds);
+    const { error } = await supabase.from('program_documents').delete().in('id', ids);
+    if (!error) {
+      setLinkedDocuments(prev => prev.filter(l => !documentSelection.selectedIds.has(l.linkId)));
+      documentSelection.clearSelection();
+      toast.success(`${ids.length} documents unlinked`);
+    } else {
+      toast.error('Failed to unlink documents');
+    }
+  };
+
+  const handleBulkDeleteRecommenders = async () => {
+    const ids = Array.from(recommenderSelection.selectedIds);
+    const { error } = await supabase.from('recommenders').delete().in('id', ids);
+    if (!error) {
+      setRecommenders(prev => prev.filter(r => !recommenderSelection.selectedIds.has(r.id)));
+      recommenderSelection.clearSelection();
+      toast.success(`${ids.length} recommenders deleted`);
+    } else {
+      toast.error('Failed to delete recommenders');
+    }
+  };
+
+  const handleBulkDeleteLinks = async () => {
+    const ids = Array.from(linkSelection.selectedIds);
+    const { error } = await supabase.from('portal_links').delete().in('id', ids);
+    if (!error) {
+      setPortalLinks(prev => prev.filter(l => !linkSelection.selectedIds.has(l.id)));
+      linkSelection.clearSelection();
+      toast.success(`${ids.length} links deleted`);
+    } else {
+      toast.error('Failed to delete links');
+    }
+  };
 
   const fetchChecklist = useCallback(async (programId: string) => {
     const { data, error } = await supabase
@@ -1091,6 +1145,33 @@ export function SchoolWorkspace() {
                 <Progress value={checklistProgress} className="h-2" />
               </div>
 
+              {checklistSelection.isSelectionMode && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      checked={checklistSelection.selectedIds.size === checklistItems.length && checklistItems.length > 0}
+                      onCheckedChange={() => checklistSelection.selectAll(checklistItems.map(i => i.id))}
+                    />
+                    <span className="text-sm font-medium">
+                      {checklistSelection.selectedIds.size} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={checklistSelection.clearSelection}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={handleBulkDeleteChecklist}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Selected
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {checklistItems.length === 0 ? (
                 <div className="text-center py-12 space-y-4">
                   <h3 className="text-lg mb-2 text-foreground font-medium">No requirements added yet</h3>
@@ -1106,18 +1187,32 @@ export function SchoolWorkspace() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {checklistItems.map(item => (
+                  {checklistItems.map(item => {
+                    const isSelected = checklistSelection.selectedIds.has(item.id);
+                    return (
                     <div
                       key={item.id}
-                      className="flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-lg border border-border"
-                    >
-                      <Checkbox
-                        checked={item.is_done}
-                        onCheckedChange={checked =>
-                          handleToggleChecklistItem(item, checked === true)
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        checklistSelection.toggleSelection(item.id, true);
+                      }}
+                      onClick={(e) => {
+                        if (checklistSelection.isSelectionMode) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          checklistSelection.toggleSelection(item.id);
                         }
-                        className="mt-1"
-                      />
+                      }}
+                      className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-lg border transition-colors ${isSelected ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'border-border hover:bg-accent/30'} ${checklistSelection.isSelectionMode ? 'cursor-pointer' : ''}`}
+                    >
+                      <div className="mt-1" onClick={e => checklistSelection.isSelectionMode && e.stopPropagation()}>
+                        <Checkbox
+                          checked={item.is_done}
+                          onCheckedChange={checked =>
+                            handleToggleChecklistItem(item, checked === true)
+                          }
+                        />
+                      </div>
                       <div className="flex-1 space-y-2 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span
@@ -1136,21 +1231,23 @@ export function SchoolWorkspace() {
                             Due {formatDate(item.due_date)}
                           </p>
                         )}
-                        <ChecklistStatusSelect
-                          value={item.status || 'Not Started'}
-                          onChange={status => handleChecklistStatusChange(item, status)}
-                        />
+                        <div onClick={e => checklistSelection.isSelectionMode && e.stopPropagation()}>
+                          <ChecklistStatusSelect
+                            value={item.status || 'Not Started'}
+                            onChange={status => handleChecklistStatusChange(item, status)}
+                          />
+                        </div>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeleteChecklistItem(item.id)}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteChecklistItem(item.id); }}
                         aria-label="Delete item"
                       >
                         <Trash2 className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
 
@@ -1202,6 +1299,33 @@ export function SchoolWorkspace() {
                 </div>
               </CardHeader>
               <CardContent>
+                {documentSelection.isSelectionMode && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Checkbox 
+                        checked={documentSelection.selectedIds.size === linkedDocuments.length && linkedDocuments.length > 0}
+                        onCheckedChange={() => documentSelection.selectAll(linkedDocuments.map(l => l.linkId))}
+                      />
+                      <span className="text-sm font-medium">
+                        {documentSelection.selectedIds.size} selected
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" onClick={documentSelection.clearSelection}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={handleBulkUnlinkDocuments}
+                      >
+                        <Unlink className="h-4 w-4 mr-2" />
+                        Unlink Selected
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {linkedDocuments.length === 0 ? (
                   <div className="py-12 text-center">
                     <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -1215,12 +1339,25 @@ export function SchoolWorkspace() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {linkedDocuments.map(({ linkId, document: doc }) => (
+                    {linkedDocuments.map(({ linkId, document: doc }) => {
+                      const isSelected = documentSelection.selectedIds.has(linkId);
+                      return (
                       <div
                         key={linkId}
-                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-border"
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          documentSelection.toggleSelection(linkId, true);
+                        }}
+                        onClick={(e) => {
+                          if (documentSelection.isSelectionMode) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            documentSelection.toggleSelection(linkId);
+                          }
+                        }}
+                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border transition-colors ${isSelected ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'border-border hover:bg-accent/30'} ${documentSelection.isSelectionMode ? 'cursor-pointer' : ''}`}
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 pointer-events-none">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <Badge
                               className={cn(
@@ -1241,7 +1378,7 @@ export function SchoolWorkspace() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDownloadLinkedDoc(doc)}
+                            onClick={(e) => { e.stopPropagation(); handleDownloadLinkedDoc(doc); }}
                           >
                             <Download className="h-4 w-4 mr-2" />
                             Download
@@ -1249,14 +1386,15 @@ export function SchoolWorkspace() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleUnlinkDocument(linkId)}
+                            className="text-destructive hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); handleUnlinkDocument(linkId); }}
                           >
                             <Unlink className="h-4 w-4 mr-2" />
                             Unlink
                           </Button>
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 )}
               </CardContent>
@@ -1327,15 +1465,55 @@ export function SchoolWorkspace() {
 
         <TabsContent value="recommendations">
           <div className="space-y-4">
-            {recommenders.map(rec => (
+            {recommenderSelection.isSelectionMode && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    checked={recommenderSelection.selectedIds.size === recommenders.length && recommenders.length > 0}
+                    onCheckedChange={() => recommenderSelection.selectAll(recommenders.map(r => r.id))}
+                  />
+                  <span className="text-sm font-medium">
+                    {recommenderSelection.selectedIds.size} selected
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={recommenderSelection.clearSelection}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={handleBulkDeleteRecommenders}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {recommenders.map(rec => {
+              const isSelected = recommenderSelection.selectedIds.has(rec.id);
+              return (
               <Card
                 key={rec.id}
-                className={`relative border-l-[3px] ${getRecommenderBorderClass(rec.status)}`}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  recommenderSelection.toggleSelection(rec.id, true);
+                }}
+                onClick={(e) => {
+                  if (recommenderSelection.isSelectionMode) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    recommenderSelection.toggleSelection(rec.id);
+                  }
+                }}
+                className={`relative border-l-[3px] ${getRecommenderBorderClass(rec.status)} transition-colors ${isSelected ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'hover:bg-accent/10'} ${recommenderSelection.isSelectionMode ? 'cursor-pointer' : ''}`}
               >
                 <button
                   type="button"
-                  className="absolute top-3 right-3 p-2 rounded-full text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  onClick={() => setRecommenderDeleteId(rec.id)}
+                  className="absolute top-3 right-3 p-2 rounded-full text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+                  onClick={(e) => { e.stopPropagation(); setRecommenderDeleteId(rec.id); }}
                   aria-label="Remove recommender"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -1348,14 +1526,14 @@ export function SchoolWorkspace() {
                         size="sm"
                         variant="outline"
                         className="text-[#DC2626] border-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px]"
-                        onClick={() => handleDeleteRecommender(rec)}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteRecommender(rec); }}
                       >
                         Yes
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setRecommenderDeleteId(null)}
+                        onClick={(e) => { e.stopPropagation(); setRecommenderDeleteId(null); }}
                         className="min-h-[44px]"
                       >
                         Cancel
@@ -1363,6 +1541,7 @@ export function SchoolWorkspace() {
                     </div>
                   </div>
                 )}
+                <div onClick={e => recommenderSelection.isSelectionMode && e.stopPropagation()}>
                 <CardContent className="pt-6 space-y-4 pr-12">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
@@ -1423,8 +1602,9 @@ export function SchoolWorkspace() {
                     </button>
                   </div>
                 </CardContent>
+                </div>
               </Card>
-            ))}
+            )})}
 
             <Button
               variant="outline"
@@ -1519,6 +1699,33 @@ export function SchoolWorkspace() {
                   </p>
                 )}
 
+                {linkSelection.isSelectionMode && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Checkbox 
+                        checked={linkSelection.selectedIds.size === portalLinks.length && portalLinks.length > 0}
+                        onCheckedChange={() => linkSelection.selectAll(portalLinks.map(l => l.id))}
+                      />
+                      <span className="text-sm font-medium">
+                        {linkSelection.selectedIds.size} selected
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" onClick={linkSelection.clearSelection}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={handleBulkDeleteLinks}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Selected
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {portalLinks.length > 0 && (
                   <div className="space-y-2">
                     {portalLinks.map(link => (
@@ -1543,8 +1750,21 @@ export function SchoolWorkspace() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                            <div className="flex items-center gap-3 min-w-0">
+                          <div 
+                            className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${linkSelection.selectedIds.has(link.id) ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'border-border hover:bg-accent/30'} ${linkSelection.isSelectionMode ? 'cursor-pointer' : ''}`}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              linkSelection.toggleSelection(link.id, true);
+                            }}
+                            onClick={(e) => {
+                              if (linkSelection.isSelectionMode) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                linkSelection.toggleSelection(link.id);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 pointer-events-none">
                               <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
                               <div className="min-w-0">
                                 <p className="text-sm font-medium truncate">{link.label}</p>
@@ -1552,18 +1772,18 @@ export function SchoolWorkspace() {
                               </div>
                             </div>
                             <div className="flex gap-1 shrink-0">
-                              <Button variant="ghost" size="sm" asChild>
+                              <Button variant="ghost" size="sm" onClick={e => e.stopPropagation()} asChild>
                                 <a href={link.url} target="_blank" rel="noopener noreferrer">
                                   <ExternalLink className="h-4 w-4" />
                                 </a>
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleStartEditLink(link)}>
+                              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleStartEditLink(link); }}>
                                 <Pencil className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDeletePortalLink(link.id)}
+                                onClick={(e) => { e.stopPropagation(); handleDeletePortalLink(link.id); }}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

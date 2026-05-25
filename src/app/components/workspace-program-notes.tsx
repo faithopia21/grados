@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Checkbox } from './ui/checkbox';
+import { useSelection } from '../../hooks/useSelection';
 import { Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
@@ -75,6 +77,20 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
   const [draft, setDraft] = useState<DraftNote | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  
+  const noteSelection = useSelection();
+
+  const handleBulkDeleteNotes = async () => {
+    const ids = Array.from(noteSelection.selectedIds);
+    const { error } = await supabase.from('program_notes').delete().in('id', ids);
+    if (!error) {
+      setNotes(prev => prev.filter(n => !noteSelection.selectedIds.has(n.id)));
+      noteSelection.clearSelection();
+      toast.success(`${ids.length} notes deleted`);
+    } else {
+      toast.error('Failed to delete notes');
+    }
+  };
 
   const fetchNotes = useCallback(async () => {
     setLoading(true);
@@ -213,6 +229,33 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
         </div>
       ) : (
         <div className="flex flex-col gap-3">
+          {noteSelection.isSelectionMode && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Checkbox 
+                  checked={noteSelection.selectedIds.size === notes.length && notes.length > 0}
+                  onCheckedChange={() => noteSelection.selectAll(notes.map(n => n.id))}
+                />
+                <span className="text-sm font-medium">
+                  {noteSelection.selectedIds.size} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={noteSelection.clearSelection}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleBulkDeleteNotes}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected
+                </Button>
+              </div>
+            </div>
+          )}
+
           {showNewCard && draft && (
             <NoteEditCard
               draft={draft}
@@ -240,11 +283,23 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
             }
 
             const parsed = parseNoteContent(note.content);
+            const isSelected = noteSelection.selectedIds.has(note.id);
 
             return (
               <div
                 key={note.id}
-                className="bg-card border border-border rounded-[12px] p-4 flex flex-col gap-3"
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  noteSelection.toggleSelection(note.id, true);
+                }}
+                onClick={(e) => {
+                  if (noteSelection.isSelectionMode) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    noteSelection.toggleSelection(note.id);
+                  }
+                }}
+                className={`border transition-colors rounded-[12px] p-4 flex flex-col gap-3 ${isSelected ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'bg-card border-border'} ${noteSelection.isSelectionMode ? 'cursor-pointer hover:bg-accent/30' : ''}`}
               >
                 {deleteConfirmId === note.id ? (
                   <div className="space-y-3">
@@ -291,7 +346,7 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                         <button
                           type="button"
                           className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          onClick={() => startEditNote(note)}
+                          onClick={(e) => { e.stopPropagation(); startEditNote(note); }}
                           aria-label="Edit note"
                         >
                           <Pencil className="h-4 w-4" />
@@ -299,7 +354,7 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                         <button
                           type="button"
                           className="p-2 rounded-md text-muted-foreground hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          onClick={() => setDeleteConfirmId(note.id)}
+                          onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(note.id); }}
                           aria-label="Delete note"
                         >
                           <Trash2 className="h-4 w-4" />
