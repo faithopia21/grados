@@ -64,6 +64,10 @@ export function Settings() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [isClearDataModalOpen, setIsClearDataModalOpen] = useState(false);
   const [clearDataLoading, setClearDataLoading] = useState(false);
+  const [clearDataConfirmText, setClearDataConfirmText] = useState('');
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
 
   const profileCompletion = useMemo(
@@ -148,27 +152,63 @@ export function Settings() {
     setNewEmail('');
   };
 
-  const handleExportData = async () => {
+  const prepareExportData = async () => {
     if (!userId) return;
+    setIsExportModalOpen(true);
+    setExportLoading(true);
+    setExportUrl(null);
     
-    const { data: programs } = await supabase
-      .from('programs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('deadline', { ascending: true });
+    try {
+      const { data: programs } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('deadline', { ascending: true });
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', userId)
-      .maybeSingle();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle();
 
-    await exportApplicationsPDF(programs || [], profile);
+      const blob = await exportApplicationsPDF(programs || [], profile);
+      const url = window.URL.createObjectURL(blob);
+      setExportUrl(url);
+    } catch (error) {
+      toast.error('Failed to generate PDF');
+      setIsExportModalOpen(false);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (!exportUrl) return;
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = exportUrl;
+    a.download = 'GradOS-Applications.pdf';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(exportUrl);
+      setExportUrl(null);
+      setIsExportModalOpen(false);
+    }, 100);
     toast.success('PDF downloaded successfully');
   };
 
-  const handleClearData = async () => {
-    if (!userId) return;
+  const handleClearData = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!userId || clearDataConfirmText !== 'CLEAR DATA') return;
+    
+    // Check if offline
+    if (!navigator.onLine) {
+      toast.error('You must be online to clear your data.');
+      return;
+    }
+
     setClearDataLoading(true);
 
     try {
@@ -214,7 +254,12 @@ export function Settings() {
 
       toast.success('All application data cleared successfully.');
       setIsClearDataModalOpen(false);
-      navigate('/dashboard');
+      setClearDataConfirmText('');
+      
+      // Clear local onboarding settings to force reset
+      await supabase.from('user_settings').delete().eq('user_id', userId);
+      
+      navigate('/onboarding');
     } catch (error: any) {
       toast.error('Failed to clear data: ' + error.message);
     } finally {
@@ -484,7 +529,7 @@ export function Settings() {
                     Download all your application data
                   </p>
                 </div>
-                <Button variant="outline" onClick={handleExportData}>
+                <Button variant="outline" onClick={prepareExportData}>
                   Export as PDF
                 </Button>
               </div>
@@ -720,23 +765,74 @@ export function Settings() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isClearDataModalOpen} onOpenChange={setIsClearDataModalOpen}>
+      <Dialog open={isClearDataModalOpen} onOpenChange={(open) => {
+        setIsClearDataModalOpen(open);
+        if (!open) setClearDataConfirmText('');
+      }}>
+        <DialogContent>
+          <form onSubmit={handleClearData}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Clear All Data
+              </DialogTitle>
+              <DialogDescription className="pt-2">
+                This action is <strong>irreversible</strong>. It will permanently delete all your applications, uploaded documents, notes, and preferences. Your profile and account will remain untouched.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-3">
+              <Label htmlFor="confirm-text">Type <strong>CLEAR DATA</strong> to confirm</Label>
+              <Input 
+                id="confirm-text"
+                value={clearDataConfirmText}
+                onChange={e => setClearDataConfirmText(e.target.value)}
+                placeholder="CLEAR DATA"
+                autoComplete="off"
+              />
+            </div>
+            <DialogFooter className="mt-2">
+              <Button type="button" variant="outline" onClick={() => setIsClearDataModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" disabled={clearDataLoading || clearDataConfirmText !== 'CLEAR DATA'}>
+                {clearDataLoading ? 'Clearing Data...' : 'Yes, clear all data'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isExportModalOpen} onOpenChange={(open) => {
+        if (!exportLoading) setIsExportModalOpen(open);
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              Clear All Data
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              This action is <strong>irreversible</strong>. It will permanently delete all your applications, uploaded documents, notes, and preferences. Your profile and account will remain untouched.
+            <DialogTitle>Export Data</DialogTitle>
+            <DialogDescription>
+              {exportLoading 
+                ? 'Gathering your applications and generating PDF...' 
+                : 'Your PDF is ready to download.'}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setIsClearDataModalOpen(false)}>
+          <div className="py-4 flex justify-center">
+            {exportLoading ? (
+              <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-r-transparent" />
+                <p className="text-sm">Preparing PDF...</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 text-emerald-600">
+                <CheckCircle2 className="h-10 w-10" />
+                <p className="font-medium text-foreground">Ready!</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsExportModalOpen(false)} disabled={exportLoading}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleClearData} disabled={clearDataLoading}>
-              {clearDataLoading ? 'Clearing Data...' : 'Yes, clear all data'}
+            <Button type="button" onClick={handleDownloadPdf} disabled={exportLoading || !exportUrl}>
+              Download PDF
             </Button>
           </DialogFooter>
         </DialogContent>

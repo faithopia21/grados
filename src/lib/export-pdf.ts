@@ -103,5 +103,5 @@ export async function exportApplicationsPDF(
     doc.internal.pageSize.height - 10
   );
   
-  doc.save('GradOS-Applications.pdf');
+  return doc.output('blob');
 }
