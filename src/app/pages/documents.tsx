@@ -28,7 +28,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { FileText, Upload, Download, Trash2, Search, AlertTriangle } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -43,6 +44,8 @@ export function Documents() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [sortField, setSortField] = useState<'name' | 'created_at'>('created_at');
+  const [sortAscending, setSortAscending] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState(false);
@@ -191,15 +194,31 @@ export function Documents() {
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(doc => doc.name.toLowerCase().includes(query));
+      filtered = filtered.filter(doc => {
+        const typeLabel = getDocTypeLabel(doc.doc_type).toLowerCase();
+        return doc.name.toLowerCase().includes(query) || typeLabel.includes(query);
+      });
     }
 
     if (activeFilter !== 'all') {
       filtered = filtered.filter(doc => matchesDocFilter(doc.doc_type, activeFilter));
     }
 
+    // Sort
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      if (sortField === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else {
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        comparison = timeA - timeB;
+      }
+      return sortAscending ? comparison : -comparison;
+    });
+
     return filtered;
-  }, [documents, searchQuery, activeFilter]);
+  }, [documents, searchQuery, activeFilter, sortField, sortAscending]);
 
   if (loading) return <PageSkeleton />;
 
@@ -256,15 +275,37 @@ export function Documents() {
         ) : (
           <>
             <div className="space-y-4">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search documents..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-background"
-                />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative max-w-md flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search documents..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-background"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={sortField} onValueChange={(v: any) => setSortField(v)}>
+                    <SelectTrigger className="w-[160px] bg-background">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">Name</SelectItem>
+                      <SelectItem value="created_at">Recently Added</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setSortAscending(!sortAscending)}
+                    className="shrink-0"
+                    aria-label="Toggle sort direction"
+                  >
+                    {sortAscending ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">

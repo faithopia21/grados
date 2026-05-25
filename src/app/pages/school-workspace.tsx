@@ -1848,10 +1848,10 @@ export function SchoolWorkspace() {
             onClick={() => setBriefingOverlayId(null)}
           >
             <div
-              className="bg-card rounded-xl w-full max-w-[90%] max-h-[80vh] overflow-y-auto p-6 space-y-4"
+              className="bg-card rounded-xl w-full max-w-[90%] max-h-[80vh] flex flex-col shadow-xl overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border shrink-0">
                 <h3 className="font-semibold text-base">
                   {rec.name || 'Recommender'} — Briefing Note
                 </h3>
@@ -1864,12 +1864,19 @@ export function SchoolWorkspace() {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <BriefingNoteTextarea
-                value={rec.briefing_note ?? ''}
-                onChange={value => handleBriefingChange(rec, value)}
-                placeholder={BRIEFING_PLACEHOLDER}
-              />
-              <p className="text-xs text-muted-foreground">Auto-saves as you type</p>
+              
+              <div className="flex-1 overflow-y-auto px-6 py-4">
+                <BriefingNoteTextarea
+                  value={rec.briefing_note ?? ''}
+                  onChange={value => handleBriefingChange(rec, value)}
+                  placeholder={BRIEFING_PLACEHOLDER}
+                />
+              </div>
+
+              <div className="px-6 py-4 border-t border-border bg-muted/30 shrink-0 flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Auto-saves as you type</p>
+                <Button variant="outline" size="sm" onClick={() => setBriefingOverlayId(null)}>Close</Button>
+              </div>
             </div>
           </div>
         );

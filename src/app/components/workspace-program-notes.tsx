@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useSelection } from '../../hooks/useSelection';
-import { Pencil, Trash2, X, Check, NotebookPen } from 'lucide-react';
+import { Pencil, Trash2, X, Check, NotebookPen, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import {
@@ -17,6 +18,7 @@ export interface ProgramNoteRow {
   program_id: string;
   content: string;
   updated_at: string | null;
+  created_at?: string | null;
 }
 
 function AutoExpandTextarea({
@@ -69,6 +71,10 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
   
   const [selectedNote, setSelectedNote] = useState<ProgramNoteRow | null>(null);
   const [noteOverlayOpen, setNoteOverlayOpen] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<'updated_at' | 'created_at' | 'name'>('updated_at');
+  const [sortAscending, setSortAscending] = useState(false);
   
   const noteSelection = useSelection();
 
@@ -154,6 +160,39 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
     setDeleteConfirmId(null);
   };
 
+  const processedNotes = useMemo(() => {
+    let result = [...notes];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(note => {
+        const parsed = parseNoteContent(note.content);
+        return (parsed.title?.toLowerCase() || '').includes(q) ||
+               (parsed.content?.toLowerCase() || '').includes(q);
+      });
+    }
+
+    result.sort((a, b) => {
+      let comparison = 0;
+      if (sortField === 'name') {
+        const titleA = parseNoteContent(a.content).title || '';
+        const titleB = parseNoteContent(b.content).title || '';
+        comparison = titleA.localeCompare(titleB);
+      } else if (sortField === 'created_at') {
+        const timeA = new Date(a.created_at || a.updated_at || 0).getTime();
+        const timeB = new Date(b.created_at || b.updated_at || 0).getTime();
+        comparison = timeA - timeB;
+      } else {
+        const timeA = new Date(a.updated_at || 0).getTime();
+        const timeB = new Date(b.updated_at || 0).getTime();
+        comparison = timeA - timeB;
+      }
+      return sortAscending ? comparison : -comparison;
+    });
+
+    return result;
+  }, [notes, searchQuery, sortField, sortAscending]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
@@ -167,11 +206,46 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
         </Button>
       </div>
 
+      {notes.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search notes..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-9 bg-background"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={sortField} onValueChange={(v: any) => setSortField(v)}>
+              <SelectTrigger className="w-[160px] bg-background">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="created_at">Recently Added</SelectItem>
+                <SelectItem value="updated_at">Recently Edited</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => setSortAscending(!sortAscending)}
+              className="shrink-0"
+              aria-label="Toggle sort direction"
+            >
+              {sortAscending ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-sm text-muted-foreground py-8 text-center">Loading notes...</p>
       ) : notes.length === 0 ? (
-        <div className="py-20 text-center flex flex-col items-center justify-center space-y-4">
-          <NotebookPen className="h-8 w-8 text-muted-foreground/60" strokeWidth={1.5} />
+        <div className="py-20 text-center flex flex-col items-center justify-center space-y-4 border rounded-xl bg-card">
+          <NotebookPen className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} />
           <div className="space-y-1">
             <h3 className="text-[15px] font-medium text-muted-foreground">No notes yet</h3>
             <p className="text-[13px] text-muted-foreground/70">
@@ -179,14 +253,18 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
             </p>
           </div>
         </div>
+      ) : processedNotes.length === 0 ? (
+        <div className="py-16 text-center">
+          <p className="text-sm text-muted-foreground">No notes match your search.</p>
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           {noteSelection.isSelectionMode && (
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Checkbox 
-                  checked={noteSelection.selectedIds.size === notes.length && notes.length > 0}
-                  onCheckedChange={() => noteSelection.selectAll(notes.map(n => n.id))}
+                  checked={noteSelection.selectedIds.size === processedNotes.length && processedNotes.length > 0}
+                  onCheckedChange={() => noteSelection.selectAll(processedNotes.map(n => n.id))}
                 />
                 <span className="text-sm font-medium">
                   {noteSelection.selectedIds.size} selected
@@ -208,7 +286,7 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
             </div>
           )}
 
-          {notes.map(note => {
+          {processedNotes.map(note => {
             const parsed = parseNoteContent(note.content);
             const isSelected = noteSelection.selectedIds.has(note.id);
 
@@ -300,7 +378,6 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
         </div>
       )}
 
-      {/* OVERLAY EDITOR */}
       {noteOverlayOpen && selectedNote && (
         <NoteOverlayEditor
           note={selectedNote}
@@ -397,10 +474,10 @@ function NoteOverlayEditor({
       onClick={onClose}
     >
       <div
-        className="bg-card w-full max-w-[680px] max-h-[85vh] overflow-y-auto rounded-[12px] p-6 flex flex-col shadow-lg"
+        className="bg-card w-full max-w-[680px] max-h-[85vh] rounded-[12px] flex flex-col shadow-lg overflow-hidden"
         onClick={handleOverlayClick}
       >
-        <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border shrink-0">
           <Input
             value={title}
             onChange={e => handleChangeTitle(e.target.value)}
@@ -417,14 +494,15 @@ function NoteOverlayEditor({
           </button>
         </div>
 
-        <AutoExpandTextarea
-          value={content}
-          onChange={handleChangeContent}
-          placeholder="Write your note..."
-          className="flex-1"
-        />
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <AutoExpandTextarea
+            value={content}
+            onChange={handleChangeContent}
+            placeholder="Write your note..."
+          />
+        </div>
 
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-border pt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-border px-6 py-4 shrink-0 bg-muted/30">
           <div className="flex items-center gap-2">
             {saveStatus === 'saving' && (
               <span className="text-xs text-muted-foreground">Saving...</span>
