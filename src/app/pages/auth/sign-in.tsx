@@ -78,7 +78,7 @@ export function SignIn() {
           <img 
             src={gradosLogo} 
             alt="GradOS"
-            className="h-18 w-auto mx-auto mb-3 dark:mix-blend-screen"
+            className="h-16 w-auto mx-auto mb-3"
           />
         </div>
 
