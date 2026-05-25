@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { useSelection } from '../../hooks/useSelection';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, X, Check, NotebookPen } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import {
@@ -18,13 +18,6 @@ export interface ProgramNoteRow {
   content: string;
   updated_at: string | null;
 }
-
-type DraftNote = {
-  id: string;
-  title: string;
-  content: string;
-  isNew?: boolean;
-};
 
 function AutoExpandTextarea({
   value,
@@ -59,9 +52,8 @@ function AutoExpandTextarea({
         resize();
       }}
       placeholder={placeholder}
-      rows={1}
-      className={`w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className}`}
-      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}
+      className={`w-full bg-transparent px-0 py-2 text-[14px] leading-[1.7] resize-none overflow-hidden focus-visible:outline-none focus-visible:ring-0 ${className}`}
+      style={{ minHeight: '300px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}
     />
   );
 }
@@ -73,10 +65,10 @@ interface WorkspaceProgramNotesProps {
 export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps) {
   const [notes, setNotes] = useState<ProgramNoteRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<DraftNote | null>(null);
-  const [saving, setSaving] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  
+  const [selectedNote, setSelectedNote] = useState<ProgramNoteRow | null>(null);
+  const [noteOverlayOpen, setNoteOverlayOpen] = useState(false);
   
   const noteSelection = useSelection();
 
@@ -110,78 +102,44 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
     fetchNotes();
   }, [fetchNotes]);
 
-  const startNewNote = () => {
-    setEditingId('new');
-    setDraft({
-      id: `temp-${Date.now()}`,
-      title: '',
-      content: '',
-      isNew: true,
-    });
-    setDeleteConfirmId(null);
-  };
-
-  const startEditNote = (note: ProgramNoteRow) => {
-    const parsed = parseNoteContent(note.content);
-    setEditingId(note.id);
-    setDraft({
-      id: note.id,
-      title: parsed.title,
-      content: parsed.content,
-    });
-    setDeleteConfirmId(null);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setDraft(null);
-  };
-
-  const handleSave = async () => {
-    if (!draft) return;
-    setSaving(true);
-
-    const payload = {
+  const startNewNote = async () => {
+    const newNoteData = {
       program_id: programId,
-      content: serializeNoteContent(draft.title, draft.content),
+      content: serializeNoteContent('', ''),
       updated_at: new Date().toISOString(),
     };
 
-    if (draft.isNew) {
-      const { data, error } = await supabase
-        .from('program_notes')
-        .insert(payload)
-        .select()
-        .single();
+    const { data, error } = await supabase
+      .from('program_notes')
+      .insert(newNoteData)
+      .select()
+      .single();
 
-      setSaving(false);
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      setNotes(prev => [data as ProgramNoteRow, ...prev]);
-    } else {
-      const { data, error } = await supabase
-        .from('program_notes')
-        .update({
-          content: payload.content,
-          updated_at: payload.updated_at,
-        })
-        .eq('id', draft.id)
-        .select()
-        .single();
-
-      setSaving(false);
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      setNotes(prev =>
-        prev.map(n => (n.id === draft.id ? (data as ProgramNoteRow) : n))
-      );
+    if (error) {
+      toast.error(error.message);
+      return;
     }
 
-    cancelEdit();
+    const newNote = data as ProgramNoteRow;
+    setNotes(prev => [newNote, ...prev]);
+    setSelectedNote(newNote);
+    setNoteOverlayOpen(true);
+    setDeleteConfirmId(null);
+  };
+
+  const openNote = (note: ProgramNoteRow) => {
+    setSelectedNote(note);
+    setNoteOverlayOpen(true);
+    setDeleteConfirmId(null);
+  };
+
+  const closeNote = () => {
+    setNoteOverlayOpen(false);
+    setSelectedNote(null);
+  };
+
+  const handleUpdateNote = (updated: ProgramNoteRow) => {
+    setNotes(prev => prev.map(n => n.id === updated.id ? updated : n));
   };
 
   const handleDelete = async (noteId: string) => {
@@ -194,12 +152,7 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
 
     setNotes(prev => prev.filter(n => n.id !== noteId));
     setDeleteConfirmId(null);
-    if (editingId === noteId) {
-      cancelEdit();
-    }
   };
-
-  const showNewCard = editingId === 'new' && draft?.isNew;
 
   return (
     <div className="space-y-4">
@@ -209,7 +162,6 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
           size="sm"
           className="bg-[#4F46E5] hover:bg-[#4338CA] text-white min-h-[44px]"
           onClick={startNewNote}
-          disabled={editingId === 'new'}
         >
           + New Note
         </Button>
@@ -217,15 +169,15 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
 
       {loading ? (
         <p className="text-sm text-muted-foreground py-8 text-center">Loading notes...</p>
-      ) : notes.length === 0 && !showNewCard ? (
-        <div className="py-16 text-center space-y-4">
-          <p className="text-muted-foreground">No notes yet</p>
-          <Button
-            className="bg-[#4F46E5] hover:bg-[#4338CA] text-white min-h-[44px]"
-            onClick={startNewNote}
-          >
-            + New Note
-          </Button>
+      ) : notes.length === 0 ? (
+        <div className="py-20 text-center flex flex-col items-center justify-center space-y-4">
+          <NotebookPen className="h-8 w-8 text-muted-foreground/60" strokeWidth={1.5} />
+          <div className="space-y-1">
+            <h3 className="text-[15px] font-medium text-muted-foreground">No notes yet</h3>
+            <p className="text-[13px] text-muted-foreground/70">
+              Click '+ New Note' to start writing
+            </p>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -256,32 +208,7 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
             </div>
           )}
 
-          {showNewCard && draft && (
-            <NoteEditCard
-              draft={draft}
-              saving={saving}
-              onTitleChange={title => setDraft(d => (d ? { ...d, title } : d))}
-              onContentChange={content => setDraft(d => (d ? { ...d, content } : d))}
-              onSave={handleSave}
-              onCancel={cancelEdit}
-            />
-          )}
-
           {notes.map(note => {
-            if (editingId === note.id && draft && !draft.isNew) {
-              return (
-                <NoteEditCard
-                  key={note.id}
-                  draft={draft}
-                  saving={saving}
-                  onTitleChange={title => setDraft(d => (d ? { ...d, title } : d))}
-                  onContentChange={content => setDraft(d => (d ? { ...d, content } : d))}
-                  onSave={handleSave}
-                  onCancel={cancelEdit}
-                />
-              );
-            }
-
             const parsed = parseNoteContent(note.content);
             const isSelected = noteSelection.selectedIds.has(note.id);
 
@@ -297,18 +224,20 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                     e.preventDefault();
                     e.stopPropagation();
                     noteSelection.toggleSelection(note.id);
+                  } else {
+                    openNote(note);
                   }
                 }}
-                className={`border transition-colors rounded-[12px] p-4 flex flex-col gap-3 ${isSelected ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'bg-card border-border'} ${noteSelection.isSelectionMode ? 'cursor-pointer hover:bg-accent/30' : ''}`}
+                className={`border transition-colors rounded-[12px] p-4 flex flex-col gap-3 group relative cursor-pointer ${isSelected ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'bg-card border-border hover:bg-accent/30'} `}
               >
                 {deleteConfirmId === note.id ? (
-                  <div className="space-y-3">
-                    <p className="text-sm">Delete this note?</p>
+                  <div className="space-y-3" onClick={e => e.stopPropagation()}>
+                    <p className="text-sm font-medium">Delete this note?</p>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-[#DC2626] border-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px]"
+                        className="text-[#DC2626] border-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 h-9"
                         onClick={() => handleDelete(note.id)}
                       >
                         Yes, delete
@@ -317,7 +246,7 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                         size="sm"
                         variant="outline"
                         onClick={() => setDeleteConfirmId(null)}
-                        className="min-h-[44px]"
+                        className="h-9"
                       >
                         Cancel
                       </Button>
@@ -325,36 +254,38 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                   </div>
                 ) : (
                   <>
-                    {parsed.title ? (
-                      <p className="text-[14px] font-semibold break-words">{parsed.title}</p>
-                    ) : null}
-                    {parsed.content ? (
-                      <p
-                        className="text-[13px] text-muted-foreground leading-[1.6] break-words whitespace-pre-wrap"
-                        style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                      >
-                        {parsed.content}
-                      </p>
-                    ) : (
-                      <p className="text-[13px] text-muted-foreground italic">Empty note</p>
-                    )}
-                    <div className="flex items-end justify-between gap-2 mt-auto pt-1">
+                    <div className="min-w-0">
+                      {parsed.title ? (
+                        <p className="text-[14px] font-bold truncate mb-1">{parsed.title}</p>
+                      ) : null}
+                      {parsed.content ? (
+                        <p
+                          className="text-[13px] text-muted-foreground leading-[1.5] line-clamp-3 overflow-hidden break-words whitespace-pre-wrap"
+                        >
+                          {parsed.content}
+                        </p>
+                      ) : (
+                        <p className="text-[13px] text-muted-foreground italic">Empty note</p>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-end justify-between gap-2 mt-auto pt-2">
                       <p className="text-[11px] text-muted-foreground">
                         {formatNoteCardTimestamp(note.updated_at)}
                       </p>
-                      <div className="flex gap-1 shrink-0">
+                      <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                         <button
                           type="button"
-                          className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          onClick={(e) => { e.stopPropagation(); startEditNote(note); }}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center justify-center"
+                          onClick={() => openNote(note)}
                           aria-label="Edit note"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
                           type="button"
-                          className="p-2 rounded-md text-muted-foreground hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(note.id); }}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center justify-center"
+                          onClick={() => setDeleteConfirmId(note.id)}
                           aria-label="Delete note"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -368,56 +299,156 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
           })}
         </div>
       )}
+
+      {/* OVERLAY EDITOR */}
+      {noteOverlayOpen && selectedNote && (
+        <NoteOverlayEditor
+          note={selectedNote}
+          onClose={closeNote}
+          onUpdateNote={handleUpdateNote}
+        />
+      )}
     </div>
   );
 }
 
-function NoteEditCard({
-  draft,
-  saving,
-  onTitleChange,
-  onContentChange,
-  onSave,
-  onCancel,
+function NoteOverlayEditor({
+  note,
+  onClose,
+  onUpdateNote,
 }: {
-  draft: DraftNote;
-  saving: boolean;
-  onTitleChange: (title: string) => void;
-  onContentChange: (content: string) => void;
-  onSave: () => void;
-  onCancel: () => void;
+  note: ProgramNoteRow;
+  onClose: () => void;
+  onUpdateNote: (updated: ProgramNoteRow) => void;
 }) {
+  const parsed = parseNoteContent(note.content);
+  const [title, setTitle] = useState(parsed.title);
+  const [content, setContent] = useState(parsed.content);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState(note.updated_at);
+
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  const doSave = async (currentTitle: string, currentContent: string) => {
+    setSaveStatus('saving');
+    const updatedContentStr = serializeNoteContent(currentTitle, currentContent);
+    const now = new Date().toISOString();
+
+    const { error } = await supabase
+      .from('program_notes')
+      .update({
+        content: updatedContentStr,
+        updated_at: now,
+      })
+      .eq('id', note.id);
+
+    if (error) {
+      toast.error('Failed to auto-save note');
+      setSaveStatus('idle');
+    } else {
+      setLastSavedAt(now);
+      setSaveStatus('saved');
+      onUpdateNote({
+        ...note,
+        content: updatedContentStr,
+        updated_at: now,
+      });
+    }
+  };
+
+  const handleChangeTitle = (v: string) => {
+    setTitle(v);
+    scheduleSave(v, content);
+  };
+
+  const handleChangeContent = (v: string) => {
+    setContent(v);
+    scheduleSave(title, v);
+  };
+
+  const scheduleSave = (t: string, c: string) => {
+    setSaveStatus('saving');
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      doSave(t, c);
+    }, 1000);
+  };
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [onClose]);
+
   return (
-    <div className="bg-card border border-border rounded-[12px] p-4 flex flex-col gap-3">
-      <Input
-        placeholder="Title"
-        value={draft.title}
-        onChange={e => onTitleChange(e.target.value)}
-        className="border-0 shadow-none px-0 text-[14px] font-semibold focus-visible:ring-0"
-      />
-      <AutoExpandTextarea
-        value={draft.content}
-        onChange={onContentChange}
-        placeholder="Write your note here..."
-      />
-      <div className="flex gap-2 pt-1">
-        <Button
-          size="sm"
-          className="bg-[#4F46E5] hover:bg-[#4338CA] text-white min-h-[44px] flex-1"
-          onClick={onSave}
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onCancel}
-          disabled={saving}
-          className="min-h-[44px] flex-1"
-        >
-          Cancel
-        </Button>
+    <div
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card w-full max-w-[680px] max-h-[85vh] overflow-y-auto rounded-[12px] p-6 flex flex-col shadow-lg"
+        onClick={handleOverlayClick}
+      >
+        <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
+          <Input
+            value={title}
+            onChange={e => handleChangeTitle(e.target.value)}
+            placeholder="Note title — optional"
+            className="border-0 shadow-none px-0 text-[16px] font-semibold focus-visible:ring-0 flex-1"
+          />
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-accent transition-colors shrink-0 text-muted-foreground ml-4"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <AutoExpandTextarea
+          value={content}
+          onChange={handleChangeContent}
+          placeholder="Write your note..."
+          className="flex-1"
+        />
+
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-border pt-4">
+          <div className="flex items-center gap-2">
+            {saveStatus === 'saving' && (
+              <span className="text-xs text-muted-foreground">Saving...</span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                Saved <Check className="h-3 w-3" /> · {formatNoteCardTimestamp(lastSavedAt)}
+              </span>
+            )}
+            {saveStatus === 'idle' && lastSavedAt && (
+              <span className="text-xs text-muted-foreground">
+                Last saved: {formatNoteCardTimestamp(lastSavedAt)}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+            <span className="text-xs text-muted-foreground">
+              Changes saved automatically
+            </span>
+            <Button variant="outline" size="sm" onClick={onClose} className="h-9 px-4">
+              Close
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
