@@ -33,7 +33,7 @@ GradOS is a web application that helps graduate school applicants manage multipl
 | Routing | React Router v7 |
 | Deployment | Vercel |
 
-```
+---
 
 ## Contributing
 
