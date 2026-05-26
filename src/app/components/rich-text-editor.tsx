@@ -5,6 +5,7 @@ import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@tiptap/extension-placeholder';
+import { LineHeight } from './extensions/line-height';
 import {
   Bold,
   Italic,
@@ -34,6 +35,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from './ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 interface RichTextEditorProps {
   value: string;
@@ -100,6 +108,9 @@ export function RichTextEditor({
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
+      LineHeight.configure({
+        defaultLineHeight: '1.0',
+      }),
       Placeholder.configure({
         placeholder,
       }),
@@ -131,6 +142,8 @@ export function RichTextEditor({
     }
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
+
+  const currentLineHeight = editor.getAttributes('paragraph').lineHeight || editor.getAttributes('heading').lineHeight || '1.0';
 
   return (
     <div className={`flex flex-col border border-border rounded-md overflow-hidden bg-background ${className}`}>
@@ -171,6 +184,30 @@ export function RichTextEditor({
               onClick={() => editor.chain().focus().redo().run()}
               disabled={!editor.can().redo()}
             />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <div className="flex items-center mx-1">
+              <Select
+                value={currentLineHeight}
+                onValueChange={(val) => editor.chain().focus().setLineHeight(val).run()}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SelectTrigger className="h-8 px-2 text-xs border-transparent hover:bg-accent focus:ring-0 gap-1 w-[65px] bg-transparent">
+                      <SelectValue placeholder="Spacing" />
+                    </SelectTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="z-[100]">Line Spacing</TooltipContent>
+                </Tooltip>
+                <SelectContent>
+                  <SelectItem value="1.0">1.0</SelectItem>
+                  <SelectItem value="1.15">1.15</SelectItem>
+                  <SelectItem value="1.5">1.5</SelectItem>
+                  <SelectItem value="2.0">2.0</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <Separator orientation="vertical" className="h-6 mx-1" />
 
@@ -278,8 +315,8 @@ export function RichTextEditor({
       )}
 
       <div
-        className="flex-1 overflow-y-auto cursor-text [&_.ProseMirror]:min-h-full [&_.ProseMirror]:p-3 sm:[&_.ProseMirror]:p-4 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none"
-        style={{ minHeight }}
+        className="flex-1 overflow-y-auto cursor-text [&_.ProseMirror]:min-h-full [&_.ProseMirror]:p-3 sm:[&_.ProseMirror]:p-4 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p]:leading-[inherit] [&_.ProseMirror_li]:leading-[inherit]"
+        style={{ minHeight, lineHeight: '1.0' }}
         onClick={() => editor.commands.focus()}
       >
         <EditorContent editor={editor} className="h-full" />

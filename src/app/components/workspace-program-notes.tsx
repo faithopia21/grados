@@ -325,12 +325,13 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                       ) : null}
                       {parsed.content ? (
                         <p
-                          className="text-[13px] text-muted-foreground leading-[1.5] line-clamp-2 overflow-hidden break-words whitespace-normal"
+                          className="text-[13px] text-muted-foreground leading-[1.5] line-clamp-2 overflow-hidden break-words whitespace-pre-line"
                         >
                           {parsed.content
-                            .replace(/<(p|div|h[1-6]|ul|ol|li|blockquote|br)[^>]*>/gi, ' ')
+                            .replace(/<(br)[^>]*>/gi, '\n')
+                            .replace(/<\/(p|div|h[1-6]|ul|ol|li|blockquote)>/gi, '\n')
                             .replace(/<[^>]+>/g, '')
-                            .replace(/\s+/g, ' ')
+                            .replace(/\n\s*\n/g, '\n')
                             .trim()}
                         </p>
                       ) : (
@@ -402,12 +403,9 @@ function NoteOverlayEditor({
   const [content, setContent] = useState(parsed.content);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState(note.updated_at);
+  const [mouseDownTarget, setMouseDownTarget] = useState<EventTarget | null>(null);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
 
   const doSave = async (currentTitle: string, currentContent: string) => {
     setSaveStatus('saving');
@@ -470,11 +468,17 @@ function NoteOverlayEditor({
   return (
     <div
       className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 sm:p-6"
-      onClick={onClose}
+      onPointerDown={(e) => setMouseDownTarget(e.target)}
+      onPointerUp={(e) => {
+        if (e.target === e.currentTarget && mouseDownTarget === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div
         className="bg-card w-full max-w-[680px] max-h-full sm:max-h-[85dvh] rounded-[12px] flex flex-col shadow-lg overflow-hidden"
-        onClick={handleOverlayClick}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border shrink-0">
           <Input
