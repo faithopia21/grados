@@ -33,32 +33,6 @@ GradOS is a web application that helps graduate school applicants manage multipl
 | Routing | React Router v7 |
 | Deployment | Vercel |
 
----
-
-
-### Database Setup
-
-Run the SQL schema in your Supabase SQL Editor.
-The schema file is located at:
-`supabase/GradOS Schema.sql`
-
----
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── components/      # Reusable UI components
-│   │   └── layout/      # Sidebar, nav, header
-│   └── pages/           # One file per route
-│       └── auth/        # Sign in, sign up, onboarding
-├── components/          # shadcn/ui components
-├── data/                # Static data (universities, 
-│                        # countries, research interests)
-├── hooks/               # Custom React hooks
-├── lib/                 # Supabase client, utilities
-└── styles/              # Global CSS
 ```
 
 ## Contributing
@@ -70,4 +44,4 @@ This project is currently in private beta. Contribution guidelines will be publi
 ## License
 
 Private — All rights reserved.
-GradOS © 2026 Faith Olaniyi
+GradOS © 2026
