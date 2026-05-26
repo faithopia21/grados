@@ -325,9 +325,13 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                       ) : null}
                       {parsed.content ? (
                         <p
-                          className="text-[13px] text-muted-foreground leading-[1.5] line-clamp-3 overflow-hidden break-words whitespace-pre-wrap"
+                          className="text-[13px] text-muted-foreground leading-[1.5] line-clamp-2 overflow-hidden break-words whitespace-normal"
                         >
-                          {parsed.content.replace(/<[^>]+>/g, '')}
+                          {parsed.content
+                            .replace(/<(p|div|h[1-6]|ul|ol|li|blockquote|br)[^>]*>/gi, ' ')
+                            .replace(/<[^>]+>/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim()}
                         </p>
                       ) : (
                         <p className="text-[13px] text-muted-foreground italic">Empty note</p>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -19,9 +20,20 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Undo,
+  Redo,
+  MoreHorizontal,
+  ChevronUp,
 } from 'lucide-react';
 import { Toggle } from './ui/toggle';
 import { Separator } from './ui/separator';
+import { Button } from './ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './ui/tooltip';
 
 interface RichTextEditorProps {
   value: string;
@@ -31,6 +43,40 @@ interface RichTextEditorProps {
   className?: string;
 }
 
+const EditorButton = ({
+  icon: Icon,
+  label,
+  isActive,
+  onClick,
+  disabled = false,
+  hiddenOnMobile = false,
+}: {
+  icon: any;
+  label: string;
+  isActive?: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  hiddenOnMobile?: boolean;
+}) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Toggle
+        size="sm"
+        pressed={isActive}
+        onPressedChange={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className={hiddenOnMobile ? 'hidden sm:inline-flex' : ''}
+      >
+        <Icon className="h-4 w-4" />
+      </Toggle>
+    </TooltipTrigger>
+    <TooltipContent side="top" className="z-[100]">
+      {label}
+    </TooltipContent>
+  </Tooltip>
+);
+
 export function RichTextEditor({
   value,
   onChange,
@@ -38,6 +84,8 @@ export function RichTextEditor({
   minHeight = '150px',
   className = '',
 }: RichTextEditorProps) {
+  const [showToolbar, setShowToolbar] = useState(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -86,137 +134,150 @@ export function RichTextEditor({
 
   return (
     <div className={`flex flex-col border border-border rounded-md overflow-hidden bg-background ${className}`}>
-      <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/30 border-b border-border sticky top-0 z-10 shrink-0">
-        <Toggle
+      <div className="flex items-center justify-end px-2 py-1 border-b border-border bg-muted/10">
+        <Button
+          variant="ghost"
           size="sm"
-          pressed={editor.isActive('bold')}
-          onPressedChange={() => editor.chain().focus().toggleBold().run()}
-          aria-label="Toggle bold"
+          className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
+          onClick={() => setShowToolbar(!showToolbar)}
+          aria-label={showToolbar ? 'Hide formatting toolbar' : 'Show formatting toolbar'}
         >
-          <Bold className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('italic')}
-          onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-          aria-label="Toggle italic"
-        >
-          <Italic className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('underline')}
-          onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
-          aria-label="Toggle underline"
-        >
-          <UnderlineIcon className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('strike')}
-          onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-          aria-label="Toggle strikethrough"
-        >
-          <Strikethrough className="h-4 w-4" />
-        </Toggle>
-
-        <Separator orientation="vertical" className="h-6 mx-1" />
-
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('heading', { level: 1 })}
-          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          aria-label="Toggle heading 1"
-        >
-          <Heading1 className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('heading', { level: 2 })}
-          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          aria-label="Toggle heading 2"
-        >
-          <Heading2 className="h-4 w-4" />
-        </Toggle>
-
-        <Separator orientation="vertical" className="h-6 mx-1" />
-
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('bulletList')}
-          onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
-          aria-label="Toggle bullet list"
-        >
-          <List className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('orderedList')}
-          onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
-          aria-label="Toggle ordered list"
-        >
-          <ListOrdered className="h-4 w-4" />
-        </Toggle>
-
-        <Separator orientation="vertical" className="h-6 mx-1" />
-
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('blockquote')}
-          onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
-          aria-label="Toggle blockquote"
-        >
-          <Quote className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('codeBlock')}
-          onPressedChange={() => editor.chain().focus().toggleCodeBlock().run()}
-          aria-label="Toggle code block"
-        >
-          <Code className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('link')}
-          onPressedChange={setLink}
-          aria-label="Toggle link"
-        >
-          <LinkIcon className="h-4 w-4" />
-        </Toggle>
-        
-        <Separator orientation="vertical" className="h-6 mx-1 hidden sm:block" />
-        
-        <Toggle
-          size="sm"
-          pressed={editor.isActive({ textAlign: 'left' })}
-          onPressedChange={() => editor.chain().focus().setTextAlign('left').run()}
-          aria-label="Align left"
-          className="hidden sm:inline-flex"
-        >
-          <AlignLeft className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive({ textAlign: 'center' })}
-          onPressedChange={() => editor.chain().focus().setTextAlign('center').run()}
-          aria-label="Align center"
-          className="hidden sm:inline-flex"
-        >
-          <AlignCenter className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive({ textAlign: 'right' })}
-          onPressedChange={() => editor.chain().focus().setTextAlign('right').run()}
-          aria-label="Align right"
-          className="hidden sm:inline-flex"
-        >
-          <AlignRight className="h-4 w-4" />
-        </Toggle>
+          {showToolbar ? (
+            <>
+              <ChevronUp className="h-3.5 w-3.5 mr-1" />
+              Hide Tools
+            </>
+          ) : (
+            <>
+              <MoreHorizontal className="h-3.5 w-3.5 mr-1" />
+              Format
+            </>
+          )}
+        </Button>
       </div>
 
-      <div 
+      {showToolbar && (
+        <TooltipProvider delayDuration={300}>
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/30 border-b border-border sticky top-0 z-10 shrink-0 transition-all">
+            <EditorButton
+              icon={Undo}
+              label="Undo (Cmd+Z)"
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+            />
+            <EditorButton
+              icon={Redo}
+              label="Redo (Cmd+Shift+Z)"
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+            />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <EditorButton
+              icon={Bold}
+              label="Bold"
+              isActive={editor.isActive('bold')}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+            />
+            <EditorButton
+              icon={Italic}
+              label="Italic"
+              isActive={editor.isActive('italic')}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+            />
+            <EditorButton
+              icon={UnderlineIcon}
+              label="Underline"
+              isActive={editor.isActive('underline')}
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
+            />
+            <EditorButton
+              icon={Strikethrough}
+              label="Strikethrough"
+              isActive={editor.isActive('strike')}
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+            />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <EditorButton
+              icon={Heading1}
+              label="Heading 1"
+              isActive={editor.isActive('heading', { level: 1 })}
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            />
+            <EditorButton
+              icon={Heading2}
+              label="Heading 2"
+              isActive={editor.isActive('heading', { level: 2 })}
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <EditorButton
+              icon={List}
+              label="Bullet List"
+              isActive={editor.isActive('bulletList')}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+            />
+            <EditorButton
+              icon={ListOrdered}
+              label="Numbered List"
+              isActive={editor.isActive('orderedList')}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <EditorButton
+              icon={Quote}
+              label="Blockquote"
+              isActive={editor.isActive('blockquote')}
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            />
+            <EditorButton
+              icon={Code}
+              label="Code Block"
+              isActive={editor.isActive('codeBlock')}
+              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            />
+            <EditorButton
+              icon={LinkIcon}
+              label="Insert Link"
+              isActive={editor.isActive('link')}
+              onClick={setLink}
+            />
+
+            <Separator orientation="vertical" className="h-6 mx-1 hidden sm:block" />
+
+            <EditorButton
+              icon={AlignLeft}
+              label="Align Left"
+              isActive={editor.isActive({ textAlign: 'left' })}
+              onClick={() => editor.chain().focus().setTextAlign('left').run()}
+              hiddenOnMobile
+            />
+            <EditorButton
+              icon={AlignCenter}
+              label="Align Center"
+              isActive={editor.isActive({ textAlign: 'center' })}
+              onClick={() => editor.chain().focus().setTextAlign('center').run()}
+              hiddenOnMobile
+            />
+            <EditorButton
+              icon={AlignRight}
+              label="Align Right"
+              isActive={editor.isActive({ textAlign: 'right' })}
+              onClick={() => editor.chain().focus().setTextAlign('right').run()}
+              hiddenOnMobile
+            />
+          </div>
+        </TooltipProvider>
+      )}
+
+      <div
         className="flex-1 overflow-y-auto cursor-text [&_.ProseMirror]:min-h-full [&_.ProseMirror]:p-3 sm:[&_.ProseMirror]:p-4 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none"
         style={{ minHeight }}
         onClick={() => editor.commands.focus()}
