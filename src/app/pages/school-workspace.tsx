@@ -1889,10 +1889,11 @@ export function SchoolWorkspace() {
 }
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  if (!value || !value.trim()) return null;
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex justify-between items-center py-2 border-b border-border last:border-0">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm text-right">{value?.trim() ? value : '—'}</span>
+      <span className="text-sm font-medium text-foreground">{value.trim()}</span>
     </div>
   );
 }

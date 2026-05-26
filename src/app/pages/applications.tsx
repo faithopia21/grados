@@ -82,16 +82,19 @@ function programToFormData(program: DbProgram): SchoolFormData {
     : 'MSc';
 
   return {
-    universityName: program.school_name,
-    programName: program.program_name,
+    universityName: program.school_name || '',
+    programName: program.program_name || '',
     degree,
-    country: program.country ?? '',
-    department: '',
-    portalUrl: program.portal_url ?? '',
-    applicationDeadline: program.deadline,
-    fundingDeadline: '',
-    fundingAvailable: program.funding_available,
-    notes: '',
+    country: program.country || '',
+    department: program.department || '',
+    portalUrl: program.portal_url || '',
+    applicationDeadline: program.deadline || '',
+    fundingDeadline: program.funding_deadline || '',
+    fundingAvailable: program.funding_available || false,
+    notes: program.notes || '',
+    tuition: program.tuition || '',
+    ranking: program.ranking || '',
+    round: program.application_round || '',
   };
 }
 

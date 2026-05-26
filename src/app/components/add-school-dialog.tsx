@@ -126,23 +126,29 @@ export function AddSchoolDialog({
 
     setLoading(true);
 
-    const programPayload = {
+    const basePayload: Record<string, any> = {
       school_name: formData.universityName.trim(),
       program_name: formData.programName.trim(),
       degree_type: formData.degree,
       country: formData.country.trim(),
-      deadline: formData.applicationDeadline,
+      deadline: formData.applicationDeadline || null,
       funding_available: formData.fundingAvailable,
-      portal_url: formData.portalUrl.trim() || null,
-      tuition: formData.tuition?.trim() || null,
-      ranking: formData.ranking?.trim() || null,
-      application_round: formData.round || null,
     };
 
     if (isEditing && editingProgramId) {
+      const updatePayload: Record<string, any> = { ...basePayload };
+
+      if (formData.portalUrl?.trim()) updatePayload.portal_url = formData.portalUrl.trim();
+      if (formData.department?.trim()) updatePayload.department = formData.department.trim();
+      if (formData.round?.trim()) updatePayload.application_round = formData.round.trim();
+      if (formData.tuition?.trim()) updatePayload.tuition = formData.tuition.trim();
+      if (formData.ranking?.trim()) updatePayload.ranking = formData.ranking.trim();
+      if (formData.fundingDeadline?.trim()) updatePayload.funding_deadline = formData.fundingDeadline.trim();
+      if (formData.notes?.trim()) updatePayload.notes = formData.notes.trim();
+
       const { error: updateError } = await supabase
         .from('programs')
-        .update(programPayload)
+        .update(updatePayload)
         .eq('id', editingProgramId);
 
       setLoading(false);
@@ -177,11 +183,20 @@ export function AddSchoolDialog({
       return;
     }
 
-    const { error: insertError } = await supabase.from('programs').insert({
-      ...programPayload,
+    const insertPayload: Record<string, any> = {
+      ...basePayload,
       user_id: user.id,
       status: 'Not Started',
-    });
+      portal_url: formData.portalUrl?.trim() || null,
+      department: formData.department?.trim() || null,
+      application_round: formData.round?.trim() || null,
+      tuition: formData.tuition?.trim() || null,
+      ranking: formData.ranking?.trim() || null,
+      funding_deadline: formData.fundingDeadline?.trim() || null,
+      notes: formData.notes?.trim() || null,
+    };
+
+    const { error: insertError } = await supabase.from('programs').insert(insertPayload);
 
     setLoading(false);
 
