@@ -29,6 +29,7 @@ import {
 import { Toggle } from './ui/toggle';
 import { Separator } from './ui/separator';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 import {
   Tooltip,
   TooltipContent,
@@ -42,6 +43,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from './ui/popover';
 
 interface RichTextEditorProps {
   value: string;
@@ -93,6 +99,8 @@ export function RichTextEditor({
   className = '',
 }: RichTextEditorProps) {
   const [showToolbar, setShowToolbar] = useState(false);
+  const [isLinkOpen, setIsLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
 
   const editor = useEditor({
     extensions: [
@@ -104,6 +112,10 @@ export function RichTextEditor({
       Underline,
       Link.configure({
         openOnClick: false,
+        HTMLAttributes: {
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
       }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
@@ -130,17 +142,23 @@ export function RichTextEditor({
     return null;
   }
 
-  const setLink = () => {
+  const openLinkDialog = () => {
     const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
-    if (url === null) {
-      return;
-    }
+    setLinkUrl(previousUrl || '');
+    setIsLinkOpen(true);
+  };
+
+  const applyLink = () => {
+    let url = linkUrl;
     if (url === '') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run();
-      return;
+    } else {
+      if (!/^https?:\/\//i.test(url) && !url.startsWith('mailto:')) {
+        url = 'https://' + url;
+      }
+      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
     }
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    setIsLinkOpen(false);
   };
 
   const currentLineHeight = editor.getAttributes('paragraph').lineHeight || editor.getAttributes('heading').lineHeight || '1.0';
@@ -280,12 +298,54 @@ export function RichTextEditor({
               isActive={editor.isActive('codeBlock')}
               onClick={() => editor.chain().focus().toggleCodeBlock().run()}
             />
-            <EditorButton
-              icon={LinkIcon}
-              label="Insert Link"
-              isActive={editor.isActive('link')}
-              onClick={setLink}
-            />
+            
+            <Popover open={isLinkOpen} onOpenChange={setIsLinkOpen}>
+              <PopoverTrigger asChild>
+                <div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Toggle
+                        size="sm"
+                        pressed={editor.isActive('link')}
+                        onPressedChange={openLinkDialog}
+                        aria-label="Insert Link"
+                      >
+                        <LinkIcon className="h-4 w-4" />
+                      </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="z-[100]">
+                      Insert Link
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-80 p-3" 
+                side="bottom" 
+                align="center"
+                onPointerDownOutside={(e) => {
+                  if (e.target instanceof Element && e.target.closest('.ProseMirror')) {
+                    e.preventDefault();
+                  }
+                }}
+              >
+                <div className="flex gap-2">
+                  <Input
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    className="h-8 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        applyLink();
+                      }
+                    }}
+                  />
+                  <Button size="sm" onClick={applyLink} className="h-8">Save</Button>
+                </div>
+              </PopoverContent>
+            </Popover>
 
             <Separator orientation="vertical" className="h-6 mx-1 hidden sm:block" />
 
@@ -315,7 +375,7 @@ export function RichTextEditor({
       )}
 
       <div
-        className="flex-1 overflow-y-auto cursor-text [&_.ProseMirror]:min-h-full [&_.ProseMirror]:p-3 sm:[&_.ProseMirror]:p-4 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p]:leading-[inherit] [&_.ProseMirror_li]:leading-[inherit]"
+        className="flex-1 overflow-y-auto cursor-text [&_.ProseMirror]:min-h-full [&_.ProseMirror]:p-3 sm:[&_.ProseMirror]:p-4 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p]:leading-[inherit] [&_.ProseMirror_li]:leading-[inherit] [&_.ProseMirror_a]:text-blue-500 [&_.ProseMirror_a]:underline"
         style={{ minHeight, lineHeight: '1.0' }}
         onClick={() => editor.commands.focus()}
       >
