@@ -151,13 +151,30 @@ export function AddSchoolDialog({
         .update(updatePayload)
         .eq('id', editingProgramId);
 
-      setLoading(false);
-
       if (updateError) {
+        setLoading(false);
         setError(updateError.message);
         return;
       }
 
+      if (formData.notes?.trim()) {
+        const noteHtml = `<p>${formData.notes.trim()}</p>`;
+        const { data: existingNote } = await supabase
+          .from('program_notes')
+          .select('id')
+          .eq('program_id', editingProgramId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingNote) {
+          await supabase.from('program_notes').update({ content: noteHtml, updated_at: new Date().toISOString() }).eq('id', existingNote.id);
+        } else {
+          await supabase.from('program_notes').insert({ program_id: editingProgramId, content: noteHtml, updated_at: new Date().toISOString() });
+        }
+      }
+
+      setLoading(false);
       toast.success('Application updated successfully');
       resetForm();
       onOpenChange(false);
@@ -196,15 +213,24 @@ export function AddSchoolDialog({
       notes: formData.notes?.trim() || null,
     };
 
-    const { error: insertError } = await supabase.from('programs').insert(insertPayload);
-
-    setLoading(false);
+    const { data: newProgram, error: insertError } = await supabase
+      .from('programs')
+      .insert(insertPayload)
+      .select('id')
+      .single();
 
     if (insertError) {
+      setLoading(false);
       setError(insertError.message);
       return;
     }
 
+    if (formData.notes?.trim()) {
+      const noteHtml = `<p>${formData.notes.trim()}</p>`;
+      await supabase.from('program_notes').insert({ program_id: newProgram.id, content: noteHtml, updated_at: new Date().toISOString() });
+    }
+
+    setLoading(false);
     toast.success('Application updated successfully');
     resetForm();
     onOpenChange(false);

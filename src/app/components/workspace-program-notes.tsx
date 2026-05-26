@@ -4,7 +4,7 @@ import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useSelection } from '../../hooks/useSelection';
-import { Pencil, Trash2, X, Check, NotebookPen, Search, ArrowUp, ArrowDown } from 'lucide-react';
+import { Pencil, Trash2, X, Check, NotebookPen, Search, ArrowUp, ArrowDown, Pin, PinOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import {
@@ -12,6 +12,7 @@ import {
   parseNoteContent,
   serializeNoteContent,
 } from '../../lib/note-format';
+import { RichTextEditor } from './rich-text-editor';
 
 export interface ProgramNoteRow {
   id: string;
@@ -19,46 +20,10 @@ export interface ProgramNoteRow {
   content: string;
   updated_at: string | null;
   created_at?: string | null;
+  is_pinned?: boolean;
+  pinned_at?: string | null;
 }
 
-function AutoExpandTextarea({
-  value,
-  onChange,
-  placeholder,
-  className = '',
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  className?: string;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  const resize = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, []);
-
-  useEffect(() => {
-    resize();
-  }, [value, resize]);
-
-  return (
-    <textarea
-      ref={ref}
-      value={value}
-      onChange={e => {
-        onChange(e.target.value);
-        resize();
-      }}
-      placeholder={placeholder}
-      className={`w-full bg-transparent px-0 py-2 text-[14px] leading-[1.7] resize-none overflow-hidden focus-visible:outline-none focus-visible:ring-0 ${className}`}
-      style={{ minHeight: '60px', height: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}
-    />
-  );
-}
 
 interface WorkspaceProgramNotesProps {
   programId: string;
@@ -160,6 +125,24 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
     setDeleteConfirmId(null);
   };
 
+  const handleTogglePin = async (note: ProgramNoteRow, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newIsPinned = !note.is_pinned;
+    const now = newIsPinned ? new Date().toISOString() : null;
+
+    const { error } = await supabase
+      .from('program_notes')
+      .update({ is_pinned: newIsPinned, pinned_at: now })
+      .eq('id', note.id);
+
+    if (error) {
+      toast.error('Failed to update pin status');
+      return;
+    }
+
+    setNotes(prev => prev.map(n => n.id === note.id ? { ...n, is_pinned: newIsPinned, pinned_at: now } : n));
+  };
+
   const processedNotes = useMemo(() => {
     let result = [...notes];
 
@@ -173,6 +156,10 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
     }
 
     result.sort((a, b) => {
+      if (a.is_pinned !== b.is_pinned) {
+        return a.is_pinned ? -1 : 1;
+      }
+
       let comparison = 0;
       if (sortField === 'name') {
         const titleA = parseNoteContent(a.content).title || '';
@@ -340,7 +327,7 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                         <p
                           className="text-[13px] text-muted-foreground leading-[1.5] line-clamp-3 overflow-hidden break-words whitespace-pre-wrap"
                         >
-                          {parsed.content}
+                          {parsed.content.replace(/<[^>]+>/g, '')}
                         </p>
                       ) : (
                         <p className="text-[13px] text-muted-foreground italic">Empty note</p>
@@ -352,6 +339,14 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
                         {formatNoteCardTimestamp(note.updated_at)}
                       </p>
                       <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${note.is_pinned ? 'text-[#4F46E5] bg-[#4F46E5]/10' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+                          onClick={(e) => handleTogglePin(note, e)}
+                          aria-label={note.is_pinned ? 'Unpin note' : 'Pin note'}
+                        >
+                          {note.is_pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                        </button>
                         <button
                           type="button"
                           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center justify-center"
@@ -494,11 +489,13 @@ function NoteOverlayEditor({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-          <AutoExpandTextarea
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          <RichTextEditor
             value={content}
             onChange={handleChangeContent}
             placeholder="Write your note..."
+            className="border-0 rounded-none h-full"
+            minHeight="100%"
           />
         </div>
 

@@ -15,6 +15,7 @@ import { Label } from '../components/ui/label';
 import { Skeleton } from '../components/ui/skeleton';
 import { ChecklistStatusSelect } from '../components/checklist-status-select';
 import { StatusUpdateDialog } from '../components/status-update-dialog';
+import { RichTextEditor } from '../components/rich-text-editor';
 import { UploadDocumentFlow } from '../components/upload-document-flow';
 import { WorkspaceProgramNotes } from '../components/workspace-program-notes';
 import {
@@ -103,7 +104,7 @@ interface Recommender {
 
 const RECOMMENDER_STATUSES = ['Not Asked', 'Asked', 'Confirmed', 'Submitted'] as const;
 
-const BRIEFING_PLACEHOLDER = `Suggested structure:
+const BRIEFING_PLACEHOLDER = `Examples of helpful context...ure:
 • How we know each other and for how long
 • Key project or achievement to highlight
 • Skills relevant to this specific program
@@ -237,50 +238,6 @@ const DEFAULT_CHECKLIST_LABELS = [
   'Letter of Recommendation 3',
   'Application Fee',
 ];
-
-function BriefingNoteTextarea({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  const resize = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, []);
-
-  useEffect(() => {
-    resize();
-  }, [value, resize]);
-
-  return (
-    <textarea
-      ref={ref}
-      value={value}
-      onChange={e => {
-        onChange(e.target.value);
-        resize();
-      }}
-      placeholder={placeholder}
-      rows={1}
-      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      style={{
-        minHeight: '60px',
-        height: '100%',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        overflowWrap: 'break-word',
-      }}
-    />
-  );
-}
 
 function WorkspaceSkeleton() {
   return (
@@ -1867,11 +1824,13 @@ export function SchoolWorkspace() {
                 </button>
               </div>
               
-              <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-                <BriefingNoteTextarea
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                <RichTextEditor
                   value={rec.briefing_note ?? ''}
                   onChange={value => handleBriefingChange(rec, value)}
                   placeholder={BRIEFING_PLACEHOLDER}
+                  className="border-0 rounded-none h-full"
+                  minHeight="100%"
                 />
               </div>
 
