@@ -3,50 +3,62 @@ import { useNavigate } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { CheckCircle2 } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
 
 export function ForgotPassword() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSendResetLink = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEmailSent(true);
+    
+    if (!navigator.onLine) {
+      setError('No internet connection.');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    const { error } = await supabase.auth
+      .resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/auth/reset-password'
+      });
+    
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+    
+    setSuccess(true);
+    setLoading(false);
   };
 
-  if (emailSent) {
+  if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8] dark:bg-background p-4">
         <div className="w-full max-w-[420px] bg-card rounded-2xl p-10 border border-border">
-          {/* Success State */}
           <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <CheckCircle2 className="h-12 w-12 text-green-500" />
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <Check size={24} className="text-green-600" />
             </div>
-            <h1 className="text-xl mb-2">Check your inbox</h1>
-            <p className="text-sm text-muted-foreground mb-6">
-              We've sent a reset link to your email address. It expires in 30 minutes.
+            <h2 className="text-lg font-semibold mb-2">Check your inbox</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              We sent a password reset link to <strong>{email}</strong>. It expires in 1 hour.
             </p>
-
-            <div className="space-y-3">
-              <button
-                onClick={() => setEmailSent(false)}
-                className="text-sm hover:underline"
-                style={{ color: '#4F46E5' }}
-              >
-                Resend email
-              </button>
-              <div>
-                <button
-                  onClick={() => navigate('/sign-in')}
-                  className="text-sm hover:underline"
-                  style={{ color: '#4F46E5' }}
-                >
-                  Back to sign in
-                </button>
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Did not receive it? Check your spam folder or
+            </p>
+            <button 
+              onClick={() => setSuccess(false)}
+              className="text-sm text-indigo-600 hover:underline">
+              Try again
+            </button>
           </div>
         </div>
       </div>
@@ -64,8 +76,14 @@ export function ForgotPassword() {
           </p>
         </div>
 
+        {error && (
+          <div className="p-3 mb-4 rounded-lg bg-red-50 dark:bg-red-950 text-sm text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
         {/* Form */}
-        <form onSubmit={handleSendResetLink} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email address</Label>
             <Input
@@ -78,8 +96,8 @@ export function ForgotPassword() {
             />
           </div>
 
-          <Button type="submit" className="w-full h-11">
-            Send reset link
+          <Button type="submit" className="w-full h-11" disabled={loading}>
+            {loading ? 'Sending...' : 'Send reset link'}
           </Button>
         </form>
 
