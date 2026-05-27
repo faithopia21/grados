@@ -309,12 +309,22 @@ export function Applications() {
   const [programs, setPrograms] = useState<ProgramWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => (localStorage.getItem('grados_status_filter') as StatusFilter) || 'all');
   const [countryFilters, setCountryFilters] = useState<string[]>([]);
   const [degreeFilters, setDegreeFilters] = useState<string[]>([]);
   const [fundingFilter, setFundingFilter] = useState<string[]>([]);
   const [deadlineFilter, setDeadlineFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<SortOption>('deadline');
+  const [sortBy, setSortBy] = useState<SortOption>(() => (localStorage.getItem('grados_sort_preference') as SortOption) || 'deadline');
+
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value as StatusFilter);
+    localStorage.setItem('grados_status_filter', value);
+  };
+
+  const handleSortChange = (value: string) => {
+    setSortBy(value as SortOption);
+    localStorage.setItem('grados_sort_preference', value);
+  };
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<SchoolFormData | undefined>(undefined);
   const [fetchError, setFetchError] = useState(false);
@@ -376,7 +386,7 @@ export function Applications() {
 
       const { data: programRows, error } = await supabase
         .from('programs')
-        .select('id, school_name, program_name, status, deadline, created_at, degree_type, country, funding_available')
+        .select('id, school_name, program_name, status, deadline, created_at, degree_type, country, funding_available, department, tuition, ranking, portal_url, application_round, funding_deadline, notes')
         .eq('user_id', user.id)
         .order('deadline', { ascending: true });
 
@@ -673,43 +683,43 @@ export function Applications() {
                 <DropdownMenuContent align="start" className="w-56">
                   <DropdownMenuCheckboxItem
                     checked={statusFilter === 'all'}
-                    onCheckedChange={() => setStatusFilter('all')}
+                    onCheckedChange={() => handleStatusChange('all')}
                   >
                     All
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={statusFilter === 'Not Started'}
-                    onCheckedChange={() => setStatusFilter('Not Started')}
+                    onCheckedChange={() => handleStatusChange('Not Started')}
                   >
                     Not Started
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={statusFilter === 'In Progress'}
-                    onCheckedChange={() => setStatusFilter('In Progress')}
+                    onCheckedChange={() => handleStatusChange('In Progress')}
                   >
                     In Progress
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={statusFilter === 'Ready to Submit'}
-                    onCheckedChange={() => setStatusFilter('Ready to Submit')}
+                    onCheckedChange={() => handleStatusChange('Ready to Submit')}
                   >
                     Ready to Submit
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={statusFilter === 'submitted'}
-                    onCheckedChange={() => setStatusFilter('submitted')}
+                    onCheckedChange={() => handleStatusChange('submitted')}
                   >
                     Submitted
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={statusFilter === 'accepted'}
-                    onCheckedChange={() => setStatusFilter('accepted')}
+                    onCheckedChange={() => handleStatusChange('accepted')}
                   >
                     Accepted
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={statusFilter === 'rejected'}
-                    onCheckedChange={() => setStatusFilter('rejected')}
+                    onCheckedChange={() => handleStatusChange('rejected')}
                   >
                     Rejected
                   </DropdownMenuCheckboxItem>
@@ -788,7 +798,7 @@ export function Applications() {
                     Sort <ChevronDown className="h-4 w-4 ml-1" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuRadioGroup value={sortBy} onValueChange={v => setSortBy(v as SortOption)}>
+                    <DropdownMenuRadioGroup value={sortBy} onValueChange={handleSortChange}>
                       <DropdownMenuRadioItem value="deadline">Nearest deadline</DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="recent">Recently added</DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="progress-high">Progress high to low</DropdownMenuRadioItem>

@@ -23,8 +23,7 @@ import {
   AlignRight,
   Undo,
   Redo,
-  MoreHorizontal,
-  ChevronUp,
+  MoreVertical,
 } from 'lucide-react';
 import { Toggle } from './ui/toggle';
 import { Separator } from './ui/separator';
@@ -165,45 +164,43 @@ export function RichTextEditor({
 
   return (
     <div className={`flex flex-col border border-border rounded-md overflow-hidden bg-background ${className}`}>
-      <div className="flex items-center justify-end px-2 py-1 border-b border-border bg-muted/10">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
-          onClick={() => setShowToolbar(!showToolbar)}
-          aria-label={showToolbar ? 'Hide formatting toolbar' : 'Show formatting toolbar'}
-        >
-          {showToolbar ? (
-            <>
-              <ChevronUp className="h-3.5 w-3.5 mr-1" />
-              Hide Tools
-            </>
-          ) : (
-            <>
-              <MoreHorizontal className="h-3.5 w-3.5 mr-1" />
-              Format
-            </>
-          )}
-        </Button>
-      </div>
+      <TooltipProvider delayDuration={300}>
+        <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/30 border-b border-border sticky top-0 z-10 shrink-0 transition-all">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
+                onClick={() => setShowToolbar(!showToolbar)}
+                aria-label={showToolbar ? 'Hide formatting toolbar' : 'Show formatting toolbar'}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="z-[100]">
+              {showToolbar ? 'Hide formatting toolbar' : 'Show formatting toolbar'}
+            </TooltipContent>
+          </Tooltip>
 
-      {showToolbar && (
-        <TooltipProvider delayDuration={300}>
-          <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/30 border-b border-border sticky top-0 z-10 shrink-0 transition-all">
-            <EditorButton
-              icon={Undo}
-              label="Undo (Cmd+Z)"
-              onClick={() => editor.chain().focus().undo().run()}
-              disabled={!editor.can().undo()}
-            />
-            <EditorButton
-              icon={Redo}
-              label="Redo (Cmd+Shift+Z)"
-              onClick={() => editor.chain().focus().redo().run()}
-              disabled={!editor.can().redo()}
-            />
-
-            <Separator orientation="vertical" className="h-6 mx-1" />
+          {showToolbar && (
+            <>
+              <Separator orientation="vertical" className="h-6 mx-1" />
+              
+              <EditorButton
+                icon={Undo}
+                label="Undo (Cmd+Z)"
+                onClick={() => editor.chain().focus().undo().run()}
+                disabled={!editor.can().undo()}
+              />
+              <EditorButton
+                icon={Redo}
+                label="Redo (Cmd+Shift+Z)"
+                onClick={() => editor.chain().focus().redo().run()}
+                disabled={!editor.can().redo()}
+              />
+  
+              <Separator orientation="vertical" className="h-6 mx-1" />
 
             <div className="flex items-center mx-1">
               <Select
@@ -370,9 +367,10 @@ export function RichTextEditor({
               onClick={() => editor.chain().focus().setTextAlign('right').run()}
               hiddenOnMobile
             />
-          </div>
-        </TooltipProvider>
-      )}
+            </>
+          )}
+        </div>
+      </TooltipProvider>
 
       <div
         className="flex-1 overflow-y-auto cursor-text [&_.ProseMirror]:min-h-full [&_.ProseMirror]:p-3 sm:[&_.ProseMirror]:p-4 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p]:leading-[inherit] [&_.ProseMirror_li]:leading-[inherit] [&_.ProseMirror_a]:text-blue-500 [&_.ProseMirror_a]:underline"

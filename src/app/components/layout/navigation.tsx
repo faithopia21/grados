@@ -9,6 +9,7 @@ import {
   LogOut,
   Moon,
   Sun,
+  GraduationCap,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { ThemeToggle } from '../theme-toggle';
@@ -111,7 +112,7 @@ export function Navigation({
             className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 lg:hidden"
             style={{ backgroundColor: '#4F46E5' }}
           >
-            <span className="text-white text-sm font-medium">G</span>
+            <GraduationCap size={20} className="text-white" />
           </div>
           <div className="hidden lg:block min-w-0">
             <img 
