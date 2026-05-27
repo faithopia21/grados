@@ -45,13 +45,21 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
 
   const handleBulkDeleteNotes = async () => {
     const ids = Array.from(noteSelection.selectedIds);
-    const { error } = await supabase.from('program_notes').delete().in('id', ids);
+    const { error, data } = await supabase.from('program_notes').delete().in('id', ids).select('id');
+    
     if (!error) {
-      setNotes(prev => prev.filter(n => !noteSelection.selectedIds.has(n.id)));
+      const deletedIds = data ? data.map(d => d.id) : [];
+      setNotes(prev => prev.filter(n => !deletedIds.includes(n.id)));
       noteSelection.clearSelection();
-      toast.success(`${ids.length} notes deleted`);
+      
+      if (deletedIds.length === ids.length) {
+        toast.success(`${ids.length} notes deleted`);
+      } else {
+        toast.error(`Only deleted ${deletedIds.length} of ${ids.length} notes`);
+        fetchNotes(); // Resync state if deletion was partial or failed
+      }
     } else {
-      toast.error('Failed to delete notes');
+      toast.error('Failed to delete notes: ' + error.message);
     }
   };
 
@@ -114,10 +122,17 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
   };
 
   const handleDelete = async (noteId: string) => {
-    const { error } = await supabase.from('program_notes').delete().eq('id', noteId);
+    const { data, error } = await supabase.from('program_notes').delete().eq('id', noteId).select('id');
 
     if (error) {
       toast.error(error.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      toast.error('Note could not be deleted or was already deleted');
+      fetchNotes(); // Resync state since delete failed on server
+      setDeleteConfirmId(null);
       return;
     }
 

@@ -144,7 +144,9 @@ export function AddSchoolDialog({
       if (formData.tuition?.trim()) updatePayload.tuition = formData.tuition.trim();
       if (formData.ranking?.trim()) updatePayload.ranking = formData.ranking.trim();
       if (formData.fundingDeadline?.trim()) updatePayload.funding_deadline = formData.fundingDeadline.trim();
-      if (formData.notes?.trim()) updatePayload.notes = formData.notes.trim();
+      if (formData.notes?.trim()) {
+        updatePayload.notes = formData.notes.trim();
+      }
 
       const { error: updateError } = await supabase
         .from('programs')
@@ -155,23 +157,6 @@ export function AddSchoolDialog({
         setLoading(false);
         setError(updateError.message);
         return;
-      }
-
-      if (formData.notes?.trim()) {
-        const noteHtml = `<p>${formData.notes.trim()}</p>`;
-        const { data: existingNote } = await supabase
-          .from('program_notes')
-          .select('id')
-          .eq('program_id', editingProgramId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (existingNote) {
-          await supabase.from('program_notes').update({ content: noteHtml, updated_at: new Date().toISOString() }).eq('id', existingNote.id);
-        } else {
-          await supabase.from('program_notes').insert({ program_id: editingProgramId, content: noteHtml, updated_at: new Date().toISOString() });
-        }
       }
 
       setLoading(false);
