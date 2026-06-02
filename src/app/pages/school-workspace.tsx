@@ -62,6 +62,8 @@ import {
   Download,
   X,
   ChevronRight,
+  ChevronLeft,
+  DollarSign,
 } from 'lucide-react';
 import { PageHeader } from '../components/page-header';
 
@@ -252,6 +254,27 @@ function WorkspaceSkeleton() {
       </div>
     </div>
   );
+}
+
+function getStatusDotColor(status: string | null): string {
+  switch (status) {
+    case 'In Progress': 
+      return 'bg-indigo-500'
+    case 'Ready to Submit': 
+      return 'bg-indigo-500'
+    case 'Submitted': 
+      return 'bg-green-500'
+    case 'Accepted': 
+      return 'bg-green-500'
+    case 'Rejected': 
+      return 'bg-red-500'
+    case 'Interview': 
+      return 'bg-purple-500'
+    case 'Waitlisted': 
+      return 'bg-amber-500'
+    default: 
+      return 'bg-gray-400'
+  }
 }
 
 export function SchoolWorkspace() {
@@ -886,45 +909,119 @@ export function SchoolWorkspace() {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader 
-        title={
+      {/* Mobile Header */}
+      <div className="md:hidden bg-background border-b border-border">
+        {/* Row 1 — navigation and actions */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          {/* Back button */}
+          <button
+            onClick={() => navigate('/applications')}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft size={16} />
+            <span className="text-xs">Back</span>
+          </button>
+          
+          {/* Action icons — compact on mobile */}
           <div className="flex items-center gap-2">
-            <span>{program.school_name}</span>
-            {program.funding_available && (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0 text-xs">
-                Funding Available
-              </Badge>
+            {/* Status badge — clickable, opens modal */}
+            <button
+              onClick={() => setIsStatusDialogOpen(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border border-border hover:bg-accent"
+            >
+              <span className={`w-2 h-2 rounded-full ${getStatusDotColor(program.status)}`} />
+              <span className="max-w-[80px] truncate">
+                {program.status || 'Not Started'}
+              </span>
+            </button>
+            
+            {/* Portal icon button (only if URL exists) */}
+            {program?.portal_url?.trim() && (
+              <button
+                onClick={() => window.open(program.portal_url!, '_blank')}
+                className="p-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950"
+                title="Open Application Portal"
+              >
+                <ExternalLink size={16} />
+              </button>
             )}
           </div>
-        }
-        subtitle={`${program.degree_type} in ${program.program_name}${program.country ? ` · ${program.country}` : ''}`}
-        backTo="/applications"
-      >
-        <div className="flex items-center gap-2">
-          <Badge
-            variant={getStatusBadgeVariant(program.status)}
-            className={cn(
-              'cursor-pointer h-8 px-3 text-sm',
-              getStatusBadgeClassName(program.status)
+        </div>
+        
+        {/* Row 2 — School name, full width */}
+        <div className="px-4 pb-1">
+          <h1 className="text-lg font-semibold text-foreground leading-tight">
+            {program?.school_name}
+          </h1>
+        </div>
+        
+        {/* Row 3 — Program details */}
+        <div className="px-4 pb-3">
+          <p className="text-sm text-muted-foreground">
+            {program?.program_name}
+            {program?.department && (
+              <span> • {program.department}</span>
             )}
-            onClick={() => setIsStatusDialogOpen(true)}
-            title="Update status"
-          >
-            {statusLabel}
-          </Badge>
-          
-          {program.portal_url?.trim() && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="bg-transparent border-[#4F46E5] text-[#4F46E5] hover:bg-indigo-50 dark:hover:bg-indigo-950/30 h-8"
-              onClick={() => window.open(program.portal_url!, '_blank')}
-            >
-              Open Portal <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
-            </Button>
+          </p>
+          {program?.country && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {program.country}
+              {program?.degree_type && (
+                <span> • {program.degree_type}</span>
+              )}
+            </p>
+          )}
+          {program?.funding_available && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full mt-1">
+              <DollarSign size={10} />
+              Funding available
+            </span>
           )}
         </div>
-      </PageHeader>
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden md:block">
+        <PageHeader 
+          title={
+            <div className="flex items-center gap-2">
+              <span>{program.school_name}</span>
+              {program.funding_available && (
+                <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0 text-xs">
+                  Funding Available
+                </Badge>
+              )}
+            </div>
+          }
+          subtitle={`${program.degree_type} in ${program.program_name}${program.country ? ` · ${program.country}` : ''}`}
+          backTo="/applications"
+        >
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={getStatusBadgeVariant(program.status)}
+              className={cn(
+                'cursor-pointer h-8 px-3 text-sm',
+                getStatusBadgeClassName(program.status)
+              )}
+              onClick={() => setIsStatusDialogOpen(true)}
+              title="Update status"
+            >
+              {statusLabel}
+            </Badge>
+            
+            {program.portal_url?.trim() && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-transparent border-[#4F46E5] text-[#4F46E5] hover:bg-indigo-50 dark:hover:bg-indigo-950/30 h-8"
+                onClick={() => window.open(program.portal_url!, '_blank')}
+              >
+                Open Portal <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
+              </Button>
+            )}
+          </div>
+        </PageHeader>
+      </div>
       
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
 
