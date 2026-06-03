@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
@@ -44,8 +44,9 @@ export function Documents() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [sortField, setSortField] = useState<'name' | 'created_at'>('created_at');
-  const [sortAscending, setSortAscending] = useState(false);
+  const [sortOption, setSortOption] = useState('recent');
+  const [showFilter, setShowFilter] = useState(false);
+  const activeFilterCount = activeFilter !== 'all' ? 1 : 0;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState(false);
@@ -206,19 +207,25 @@ export function Documents() {
 
     // Sort
     filtered.sort((a, b) => {
-      let comparison = 0;
-      if (sortField === 'name') {
-        comparison = a.name.localeCompare(b.name);
+      if (sortOption === 'name') {
+        return a.name.localeCompare(b.name);
+      } else if (sortOption === 'size') {
+        const getSizeMB = (sizeStr: string) => {
+          const sizeNum = parseFloat(sizeStr || '0');
+          if (sizeStr?.includes('MB')) return sizeNum;
+          if (sizeStr?.includes('KB')) return sizeNum / 1024;
+          return 0;
+        };
+        return getSizeMB(b.file_size || '') - getSizeMB(a.file_size || '');
       } else {
         const timeA = new Date(a.created_at).getTime();
         const timeB = new Date(b.created_at).getTime();
-        comparison = timeA - timeB;
+        return timeB - timeA;
       }
-      return sortAscending ? comparison : -comparison;
     });
 
     return filtered;
-  }, [documents, searchQuery, activeFilter, sortField, sortAscending]);
+  }, [documents, searchQuery, activeFilter, sortOption]);
 
   const totalStorageMB = useMemo(() => {
     return documents.reduce((total, doc) => {
@@ -289,12 +296,7 @@ export function Documents() {
           </div>
         )}
 
-        <div className="flex justify-between items-center gap-4">
-          <Button onClick={() => setUploadOpen(true)} className="hidden md:flex shrink-0 ml-auto">
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Document
-          </Button>
-        </div>
+
 
         {documents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 border rounded-xl bg-card">
@@ -311,51 +313,101 @@ export function Documents() {
         ) : (
           <>
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative max-w-md flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+              {/* DESKTOP TOOLBAR */}
+              <div className="hidden md:flex items-center gap-2 px-6 py-3">
+                <div className="relative flex-1 min-w-0">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
                     type="text"
                     placeholder="Search documents..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-background"
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Select value={sortField} onValueChange={(v: any) => setSortField(v)}>
-                    <SelectTrigger className="w-[160px] bg-background">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="name">Name</SelectItem>
-                      <SelectItem value="created_at">Recently Added</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => setSortAscending(!sortAscending)}
-                    className="shrink-0"
-                    aria-label="Toggle sort direction"
-                  >
-                    {sortAscending ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                  </Button>
-                </div>
+                
+                <select
+                  value={sortOption}
+                  onChange={e => setSortOption(e.target.value)}
+                  className="py-2 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none w-44 flex-shrink-0"
+                >
+                  <option value="recent">Recently Added</option>
+                  <option value="name">Name A-Z</option>
+                  <option value="size">File Size</option>
+                </select>
+                
+                <button
+                  onClick={() => setShowFilter(!showFilter)}
+                  className="flex items-center gap-2 py-2 px-3 text-sm border border-border rounded-lg hover:bg-accent flex-shrink-0 relative"
+                >
+                  <Filter size={14} />
+                  Filter
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => setUploadOpen(true)}
+                  className="flex items-center gap-2 py-2 px-4 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex-shrink-0"
+                >
+                  <Upload size={14} />
+                  Upload Document
+                </button>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {DOC_FILTER_TABS.map(tab => (
-                  <Badge
-                    key={tab.id}
-                    variant={activeFilter === tab.id ? 'default' : 'secondary'}
-                    className="cursor-pointer"
-                    onClick={() => setActiveFilter(tab.id)}
-                  >
-                    {tab.label}
-                  </Badge>
-                ))}
+              {/* MOBILE TOOLBAR */}
+              <div className="flex md:hidden items-center gap-2 px-4 py-3">
+                <div className="relative flex-1 min-w-0">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                
+                <select
+                  value={sortOption}
+                  onChange={e => setSortOption(e.target.value)}
+                  className="py-2 px-2 text-sm border border-border rounded-lg bg-background focus:outline-none flex-shrink-0 w-24"
+                >
+                  <option value="recent">Recent</option>
+                  <option value="name">Name</option>
+                  <option value="size">Size</option>
+                </select>
+                
+                <button
+                  onClick={() => setShowFilter(!showFilter)}
+                  className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 relative"
+                >
+                  <Filter size={16} />
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
               </div>
+
+              {showFilter && (
+                <div className="flex flex-wrap gap-2">
+                  {DOC_FILTER_TABS.map(tab => (
+                    <Badge
+                      key={tab.id}
+                      variant={activeFilter === tab.id ? 'default' : 'secondary'}
+                      className="cursor-pointer"
+                      onClick={() => setActiveFilter(tab.id)}
+                    >
+                      {tab.label}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
 
             {isSelectionMode && (
