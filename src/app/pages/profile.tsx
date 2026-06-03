@@ -390,7 +390,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
       </div>
 
       <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList className="flex w-full justify-start overflow-x-auto pb-1 no-scrollbar">
+        <TabsList className="flex w-full justify-start overflow-x-auto pb-1 scrollbar-hide">
           <TabsTrigger value="personal" className="text-xs md:text-sm">
             <User className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Personal</span>

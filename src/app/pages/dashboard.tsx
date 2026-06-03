@@ -396,7 +396,7 @@ export function Dashboard() {
           <CardTitle>Quick Actions</CardTitle>
           <CardDescription>What would you like to do?</CardDescription>
         </CardHeader>
-        <CardContent className="flex overflow-x-auto md:grid md:grid-cols-2 gap-3 pb-2 no-scrollbar">
+        <CardContent className="flex overflow-x-auto md:grid md:grid-cols-2 gap-3 pb-2 scrollbar-hide">
           <Button onClick={() => setIsAddSchoolOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add New School

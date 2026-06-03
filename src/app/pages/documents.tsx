@@ -366,6 +366,10 @@ export function Documents() {
                   <div className="space-y-3">
                     {filteredDocuments.map(doc => {
                       const isSelected = selectedIds.has(doc.id);
+                      const isLatest = !documents.some(
+                        d => d.name === doc.name && 
+                             d.version > doc.version
+                      );
                       return (
                       <div
                         key={doc.id}
@@ -391,7 +395,14 @@ export function Documents() {
                               >
                                 {getDocTypeLabel(doc.doc_type)}
                               </Badge>
-                              <span className="text-xs text-muted-foreground">v{doc.version}</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                                v{doc.version}
+                              </span>
+                              {isLatest && doc.version > 1 && (
+                                <span className="text-xs text-green-600 dark:text-green-400 font-medium ml-1">
+                                  Latest
+                                </span>
+                              )}
                             </div>
                             <p className="text-sm font-medium truncate">{doc.name}</p>
                             <p className="text-xs text-muted-foreground mt-1">

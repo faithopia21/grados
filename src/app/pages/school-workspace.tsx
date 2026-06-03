@@ -910,7 +910,7 @@ export function SchoolWorkspace() {
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <div className="md:hidden bg-background border-b border-border">
+      <div className="md:hidden bg-background border-b border-border overflow-hidden">
         {/* Row 1 — navigation and actions */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">
           {/* Back button */}
@@ -948,35 +948,42 @@ export function SchoolWorkspace() {
           </div>
         </div>
         
-        {/* Row 2 — School name, full width */}
-        <div className="px-4 pb-1">
-          <h1 className="text-lg font-semibold text-foreground leading-tight">
+        {/* Row 2 — Compact Header Details */}
+        <div className="px-4 pb-2">
+          <h1 className="text-lg font-semibold text-foreground leading-tight mb-0.5">
             {program?.school_name}
           </h1>
-        </div>
-        
-        {/* Row 3 — Program details */}
-        <div className="px-4 pb-3">
-          <p className="text-sm text-muted-foreground">
-            {program?.program_name}
-            {program?.department && (
-              <span> • {program.department}</span>
-            )}
-          </p>
-          {program?.country && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {program.country}
-              {program?.degree_type && (
-                <span> • {program.degree_type}</span>
-              )}
-            </p>
-          )}
-          {program?.funding_available && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full mt-1">
-              <DollarSign size={10} />
-              Funding available
+          
+          {/* All details on ONE line */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm text-muted-foreground">
+              {program?.program_name}
             </span>
-          )}
+            {program?.country && (
+              <>
+                <span className="text-muted-foreground text-xs">•</span>
+                <span className="text-xs text-muted-foreground">
+                  {program.country}
+                </span>
+              </>
+            )}
+            {program?.degree_type && (
+              <>
+                <span className="text-muted-foreground text-xs">•</span>
+                <span className="text-xs text-muted-foreground">
+                  {program.degree_type}
+                </span>
+              </>
+            )}
+            {program?.funding_available && (
+              <span 
+                title="Funding available"
+                className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 cursor-default flex-shrink-0"
+              >
+                <DollarSign size={11} />
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1034,8 +1041,8 @@ export function SchoolWorkspace() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-none">
-          <TabsList className="flex w-full justify-start overflow-x-auto pb-1 no-scrollbar bg-transparent gap-0 rounded-none border-b border-border">
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
+          <TabsList className="flex w-full justify-start overflow-x-auto pb-1 scrollbar-hide bg-transparent gap-0 rounded-none border-b border-border">
             <TabsTrigger
               value="overview"
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#4F46E5] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-none px-4 py-2.5"
@@ -1231,7 +1238,7 @@ export function SchoolWorkspace() {
               {checklistItems.length === 0 ? (
                 <div className="text-center py-12 space-y-4">
                   <h3 className="text-lg mb-2 text-foreground font-medium">No requirements added yet</h3>
-                  <div className="flex overflow-x-auto md:grid md:grid-cols-2 gap-3 pb-2 no-scrollbar">
+                  <div className="flex overflow-x-auto md:grid md:grid-cols-2 gap-3 pb-2 scrollbar-hide">
                     <Button onClick={handleGenerateDefaultChecklist} className="min-h-[44px]">
                       Generate default checklist
                     </Button>
