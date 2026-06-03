@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase';
 import { AutocompleteInput } from '../../components/autocomplete-input';
@@ -56,7 +56,7 @@ export function Onboarding() {
   const [greAwa, setGreAwa] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [currentStep, setCurrentStep] = useState(2);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(2);
 
   useEffect(() => {
     const loadExistingProfile = async () => {
@@ -94,7 +94,9 @@ export function Onboarding() {
       .map(c => ({ value: c, label: c }));
   }, [nationality]);
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    setCurrentStep(3);
+    await new Promise(resolve => setTimeout(resolve, 500));
     navigate('/dashboard');
   };
 
@@ -136,6 +138,7 @@ export function Onboarding() {
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Onboarding submit triggered');
     setError('');
     setLoading(true);
 
@@ -147,14 +150,21 @@ export function Onboarding() {
       return;
     }
 
-    // Show step 3 complete briefly
+    // Show step 3 as active
     setCurrentStep(3);
 
-    await new Promise(resolve => setTimeout(resolve, 600));
+    // Show success briefly then navigate
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    toast.success('Welcome to GradOS! Profile saved.');
+    toast.success('Profile saved! Welcome to GradOS.');
     navigate('/dashboard');
   };
+
+  const steps = [
+    { number: 1, label: 'Account' },
+    { number: 2, label: 'Your profile' },
+    { number: 3, label: 'Done' },
+  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8] dark:bg-background p-4">
@@ -169,42 +179,63 @@ export function Onboarding() {
         </div>
 
         {/* Progress Stepper */}
-        <div className="flex items-center justify-center gap-0 mb-8">
-          <div className="flex items-center">
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-green-500">
-                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+        <div className="flex items-center justify-center mb-8">
+          {steps.map((step, index) => (
+            <div key={step.number} className="flex items-center">
+              
+              {/* Step circle */}
+              <div className="flex flex-col items-center gap-1">
+                <div className={`
+                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300
+                  ${currentStep > step.number
+                    ? 'bg-green-500 text-white'
+                    : currentStep === step.number
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-muted text-muted-foreground'
+                  }
+                `}>
+                  {currentStep > step.number ? <Check size={14} /> : step.number}
+                </div>
+                <span className={`
+                  hidden sm:block text-xs
+                  ${currentStep === step.number
+                    ? 'text-indigo-600 font-medium'
+                    : currentStep > step.number
+                    ? 'text-green-600'
+                    : 'text-muted-foreground'
+                  }
+                `}>
+                  {step.label}
+                </span>
               </div>
-              <span className="hidden sm:block text-xs">Account</span>
+              
+              {/* Connector line between steps */}
+              {index < steps.length - 1 && (
+                <div className={`
+                  w-12 sm:w-16 h-0.5 mx-2 mb-5 transition-all duration-300
+                  ${currentStep > step.number ? 'bg-green-500' : 'bg-muted'}
+                `} />
+              )}
             </div>
-            <div className="w-8 sm:w-12 h-px bg-border mx-1 mb-3 sm:mb-4" />
-          </div>
-
-          <div className="flex items-center">
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-xs sm:text-sm ${currentStep >= 3 ? 'bg-green-500' : ''}`}
-                style={currentStep < 3 ? { backgroundColor: '#4F46E5' } : {}}
-              >
-                {currentStep >= 3 ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-white" /> : '2'}
-              </div>
-              <span className="hidden sm:block text-xs">Your profile</span>
-            </div>
-            <div className="w-8 sm:w-12 h-px bg-border mx-1 mb-3 sm:mb-4" />
-          </div>
-
-          <div className="flex items-center">
-            <div className="flex flex-col items-center gap-1">
-              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm ${currentStep >= 3 ? 'bg-[#4F46E5] text-white' : 'bg-muted text-muted-foreground'}`}>
-                3
-              </div>
-              <span className={`hidden sm:block text-xs ${currentStep >= 3 ? 'text-foreground' : 'text-muted-foreground'}`}>Done</span>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Header */}
-        <div className="text-center mb-6">
+        {currentStep === 3 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+              <Check size={28} className="text-green-600 dark:text-green-400" />
+            </div>
+            <h2 className="text-xl font-semibold">
+              All set!
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Taking you to your dashboard...
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="text-center mb-6">
           <h1 className="text-xl mb-2">Tell us about yourself</h1>
           <p className="text-sm text-muted-foreground">
             This information helps personalise your experience. You can update it anytime.
@@ -354,6 +385,8 @@ export function Onboarding() {
             </Button>
           </div>
         </form>
+          </>
+        )}
       </div>
     </div>
   );
