@@ -78,24 +78,32 @@ function AppLayout() {
             } />
             <Route path="/application/:id" element={<LegacyApplicationRedirect />} />
             <Route path="/deadlines" element={
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
-                <Timeline />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                  <Timeline />
+                </Suspense>
+              </ErrorBoundary>
             } />
             <Route path="/documents" element={
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
-                <Documents />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                  <Documents />
+                </Suspense>
+              </ErrorBoundary>
             } />
             <Route path="/settings" element={
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
-                <Settings />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                  <Settings />
+                </Suspense>
+              </ErrorBoundary>
             } />
             <Route path="/profile" element={
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
-                <Profile />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+                  <Profile />
+                </Suspense>
+              </ErrorBoundary>
             } />
             <Route path="/onboarding" element={<Onboarding />} />
           </Routes>
