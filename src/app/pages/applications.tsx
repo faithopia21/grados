@@ -309,7 +309,16 @@ export function Applications() {
   const [programs, setPrograms] = useState<ProgramWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => (localStorage.getItem('grados_status_filter') as StatusFilter) || 'all');
+  const [activeStatuses, setActiveStatuses] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('grados_status_filter');
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [countryFilters, setCountryFilters] = useState<string[]>([]);
   const [degreeFilters, setDegreeFilters] = useState<string[]>([]);
   const [fundingFilter, setFundingFilter] = useState<string[]>([]);
@@ -319,9 +328,19 @@ export function Applications() {
     localStorage.getItem('grados_sort_order') as 'asc' | 'desc' || 'asc'
   );
 
-  const handleStatusChange = (value: string) => {
-    setStatusFilter(value as StatusFilter);
-    localStorage.setItem('grados_status_filter', value);
+  const toggleStatus = (status: string) => {
+    if (status === 'All') {
+      setActiveStatuses([]);
+      localStorage.setItem('grados_status_filter', '[]');
+      return;
+    }
+    setActiveStatuses(prev => {
+      const next = prev.includes(status)
+        ? prev.filter(s => s !== status)
+        : [...prev, status];
+      localStorage.setItem('grados_status_filter', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleSortChange = (value: string) => {
@@ -504,8 +523,10 @@ export function Applications() {
       );
     }
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(program => statusMatchesFilter(program.status, statusFilter));
+    if (activeStatuses.length > 0) {
+      filtered = filtered.filter(program =>
+        activeStatuses.some(s => normalizeStatus(program.status) === normalizeStatus(s))
+      );
     }
 
     if (countryFilters.length > 0) {
@@ -561,7 +582,7 @@ export function Applications() {
   }, [
     programs,
     searchQuery,
-    statusFilter,
+    activeStatuses,
     countryFilters,
     degreeFilters,
     fundingFilter,
@@ -700,76 +721,36 @@ export function Applications() {
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4 overflow-x-auto pb-1 -mx-1 px-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3">
-                  {statusFilter === 'all'
-                    ? 'All'
-                    : statusFilter === 'Not Started'
-                      ? 'Not Started'
-                      : statusFilter === 'In Progress'
-                        ? 'In Progress'
-                        : statusFilter === 'Ready to Submit'
-                          ? 'Ready to Submit'
-                          : statusFilter === 'submitted'
-                            ? 'Submitted'
-                            : statusFilter === 'accepted'
-                              ? 'Accepted'
-                              : statusFilter === 'rejected'
-                                ? 'Rejected'
-                                : 'All'}{' '}
-                  <ChevronDown className="h-4 w-4 ml-1" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'all'}
-                    onCheckedChange={() => handleStatusChange('all')}
+            {/* Status chips — multi-select */}
+            <div className="flex flex-wrap gap-2">
+              {['All', 'Not Started', 'In Progress', 'Ready to Submit', 'Submitted', 'Accepted', 'Rejected'].map(status => {
+                const isActive = status === 'All' ? activeStatuses.length === 0 : activeStatuses.includes(status);
+                return (
+                  <button
+                    key={status}
+                    onClick={() => toggleStatus(status)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                      isActive
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-muted text-muted-foreground hover:bg-accent'
+                    }`}
                   >
-                    All
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'Not Started'}
-                    onCheckedChange={() => handleStatusChange('Not Started')}
-                  >
-                    Not Started
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'In Progress'}
-                    onCheckedChange={() => handleStatusChange('In Progress')}
-                  >
-                    In Progress
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'Ready to Submit'}
-                    onCheckedChange={() => handleStatusChange('Ready to Submit')}
-                  >
-                    Ready to Submit
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'submitted'}
-                    onCheckedChange={() => handleStatusChange('submitted')}
-                  >
-                    Submitted
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'accepted'}
-                    onCheckedChange={() => handleStatusChange('accepted')}
-                  >
-                    Accepted
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={statusFilter === 'rejected'}
-                    onCheckedChange={() => handleStatusChange('rejected')}
-                  >
-                    Rejected
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    {status}
+                  </button>
+                );
+              })}
+            </div>
 
-              <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-2">
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3">
+                  <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3 relative">
                     Filter <ChevronDown className="h-4 w-4 ml-1" />
+                    {(degreeFilters.length + fundingFilter.length + (deadlineFilter !== 'all' ? 1 : 0) + countryFilters.length) > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
+                        {degreeFilters.length + fundingFilter.length + (deadlineFilter !== 'all' ? 1 : 0) + countryFilters.length}
+                      </span>
+                    )}
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>Country</DropdownMenuLabel>
@@ -856,13 +837,12 @@ export function Applications() {
                   {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
                 </button>
               </div>
-            </div>
 
-            <p className="text-[13px] text-muted-foreground">
-              Showing {filteredPrograms.length}{' '}
-              {filteredPrograms.length === 1 ? 'application' : 'applications'}
-            </p>
-          </div>
+              <p className="text-[13px] text-muted-foreground">
+                Showing {filteredPrograms.length}{' '}
+                {filteredPrograms.length === 1 ? 'application' : 'applications'}
+              </p>
+            </div>
 
           {isSelectionMode && (
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between sticky top-0 z-10">

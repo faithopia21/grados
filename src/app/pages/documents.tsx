@@ -16,7 +16,6 @@ import {
   getDocTypeLabel,
   getStoragePath,
   getTotalStorageMb,
-  matchesDocFilter,
 } from '../../lib/documents';
 import { cn } from '../../lib/utils';
 import { Checkbox } from '../components/ui/checkbox';
@@ -28,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, Filter } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
@@ -46,8 +45,7 @@ export function Documents() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [sortOption, setSortOption] = useState('recent');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [showFilter, setShowFilter] = useState(false);
-  const activeFilterCount = activeFilter !== 'all' ? 1 : 0;
+  const [activeCategory, setActiveCategory] = useState('All Documents');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState(false);
@@ -191,8 +189,43 @@ export function Documents() {
     }
   };
 
+  const CATEGORIES = [
+    'All Documents',
+    'SOP',
+    'CV',
+    'Transcripts',
+    'Recommendations',
+    'Writing Sample',
+    'Other',
+  ];
+
+  const categoryFilteredDocuments = useMemo(() => {
+    if (activeCategory === 'All Documents') return documents;
+    return documents.filter(doc => {
+      const docType = (doc.doc_type || '').toLowerCase();
+      switch (activeCategory) {
+        case 'SOP':
+          return docType.includes('sop') || docType.includes('statement');
+        case 'CV':
+          return docType.includes('cv') || docType.includes('resume');
+        case 'Transcripts':
+          return docType.includes('transcript');
+        case 'Recommendations':
+          return docType.includes('recommendation') || docType.includes('letter') || docType.includes('lor');
+        case 'Writing Sample':
+          return docType.includes('writing') || docType.includes('sample');
+        case 'Other':
+          return !['sop', 'statement', 'cv', 'resume', 'transcript',
+            'recommendation', 'letter', 'lor', 'writing', 'sample']
+            .some(t => docType.includes(t));
+        default:
+          return true;
+      }
+    });
+  }, [documents, activeCategory]);
+
   const filteredDocuments = useMemo(() => {
-    let filtered = documents;
+    let filtered = categoryFilteredDocuments;
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -200,10 +233,6 @@ export function Documents() {
         const typeLabel = getDocTypeLabel(doc.doc_type).toLowerCase();
         return doc.name.toLowerCase().includes(query) || typeLabel.includes(query);
       });
-    }
-
-    if (activeFilter !== 'all') {
-      filtered = filtered.filter(doc => matchesDocFilter(doc.doc_type, activeFilter));
     }
 
     // Sort
@@ -226,7 +255,7 @@ export function Documents() {
     });
 
     return sorted;
-  }, [documents, searchQuery, activeFilter, sortOption, sortOrder]);
+  }, [categoryFilteredDocuments, searchQuery, sortOption, sortOrder]);
 
   const totalStorageMB = useMemo(() => {
     return documents.reduce((total, doc) => {
@@ -326,7 +355,7 @@ export function Documents() {
                     className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
-                
+
                 <select
                   value={sortOption}
                   onChange={e => setSortOption(e.target.value)}
@@ -346,19 +375,6 @@ export function Documents() {
                   {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
                 </button>
 
-                <button
-                  onClick={() => setShowFilter(!showFilter)}
-                  className="flex items-center gap-2 py-2 px-3 text-sm border border-border rounded-lg hover:bg-accent flex-shrink-0 relative"
-                >
-                  <Filter size={14} />
-                  Filter
-                  {activeFilterCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
-                
                 <button
                   onClick={() => setUploadOpen(true)}
                   className="flex items-center gap-2 py-2 px-4 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex-shrink-0"
@@ -380,7 +396,7 @@ export function Documents() {
                     className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
-                
+
                 <select
                   value={sortOption}
                   onChange={e => setSortOption(e.target.value)}
@@ -399,34 +415,24 @@ export function Documents() {
                 >
                   {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
                 </button>
-
-                <button
-                  onClick={() => setShowFilter(!showFilter)}
-                  className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 relative"
-                >
-                  <Filter size={16} />
-                  {activeFilterCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
               </div>
 
-              {showFilter && (
-                <div className="flex flex-wrap gap-2">
-                  {DOC_FILTER_TABS.map(tab => (
-                    <Badge
-                      key={tab.id}
-                      variant={activeFilter === tab.id ? 'default' : 'secondary'}
-                      className="cursor-pointer"
-                      onClick={() => setActiveFilter(tab.id)}
-                    >
-                      {tab.label}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              {/* CATEGORY CHIPS — always visible */}
+              <div className="flex flex-wrap gap-2 px-4 md:px-6 pb-2">
+                {CATEGORIES.map(category => (
+                  <button
+                    key={category}
+                    onClick={() => setActiveCategory(category)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                      activeCategory === category
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {isSelectionMode && (

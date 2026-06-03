@@ -22,12 +22,13 @@ export const DOC_TYPE_OPTIONS = [
 export type DocTypeValue = (typeof DOC_TYPE_OPTIONS)[number]['value'];
 
 export const DOC_FILTER_TABS = [
-  { value: 'all', label: 'All Documents' },
-  { value: 'sop', label: 'SOP' },
-  { value: 'cv', label: 'CV' },
-  { value: 'transcript', label: 'Transcripts' },
-  { value: 'recommendation', label: 'Recommendations' },
-  { value: 'other', label: 'Other' },
+  { id: 'all', label: 'All Documents' },
+  { id: 'sop', label: 'SOP' },
+  { id: 'cv', label: 'CV' },
+  { id: 'transcript', label: 'Transcripts' },
+  { id: 'recommendation', label: 'Recommendations' },
+  { id: 'writing_sample', label: 'Writing Sample' },
+  { id: 'other', label: 'Other' },
 ] as const;
 
 const STORAGE_LIMIT_MB = 50;
@@ -89,12 +90,15 @@ export function getStoragePath(doc: DbDocument): string | null {
   return decodeURIComponent(doc.file_url.slice(idx + marker.length).split('?')[0]);
 }
 
-export function matchesDocFilter(doc: DbDocument, filter: string): boolean {
+export function matchesDocFilter(docType: string, filter: string): boolean {
   if (filter === 'all') return true;
   if (filter === 'other') {
-    return doc.doc_type === 'other' || doc.doc_type === 'writing_sample';
+    return docType === 'other';
   }
-  return doc.doc_type === filter;
+  if (filter === 'writing_sample') {
+    return docType === 'writing_sample';
+  }
+  return docType === filter;
 }
 
 export const ACCEPTED_FILE_TYPES = '.pdf,.docx,.txt';
