@@ -220,6 +220,20 @@ export function Documents() {
     return filtered;
   }, [documents, searchQuery, activeFilter, sortField, sortAscending]);
 
+  const totalStorageMB = useMemo(() => {
+    return documents.reduce((total, doc) => {
+      const sizeStr = doc.file_size || '0 KB';
+      const sizeNum = parseFloat(sizeStr);
+      
+      if (sizeStr.includes('MB')) {
+        return total + sizeNum;
+      } else if (sizeStr.includes('KB')) {
+        return total + (sizeNum / 1024);
+      }
+      return total;
+    }, 0);
+  }, [documents]);
+
   if (loading) return <PageSkeleton />;
 
   if (fetchError || !isOnline) {
@@ -245,6 +259,28 @@ export function Documents() {
         subtitle="Manage your application materials across all schools"
         backTo="/dashboard"
       />
+
+      {/* Storage usage bar */}
+      <div className="px-4 md:px-6 py-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">Storage used</span>
+          <span className="text-xs text-muted-foreground">
+            {totalStorageMB.toFixed(1)} MB of 50 MB
+          </span>
+        </div>
+        <div className="w-full bg-muted rounded-full h-1.5">
+          <div 
+            className="bg-indigo-600 h-1.5 rounded-full transition-all"
+            style={{ width: `${Math.min((totalStorageMB / 50) * 100, 100)}%` }}
+          />
+        </div>
+        {totalStorageMB > 40 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+            Storage almost full. Consider removing unused documents.
+          </p>
+        )}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
         {deleteError && (
           <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-4 flex items-start gap-2">

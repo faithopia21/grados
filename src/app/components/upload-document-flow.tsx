@@ -68,18 +68,34 @@ export function UploadDocumentFlow({
 
   const performUpload = async (fileToUpload: File, version: number) => {
     setUploading(true);
-    setUploadProgress(30);
+    setUploadProgress(10);
     setError('');
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const filePath = `${user.id}/${Date.now()}-${fileToUpload.name}`;
-    setUploadProgress(50);
 
-    const { error: uploadError } = await supabase.storage
+    const uploadPromise = supabase.storage
       .from('documents')
-      .upload(filePath, fileToUpload);
+      .upload(filePath, fileToUpload, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    // Faster progress simulation
+    const progressSteps = [30, 50, 70, 85, 95];
+    let stepIndex = 0;
+    const interval = setInterval(() => {
+      if (stepIndex < progressSteps.length) {
+        setUploadProgress(progressSteps[stepIndex]);
+        stepIndex++;
+      }
+    }, 300); // 300ms between steps
+
+    const { error: uploadError } = await uploadPromise;
+
+    clearInterval(interval);
 
     if (uploadError) {
       setUploading(false);
@@ -88,7 +104,9 @@ export function UploadDocumentFlow({
       return;
     }
 
-    setUploadProgress(75);
+    setUploadProgress(100);
+    await new Promise(r => setTimeout(r, 400));
+    
     const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
 
     const { data: inserted, error: insertError } = await supabase
@@ -138,6 +156,13 @@ export function UploadDocumentFlow({
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedType) return;
+
+    const MAX_SIZE = 25 * 1024 * 1024; // 25MB
+    if (file.size > MAX_SIZE) {
+      setError('File too large. Maximum size is 25MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     setSelectedFile(file);
     setUploading(true);
@@ -244,9 +269,17 @@ export function UploadDocumentFlow({
 
             {uploading && (
               <div className="space-y-2 mt-4">
-                <p className="text-sm text-muted-foreground">Uploading...</p>
+                <p className="text-sm text-muted-foreground">
+                  Uploading {selectedFile?.name} ({selectedFile ? (selectedFile.size / (1024 * 1024)).toFixed(1) : '0'} MB)...
+                </p>
                 <Progress value={uploadProgress} className="h-2" />
               </div>
+            )}
+
+            {selectedFile && selectedFile.size > 5 * 1024 * 1024 && !uploading && !existingDoc && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                Large file detected. Upload may take a moment on slower connections.
+              </p>
             )}
 
             {error && <p className="text-sm text-red-600 mt-2">{error}</p>}

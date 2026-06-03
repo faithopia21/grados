@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -56,6 +56,35 @@ export function Onboarding() {
   const [greAwa, setGreAwa] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currentStep, setCurrentStep] = useState(2);
+
+  useEffect(() => {
+    const loadExistingProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (profile) {
+        if (profile.intended_degree) setDegreeType(profile.intended_degree);
+        if (profile.intended_start_term) setStartTerm(profile.intended_start_term);
+        if (profile.current_institution) setCurrentInstitution(profile.current_institution);
+        if (profile.field_of_study) setFieldOfStudy(profile.field_of_study);
+        if (profile.nationality) setNationality(profile.nationality);
+        if (profile.gre_verbal || profile.gre_quant) {
+          setGreTaken('Yes');
+          if (profile.gre_verbal) setGreVerbal(profile.gre_verbal.toString());
+          if (profile.gre_quant) setGreQuant(profile.gre_quant.toString());
+          if (profile.gre_awa) setGreAwa(profile.gre_awa.toString());
+        }
+      }
+    };
+    loadExistingProfile();
+  }, []);
 
   const nationalityOptions = useMemo(() => {
     const q = nationality.trim();
@@ -78,54 +107,27 @@ export function Onboarding() {
       return { error: msg };
     }
 
-    console.log('=== ONBOARDING SUBMIT ===');
-    console.log('All form state:', {
-      degreeType,
-      startTerm,
-      currentInstitution,
-      fieldOfStudy,
-      nationality,
-      greTaken,
-      greVerbal,
-      greQuant,
-      greAwa,
-      loading,
-      error,
-    });
+    const profileData: any = { id: user.id };
 
-    console.log('About to upsert to profiles');
+    if (degreeType) profileData.intended_degree = degreeType;
+    if (startTerm) profileData.intended_start_term = startTerm;
+    if (currentInstitution.trim()) profileData.current_institution = currentInstitution.trim();
+    if (fieldOfStudy.trim()) profileData.field_of_study = fieldOfStudy.trim();
+    if (nationality.trim()) profileData.nationality = nationality.trim();
+    if (greTaken === 'Yes') {
+      if (greVerbal) profileData.gre_verbal = parseGreScore(greVerbal);
+      if (greQuant) profileData.gre_quant = parseGreScore(greQuant);
+      if (greAwa) profileData.gre_awa = parseGreScore(greAwa);
+    }
 
-    const { data, error: upsertError } = await supabase
+    profileData.onboarding_completed = true;
+
+    const { error: upsertError } = await supabase
       .from('profiles')
-      .upsert({
-        id: user.id,
-        intended_degree: degreeType || null,
-        field_of_study: fieldOfStudy.trim() || null,
-        current_institution: currentInstitution.trim() || null,
-        nationality: nationality.trim() || null,
-        intended_start_term: startTerm || null,
-        gre_verbal: greTaken === 'Yes' ? parseGreScore(greVerbal) : null,
-        gre_quant: greTaken === 'Yes' ? parseGreScore(greQuant) : null,
-        gre_awa: greTaken === 'Yes' ? parseGreScore(greAwa) : null,
-        onboarding_completed: true,
-      });
-
-    console.log('Upsert result:', { data, error: upsertError });
-    console.log('User ID used for upsert:', user.id);
+      .upsert(profileData);
 
     if (upsertError) {
-      const isRlsError =
-        upsertError.code === '42501' ||
-        upsertError.message?.toLowerCase().includes('row-level security') ||
-        upsertError.message?.toLowerCase().includes('policy');
-
-      const rlsHint = isRlsError
-        ? ' This is a Row Level Security (RLS) policy error. Run supabase/profiles-insert-policy.sql in the Supabase SQL Editor — profiles needs both INSERT and UPDATE policies for auth.uid() = id.'
-        : '';
-
-      setError(
-        `Profile save failed: ${upsertError.message} (code: ${upsertError.code})${rlsHint}`
-      );
+      setError(`Profile save failed: ${upsertError.message}`);
       return { error: upsertError.message };
     }
 
@@ -133,8 +135,6 @@ export function Onboarding() {
   };
 
   const handleContinue = async (e: React.FormEvent) => {
-    console.log('Onboarding submit triggered');
-
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -147,7 +147,12 @@ export function Onboarding() {
       return;
     }
 
-    toast.success('Welcome to GradOS! Your profile has been saved.');
+    // Show step 3 complete briefly
+    setCurrentStep(3);
+
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    toast.success('Welcome to GradOS! Profile saved.');
     navigate('/dashboard');
   };
 
@@ -178,10 +183,10 @@ export function Onboarding() {
           <div className="flex items-center">
             <div className="flex flex-col items-center gap-1">
               <div
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-xs sm:text-sm"
-                style={{ backgroundColor: '#4F46E5' }}
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-xs sm:text-sm ${currentStep >= 3 ? 'bg-green-500' : ''}`}
+                style={currentStep < 3 ? { backgroundColor: '#4F46E5' } : {}}
               >
-                2
+                {currentStep >= 3 ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-white" /> : '2'}
               </div>
               <span className="hidden sm:block text-xs">Your profile</span>
             </div>
@@ -190,10 +195,10 @@ export function Onboarding() {
 
           <div className="flex items-center">
             <div className="flex flex-col items-center gap-1">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-muted text-muted-foreground text-xs sm:text-sm">
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm ${currentStep >= 3 ? 'bg-[#4F46E5] text-white' : 'bg-muted text-muted-foreground'}`}>
                 3
               </div>
-              <span className="hidden sm:block text-xs text-muted-foreground">Done</span>
+              <span className={`hidden sm:block text-xs ${currentStep >= 3 ? 'text-foreground' : 'text-muted-foreground'}`}>Done</span>
             </div>
           </div>
         </div>
