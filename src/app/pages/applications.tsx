@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
 import { getDaysUntil, formatDate, safeGetTime } from '../../lib/utils';
-import { Plus, ArrowRight, Search, ChevronDown, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowRight, Search, ChevronDown, Trash2, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
@@ -315,6 +315,9 @@ export function Applications() {
   const [fundingFilter, setFundingFilter] = useState<string[]>([]);
   const [deadlineFilter, setDeadlineFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortOption>(() => (localStorage.getItem('grados_sort_preference') as SortOption) || 'deadline');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() =>
+    localStorage.getItem('grados_sort_order') as 'asc' | 'desc' || 'asc'
+  );
 
   const handleStatusChange = (value: string) => {
     setStatusFilter(value as StatusFilter);
@@ -324,6 +327,12 @@ export function Applications() {
   const handleSortChange = (value: string) => {
     setSortBy(value as SortOption);
     localStorage.setItem('grados_sort_preference', value);
+  };
+
+  const handleSortOrderChange = () => {
+    const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    setSortOrder(newOrder);
+    localStorage.setItem('grados_sort_order', newOrder);
   };
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<SchoolFormData | undefined>(undefined);
@@ -558,7 +567,38 @@ export function Applications() {
     fundingFilter,
     deadlineFilter,
     sortBy,
+    sortOrder,
   ]);
+
+  const sortedPrograms = useMemo(() => {
+    return [...filteredPrograms].sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'deadline':
+          if (!a.deadline) return 1;
+          if (!b.deadline) return -1;
+          comparison = new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+          break;
+        case 'recent':
+          comparison = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          break;
+        case 'progress-high':
+          comparison = (b.checklistTotal > 0 ? b.checklistDone / b.checklistTotal : 0) -
+                       (a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0);
+          break;
+        case 'progress-low':
+          comparison = (a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0) -
+                       (b.checklistTotal > 0 ? b.checklistDone / b.checklistTotal : 0);
+          break;
+        case 'name':
+          comparison = a.school_name.localeCompare(b.school_name);
+          break;
+        default:
+          comparison = 0;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredPrograms, sortBy, sortOrder]);
 
   const getStatusBadge = (status: string) => {
     const key = normalizeStatus(status);
@@ -807,6 +847,14 @@ export function Applications() {
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                <button
+                  onClick={handleSortOrderChange}
+                  className="inline-flex items-center justify-center p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors h-8 w-8"
+                  title={sortOrder === 'asc' ? 'Ascending order' : 'Descending order'}
+                >
+                  {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+                </button>
               </div>
             </div>
 
@@ -849,7 +897,7 @@ export function Applications() {
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {filteredPrograms.map(program => (
+              {sortedPrograms.map(program => (
                 <ApplicationCard
                   key={program.id}
                   program={program}

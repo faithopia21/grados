@@ -45,6 +45,7 @@ export function Documents() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [sortOption, setSortOption] = useState('recent');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFilter, setShowFilter] = useState(false);
   const activeFilterCount = activeFilter !== 'all' ? 1 : 0;
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -206,9 +207,10 @@ export function Documents() {
     }
 
     // Sort
-    filtered.sort((a, b) => {
+    const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0;
       if (sortOption === 'name') {
-        return a.name.localeCompare(b.name);
+        comparison = a.name.localeCompare(b.name);
       } else if (sortOption === 'size') {
         const getSizeMB = (sizeStr: string) => {
           const sizeNum = parseFloat(sizeStr || '0');
@@ -216,16 +218,15 @@ export function Documents() {
           if (sizeStr?.includes('KB')) return sizeNum / 1024;
           return 0;
         };
-        return getSizeMB(b.file_size || '') - getSizeMB(a.file_size || '');
+        comparison = getSizeMB(a.file_size || '') - getSizeMB(b.file_size || '');
       } else {
-        const timeA = new Date(a.created_at).getTime();
-        const timeB = new Date(b.created_at).getTime();
-        return timeB - timeA;
+        comparison = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
+      return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-    return filtered;
-  }, [documents, searchQuery, activeFilter, sortOption]);
+    return sorted;
+  }, [documents, searchQuery, activeFilter, sortOption, sortOrder]);
 
   const totalStorageMB = useMemo(() => {
     return documents.reduce((total, doc) => {
@@ -335,7 +336,16 @@ export function Documents() {
                   <option value="name">Name A-Z</option>
                   <option value="size">File Size</option>
                 </select>
-                
+
+                {/* Sort order toggle — desktop */}
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors"
+                  title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                >
+                  {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+                </button>
+
                 <button
                   onClick={() => setShowFilter(!showFilter)}
                   className="flex items-center gap-2 py-2 px-3 text-sm border border-border rounded-lg hover:bg-accent flex-shrink-0 relative"
@@ -380,7 +390,16 @@ export function Documents() {
                   <option value="name">Name</option>
                   <option value="size">Size</option>
                 </select>
-                
+
+                {/* Sort order toggle — mobile */}
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors"
+                  title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                >
+                  {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+                </button>
+
                 <button
                   onClick={() => setShowFilter(!showFilter)}
                   className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 relative"
