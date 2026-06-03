@@ -20,6 +20,7 @@ interface AutocompleteInputProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  inputClassName?: string;
   maxResults?: number;
   loading?: boolean;
 }
@@ -33,6 +34,7 @@ export function AutocompleteInput({
   placeholder,
   disabled,
   className,
+  inputClassName,
   maxResults = 5,
   loading = false,
 }: AutocompleteInputProps) {
@@ -146,6 +148,7 @@ export function AutocompleteInput({
         value={value}
         placeholder={placeholder}
         disabled={disabled}
+        className={inputClassName}
         autoComplete="off"
         onChange={e => {
           onChange(e.target.value);

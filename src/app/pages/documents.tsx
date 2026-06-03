@@ -460,6 +460,14 @@ export function Documents() {
         onOpenChange={setUploadOpen}
         onSuccess={fetchDocuments}
       />
+      
+      <button
+        onClick={() => setUploadOpen(true)}
+        className="md:hidden fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg flex items-center justify-center transition-colors"
+        aria-label="Upload document"
+      >
+        <Upload size={22} />
+      </button>
       </div>
     </div>
   );

@@ -218,7 +218,7 @@ export function Onboarding() {
             <div className="space-y-2">
               <Label htmlFor="degreeType">Intended degree type</Label>
               <Select value={degreeType} onValueChange={setDegreeType}>
-                <SelectTrigger id="degreeType">
+                <SelectTrigger id="degreeType" className="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500">
                   <SelectValue placeholder="Select degree" />
                 </SelectTrigger>
                 <SelectContent>
@@ -233,7 +233,7 @@ export function Onboarding() {
             <div className="space-y-2">
               <Label htmlFor="startTerm">Intended start term</Label>
               <Select value={startTerm} onValueChange={setStartTerm}>
-                <SelectTrigger id="startTerm">
+                <SelectTrigger id="startTerm" className="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500">
                   <SelectValue placeholder="Select term" />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,6 +254,7 @@ export function Onboarding() {
                 placeholder="University of Lagos"
                 value={currentInstitution}
                 onChange={(e) => setCurrentInstitution(e.target.value)}
+                className="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
               />
             </div>
 
@@ -265,6 +266,7 @@ export function Onboarding() {
                 placeholder="Computer Science"
                 value={fieldOfStudy}
                 onChange={(e) => setFieldOfStudy(e.target.value)}
+                className="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
               />
             </div>
           </div>
@@ -278,13 +280,14 @@ export function Onboarding() {
                 value={nationality}
                 onChange={setNationality}
                 options={nationalityOptions}
+                inputClassName="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="greTaken">GRE taken?</Label>
               <Select value={greTaken} onValueChange={setGreTaken}>
-                <SelectTrigger id="greTaken">
+                <SelectTrigger id="greTaken" className="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500">
                   <SelectValue placeholder="Select option" />
                 </SelectTrigger>
                 <SelectContent>
@@ -306,6 +309,7 @@ export function Onboarding() {
                   placeholder="170"
                   value={greVerbal}
                   onChange={(e) => setGreVerbal(e.target.value)}
+                  className="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                 />
               </div>
 
@@ -317,6 +321,7 @@ export function Onboarding() {
                   placeholder="170"
                   value={greQuant}
                   onChange={(e) => setGreQuant(e.target.value)}
+                  className="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                 />
               </div>
 
@@ -329,6 +334,7 @@ export function Onboarding() {
                   placeholder="6.0"
                   value={greAwa}
                   onChange={(e) => setGreAwa(e.target.value)}
+                  className="border border-border rounded-lg bg-background px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
                 />
               </div>
             </div>
