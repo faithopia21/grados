@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
 import { getDaysUntil, formatDate, safeGetTime } from '../../lib/utils';
-import { Plus, ArrowRight, Search, ChevronDown, Trash2, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, ArrowRight, Search, ChevronDown, Trash2, AlertTriangle, ArrowUp, ArrowDown, X } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
@@ -36,6 +36,7 @@ import { displayProgramStatus } from '../../lib/program-status';
 import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
+import { usePersistedState } from '@/hooks/usePersistedState';
 
 interface DbProgram {
   id: string;
@@ -309,50 +310,40 @@ export function Applications() {
   const [programs, setPrograms] = useState<ProgramWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeStatuses, setActiveStatuses] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('grados_status_filter');
-      if (!saved) return [];
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  const [activeStatuses, setActiveStatuses] = usePersistedState<string[]>('apps_status_filters', []);
   const [countryFilters, setCountryFilters] = useState<string[]>([]);
-  const [degreeFilters, setDegreeFilters] = useState<string[]>([]);
-  const [fundingFilter, setFundingFilter] = useState<string[]>([]);
+  const [degreeFilters, setDegreeFilters] = usePersistedState<string[]>('apps_degree_filters', []);
+  const [fundingFilter, setFundingFilter] = usePersistedState<string[]>('apps_funding_filter', []);
   const [deadlineFilter, setDeadlineFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<SortOption>(() => (localStorage.getItem('grados_sort_preference') as SortOption) || 'deadline');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() =>
-    localStorage.getItem('grados_sort_order') as 'asc' | 'desc' || 'asc'
-  );
+  const [sortBy, setSortBy] = usePersistedState<SortOption>('apps_sort', 'deadline');
+  const [sortOrder, setSortOrder] = usePersistedState<'asc' | 'desc'>('apps_sort_order', 'asc');
 
   const toggleStatus = (status: string) => {
     if (status === 'All') {
       setActiveStatuses([]);
-      localStorage.setItem('grados_status_filter', '[]');
       return;
     }
-    setActiveStatuses(prev => {
-      const next = prev.includes(status)
-        ? prev.filter(s => s !== status)
-        : [...prev, status];
-      localStorage.setItem('grados_status_filter', JSON.stringify(next));
-      return next;
-    });
+    setActiveStatuses(
+      activeStatuses.includes(status)
+        ? activeStatuses.filter(s => s !== status)
+        : [...activeStatuses, status]
+    );
   };
 
   const handleSortChange = (value: string) => {
     setSortBy(value as SortOption);
-    localStorage.setItem('grados_sort_preference', value);
   };
 
   const handleSortOrderChange = () => {
-    const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
-    setSortOrder(newOrder);
-    localStorage.setItem('grados_sort_order', newOrder);
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
   };
+
+  const hasActiveFilters =
+    activeStatuses.length > 0 ||
+    degreeFilters.length > 0 ||
+    fundingFilter.length > 0 ||
+    countryFilters.length > 0 ||
+    deadlineFilter !== 'all';
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<SchoolFormData | undefined>(undefined);
   const [fetchError, setFetchError] = useState(false);
@@ -741,8 +732,29 @@ export function Applications() {
               })}
             </div>
 
+            {/* Clear all filters */}
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {filteredPrograms.length} of {programs.length} applications
+                </span>
+                <button
+                  onClick={() => {
+                    setActiveStatuses([]);
+                    setDegreeFilters([]);
+                    setFundingFilter([]);
+                    setCountryFilters([]);
+                    setDeadlineFilter('all');
+                  }}
+                  className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                >
+                  <X size={12} />
+                  Clear all filters
+                </button>
+              </div>
+            )}
 
-                <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3 relative">
                     Filter <ChevronDown className="h-4 w-4 ml-1" />
@@ -811,6 +823,20 @@ export function Applications() {
                       <DropdownMenuRadioItem value="next_3_months">Next 3 months</DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                    <div className="flex justify-between items-center px-2 py-2">
+                      <button
+                        onClick={() => {
+                          setDegreeFilters([]);
+                          setFundingFilter([]);
+                          setCountryFilters([]);
+                          setDeadlineFilter('all');
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        Clear filters
+                      </button>
+                    </div>
                   </DropdownMenuContent>
                 </DropdownMenu>
 

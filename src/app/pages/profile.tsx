@@ -28,6 +28,7 @@ import {
 import { PageSkeleton } from '../components/page-skeleton';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
+import { usePersistedState } from '@/hooks/usePersistedState';
 
 export interface ProfileRow {
   id: string;
@@ -238,6 +239,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
 
   const [savingTab, setSavingTab] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
+  const [activeTab, setActiveTab] = usePersistedState<string>('profile_active_tab', 'personal');
 
   const profileCompletion = useMemo(() => getCompletionPercent(profile), [profile]);
 
@@ -389,7 +391,7 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
         )}
       </div>
 
-      <Tabs defaultValue="personal" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="flex w-full justify-start overflow-x-auto pb-1 scrollbar-hide">
           <TabsTrigger value="personal" className="text-xs md:text-sm">
             <User className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />

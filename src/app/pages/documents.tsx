@@ -27,12 +27,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
+import { usePersistedState } from '@/hooks/usePersistedState';
 
 function DocumentRowSkeleton() {
   return <Skeleton className="h-20 w-full rounded-lg" />;
@@ -43,9 +44,9 @@ export function Documents() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [sortOption, setSortOption] = useState('recent');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [activeCategory, setActiveCategory] = useState('All Documents');
+  const [sortOption, setSortOption] = usePersistedState<string>('docs_sort', 'recent');
+  const [sortOrder, setSortOrder] = usePersistedState<'asc' | 'desc'>('docs_sort_order', 'desc');
+  const [activeCategory, setActiveCategory] = usePersistedState<string>('docs_category', 'All Documents');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState(false);
@@ -200,7 +201,8 @@ export function Documents() {
   ];
 
   const categoryFilteredDocuments = useMemo(() => {
-    if (activeCategory === 'All Documents') return documents;
+    const hasActiveFilters = activeCategory !== 'All Documents';
+    if (!hasActiveFilters) return documents;
     return documents.filter(doc => {
       const docType = (doc.doc_type || '').toLowerCase();
       switch (activeCategory) {
@@ -223,6 +225,8 @@ export function Documents() {
       }
     });
   }, [documents, activeCategory]);
+
+  const hasActiveFilters = activeCategory !== 'All Documents';
 
   const filteredDocuments = useMemo(() => {
     let filtered = categoryFilteredDocuments;
@@ -433,6 +437,17 @@ export function Documents() {
                   </button>
                 ))}
               </div>
+
+              {/* Clear filters */}
+              {hasActiveFilters && (
+                <button
+                  onClick={() => setActiveCategory('All Documents')}
+                  className="flex items-center gap-1 text-xs text-indigo-600 hover:underline px-4 md:px-6 pb-2"
+                >
+                  <X size={12} />
+                  Clear filters
+                </button>
+              )}
             </div>
 
             {isSelectionMode && (

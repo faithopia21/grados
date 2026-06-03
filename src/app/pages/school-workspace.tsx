@@ -293,6 +293,21 @@ export function SchoolWorkspace() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Persist active tab per program
+  useEffect(() => {
+    if (id) {
+      const saved = localStorage.getItem(`workspace_tab_${id}`);
+      if (saved) setActiveTab(saved);
+    }
+  }, [id]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (id) {
+      localStorage.setItem(`workspace_tab_${id}`, tab);
+    }
+  };
   const [newItemLabel, setNewItemLabel] = useState('');
   const [showAddItem, setShowAddItem] = useState(false);
   const [recommenderDeleteId, setRecommenderDeleteId] = useState<string | null>(null);
@@ -1040,7 +1055,7 @@ export function SchoolWorkspace() {
         confirming={statusSaving}
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
           <TabsList className="flex w-full justify-start overflow-x-auto pb-1 scrollbar-hide bg-transparent gap-0 rounded-none border-b border-border">
             <TabsTrigger
@@ -1114,7 +1129,7 @@ export function SchoolWorkspace() {
                     <p className="text-sm text-muted-foreground">No checklist added yet</p>
                     <button
                       onClick={() => {
-                        setActiveTab('requirements');
+                        handleTabChange('requirements');
                         handleGenerateDefaultChecklist();
                       }}
                       className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
@@ -1135,7 +1150,7 @@ export function SchoolWorkspace() {
                     {nextSteps.map((step, idx) => (
                       <div
                         key={step.id}
-                        onClick={() => setActiveTab('requirements')}
+                        onClick={() => handleTabChange('requirements')}
                         className={`flex items-center gap-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors px-2 rounded-md ${
                           idx !== nextSteps.length - 1 ? 'border-b border-border/50' : ''
                         }`}
