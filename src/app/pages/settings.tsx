@@ -590,14 +590,14 @@ export function Settings() {
         {expandedSection === 'privacy' && (
           <CardContent className="space-y-4 pt-6">
             <div className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-0.5">
                   <Label>Export my data</Label>
                   <p className="text-xs text-muted-foreground">
                     Download all your application data
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex gap-3 flex-shrink-0">
                   <button
                     onClick={prepareExportData}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-accent transition-colors"

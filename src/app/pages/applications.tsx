@@ -304,7 +304,9 @@ export function Applications() {
   const [activeStatuses, setActiveStatuses] = usePersistedState<string[]>('apps_status_filters', []);
   const [filterDegrees, setFilterDegrees] = usePersistedState<string[]>('apps_degree_filters', []);
   const [filterFunding, setFilterFunding] = usePersistedState<string>('apps_funding_filter_v2', '');
-  const [sortOption, setSortOption] = usePersistedState<string>('apps_sort_v2', 'nearest-deadline');
+  const [filterCountries, setFilterCountries] = usePersistedState<string[]>('apps_country_filters', []);
+  const [filterRounds, setFilterRounds] = usePersistedState<string[]>('apps_round_filters', []);
+  const [sortOption, setSortOption] = usePersistedState<string>('apps_sort_v3', 'nearest-deadline');
   const [sortOrder, setSortOrder] = usePersistedState<'asc' | 'desc'>('apps_sort_order', 'asc');
   const [showFilter, setShowFilter] = useState(false);
 
@@ -312,6 +314,8 @@ export function Applications() {
   const activeFilterCount =
     activeStatuses.length +
     filterDegrees.length +
+    filterCountries.length +
+    filterRounds.length +
     (filterFunding ? 1 : 0);
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<SchoolFormData | undefined>(undefined);
@@ -458,6 +462,18 @@ export function Applications() {
     toast.success('Application marked as submitted!');
   };
 
+  const availableCountries = useMemo(() => {
+    const countries = new Set(programs.map(p => p.country).filter(Boolean));
+    return Array.from(countries).sort();
+  }, [programs]);
+
+  const availableRounds = useMemo(() => {
+    const rounds = new Set(
+      programs.map(p => (p as any).application_round).filter(Boolean)
+    );
+    return Array.from(rounds).sort();
+  }, [programs]);
+
   const filteredPrograms = useMemo(() => {
     let filtered = programs.map(program => ({
       ...program,
@@ -483,6 +499,14 @@ export function Applications() {
       filtered = filtered.filter(program => filterDegrees.includes(program.degree_type));
     }
 
+    if (filterCountries.length > 0) {
+      filtered = filtered.filter(program => filterCountries.includes(program.country));
+    }
+
+    if (filterRounds.length > 0) {
+      filtered = filtered.filter(program => filterRounds.includes((program as any).application_round));
+    }
+
     if (filterFunding === 'yes') {
       filtered = filtered.filter(program => program.funding_available);
     } else if (filterFunding === 'no') {
@@ -495,6 +519,8 @@ export function Applications() {
     searchQuery,
     activeStatuses,
     filterDegrees,
+    filterCountries,
+    filterRounds,
     filterFunding,
     sortOrder,
   ]);
@@ -511,14 +537,12 @@ export function Applications() {
         case 'recently-added':
           comparison = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           break;
-        case 'progress-high':
-          comparison = (b.checklistTotal > 0 ? b.checklistDone / b.checklistTotal : 0) -
-                       (a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0);
+        case 'progress': {
+          const aP = a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0;
+          const bP = b.checklistTotal > 0 ? b.checklistDone / b.checklistTotal : 0;
+          comparison = bP - aP; // high to low by default; asc/desc toggle reverses
           break;
-        case 'progress-low':
-          comparison = (a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0) -
-                       (b.checklistTotal > 0 ? b.checklistDone / b.checklistTotal : 0);
-          break;
+        }
         case 'name-az':
           comparison = a.school_name.localeCompare(b.school_name);
           break;
@@ -528,6 +552,7 @@ export function Applications() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
   }, [filteredPrograms, sortOption, sortOrder]);
+
 
   const getStatusBadge = (status: string) => {
     const key = normalizeStatus(status);
@@ -664,7 +689,7 @@ export function Applications() {
                       />
                       {/* Panel */}
                       <div
-                        className="absolute right-0 top-full mt-2 w-72 bg-background border border-border rounded-xl shadow-xl z-50 p-4"
+                        className="absolute right-0 top-full mt-2 w-72 bg-background border border-border rounded-xl shadow-xl z-50 p-4 max-h-[80vh] overflow-y-auto"
                         onClick={e => e.stopPropagation()}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -675,6 +700,8 @@ export function Applications() {
                                 setActiveStatuses([]);
                                 setFilterDegrees([]);
                                 setFilterFunding('');
+                                setFilterCountries([]);
+                                setFilterRounds([]);
                               }}
                               className="text-xs text-red-500 hover:underline"
                             >
@@ -753,6 +780,62 @@ export function Applications() {
                           </div>
                         </div>
 
+                        {/* Country */}
+                        {availableCountries.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Country</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {availableCountries.map(country => (
+                                <button
+                                  key={country}
+                                  onClick={() => {
+                                    setFilterCountries(prev =>
+                                      prev.includes(country)
+                                        ? prev.filter(c => c !== country)
+                                        : [...prev, country]
+                                    );
+                                  }}
+                                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                    filterCountries.includes(country)
+                                      ? 'bg-indigo-600 text-white'
+                                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                                  }`}
+                                >
+                                  {country}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Application Round */}
+                        {availableRounds.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Application Round</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {availableRounds.map(round => (
+                                <button
+                                  key={round}
+                                  onClick={() => {
+                                    setFilterRounds(prev =>
+                                      prev.includes(round)
+                                        ? prev.filter(r => r !== round)
+                                        : [...prev, round]
+                                    );
+                                  }}
+                                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                    filterRounds.includes(round)
+                                      ? 'bg-indigo-600 text-white'
+                                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                                  }`}
+                                >
+                                  {round}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Funding */}
                         <div>
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Funding</p>
@@ -789,12 +872,11 @@ export function Applications() {
                 <select
                   value={sortOption}
                   onChange={e => setSortOption(e.target.value)}
-                  className="py-2 px-2 text-sm border border-border rounded-lg bg-background focus:outline-none flex-shrink-0 max-w-[110px] md:max-w-[160px]"
+                  className="py-2 px-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none flex-shrink-0 max-w-[110px] md:max-w-[160px] appearance-none"
                 >
                   <option value="nearest-deadline">Deadline</option>
                   <option value="recently-added">Recent</option>
-                  <option value="progress-high">Progress ↓</option>
-                  <option value="progress-low">Progress ↑</option>
+                  <option value="progress">Progress</option>
                   <option value="name-az">Name A-Z</option>
                 </select>
 
