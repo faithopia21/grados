@@ -4,7 +4,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
-import { Input } from '../components/ui/input';
+
 import { ApplicationCardSkeleton } from '../components/application-card-skeleton';
 import { PageSkeleton } from '../components/page-skeleton';
 import { AddSchoolDialog, SchoolFormData } from '../components/add-school-dialog';
@@ -17,18 +17,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '../components/ui/dropdown-menu';
+
 import { getDaysUntil, formatDate, safeGetTime } from '../../lib/utils';
-import { Plus, ArrowRight, Search, ChevronDown, Trash2, AlertTriangle, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Plus, ArrowRight, Search, Trash2, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
@@ -311,39 +302,17 @@ export function Applications() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStatuses, setActiveStatuses] = usePersistedState<string[]>('apps_status_filters', []);
-  const [countryFilters, setCountryFilters] = useState<string[]>([]);
-  const [degreeFilters, setDegreeFilters] = usePersistedState<string[]>('apps_degree_filters', []);
-  const [fundingFilter, setFundingFilter] = usePersistedState<string[]>('apps_funding_filter', []);
-  const [deadlineFilter, setDeadlineFilter] = useState('all');
-  const [sortBy, setSortBy] = usePersistedState<SortOption>('apps_sort', 'deadline');
+  const [filterDegrees, setFilterDegrees] = usePersistedState<string[]>('apps_degree_filters', []);
+  const [filterFunding, setFilterFunding] = usePersistedState<string>('apps_funding_filter_v2', '');
+  const [sortOption, setSortOption] = usePersistedState<string>('apps_sort_v2', 'nearest-deadline');
   const [sortOrder, setSortOrder] = usePersistedState<'asc' | 'desc'>('apps_sort_order', 'asc');
+  const [showFilter, setShowFilter] = useState(false);
 
-  const toggleStatus = (status: string) => {
-    if (status === 'All') {
-      setActiveStatuses([]);
-      return;
-    }
-    setActiveStatuses(
-      activeStatuses.includes(status)
-        ? activeStatuses.filter(s => s !== status)
-        : [...activeStatuses, status]
-    );
-  };
 
-  const handleSortChange = (value: string) => {
-    setSortBy(value as SortOption);
-  };
-
-  const handleSortOrderChange = () => {
-    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-  };
-
-  const hasActiveFilters =
-    activeStatuses.length > 0 ||
-    degreeFilters.length > 0 ||
-    fundingFilter.length > 0 ||
-    countryFilters.length > 0 ||
-    deadlineFilter !== 'all';
+  const activeFilterCount =
+    activeStatuses.length +
+    filterDegrees.length +
+    (filterFunding ? 1 : 0);
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<SchoolFormData | undefined>(undefined);
   const [fetchError, setFetchError] = useState(false);
@@ -489,16 +458,6 @@ export function Applications() {
     toast.success('Application marked as submitted!');
   };
 
-  const availableCountries = useMemo(() => {
-    const countries = new Set(programs.map(p => p.country).filter(Boolean));
-    return Array.from(countries).sort();
-  }, [programs]);
-
-  const availableDegrees = useMemo(() => {
-    const degrees = new Set(programs.map(p => p.degree_type).filter(Boolean));
-    return Array.from(degrees).sort();
-  }, [programs]);
-
   const filteredPrograms = useMemo(() => {
     let filtered = programs.map(program => ({
       ...program,
@@ -520,78 +479,36 @@ export function Applications() {
       );
     }
 
-    if (countryFilters.length > 0) {
-      filtered = filtered.filter(program => countryFilters.includes(program.country));
+    if (filterDegrees.length > 0) {
+      filtered = filtered.filter(program => filterDegrees.includes(program.degree_type));
     }
 
-    if (degreeFilters.length > 0) {
-      filtered = filtered.filter(program => degreeFilters.includes(program.degree_type));
+    if (filterFunding === 'yes') {
+      filtered = filtered.filter(program => program.funding_available);
+    } else if (filterFunding === 'no') {
+      filtered = filtered.filter(program => !program.funding_available);
     }
-
-    if (fundingFilter.length > 0) {
-      if (fundingFilter.includes('yes') && !fundingFilter.includes('no')) {
-        filtered = filtered.filter(program => program.funding_available);
-      } else if (fundingFilter.includes('no') && !fundingFilter.includes('yes')) {
-        filtered = filtered.filter(program => !program.funding_available);
-      }
-    }
-
-    if (deadlineFilter === 'this_month') {
-      filtered = filtered.filter(program => program.daysUntil !== null && program.daysUntil >= 0 && program.daysUntil <= 30);
-    } else if (deadlineFilter === 'next_3_months') {
-      filtered = filtered.filter(program => program.daysUntil !== null && program.daysUntil >= 0 && program.daysUntil <= 90);
-    }
-
-    filtered.sort((a, b) => {
-      if (sortBy === 'deadline') {
-        // null deadlines sort to the end
-        if (a.daysUntil === null && b.daysUntil === null) return 0;
-        if (a.daysUntil === null) return 1;
-        if (b.daysUntil === null) return -1;
-        return a.daysUntil - b.daysUntil;
-      }
-      if (sortBy === 'recent') {
-        return safeGetTime(b.created_at) - safeGetTime(a.created_at);
-      }
-      if (sortBy === 'progress-high') {
-        const aProgress = a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0;
-        const bProgress = b.checklistTotal > 0 ? b.checklistDone / b.checklistTotal : 0;
-        return bProgress - aProgress;
-      }
-      if (sortBy === 'progress-low') {
-        const aProgress = a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0;
-        const bProgress = b.checklistTotal > 0 ? b.checklistDone / b.checklistTotal : 0;
-        return aProgress - bProgress;
-      }
-      if (sortBy === 'name') {
-        return a.school_name.localeCompare(b.school_name);
-      }
-      return 0;
-    });
 
     return filtered;
   }, [
     programs,
     searchQuery,
     activeStatuses,
-    countryFilters,
-    degreeFilters,
-    fundingFilter,
-    deadlineFilter,
-    sortBy,
+    filterDegrees,
+    filterFunding,
     sortOrder,
   ]);
 
   const sortedPrograms = useMemo(() => {
     return [...filteredPrograms].sort((a, b) => {
       let comparison = 0;
-      switch (sortBy) {
-        case 'deadline':
+      switch (sortOption) {
+        case 'nearest-deadline':
           if (!a.deadline) return 1;
           if (!b.deadline) return -1;
           comparison = new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
           break;
-        case 'recent':
+        case 'recently-added':
           comparison = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           break;
         case 'progress-high':
@@ -602,7 +519,7 @@ export function Applications() {
           comparison = (a.checklistTotal > 0 ? a.checklistDone / a.checklistTotal : 0) -
                        (b.checklistTotal > 0 ? b.checklistDone / b.checklistTotal : 0);
           break;
-        case 'name':
+        case 'name-az':
           comparison = a.school_name.localeCompare(b.school_name);
           break;
         default:
@@ -610,7 +527,7 @@ export function Applications() {
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [filteredPrograms, sortBy, sortOrder]);
+  }, [filteredPrograms, sortOption, sortOrder]);
 
   const getStatusBadge = (status: string) => {
     const key = normalizeStatus(status);
@@ -700,171 +617,198 @@ export function Applications() {
         </div>
       ) : (
         <>
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search by school or program name..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+            <div className="space-y-4">
+              {/* Single-row toolbar */}
+              <div className="flex items-center gap-2 px-4 md:px-6 py-3">
+                {/* Search */}
+                <div className="relative flex-1 min-w-0">
+                  <Search size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
 
-            {/* Status chips — multi-select */}
-            <div className="flex flex-wrap gap-2">
-              {['All', 'Not Started', 'In Progress', 'Ready to Submit', 'Submitted', 'Accepted', 'Rejected'].map(status => {
-                const isActive = status === 'All' ? activeStatuses.length === 0 : activeStatuses.includes(status);
-                return (
+                {/* Filter icon button */}
+                <div className="relative flex-shrink-0">
                   <button
-                    key={status}
-                    onClick={() => toggleStatus(status)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                      isActive
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-muted text-muted-foreground hover:bg-accent'
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFilter(!showFilter);
+                    }}
+                    className={`p-2 border rounded-lg hover:bg-accent transition-colors relative ${
+                      activeFilterCount > 0
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-border'
                     }`}
                   >
-                    {status}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Clear all filters */}
-            {hasActiveFilters && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {filteredPrograms.length} of {programs.length} applications
-                </span>
-                <button
-                  onClick={() => {
-                    setActiveStatuses([]);
-                    setDegreeFilters([]);
-                    setFundingFilter([]);
-                    setCountryFilters([]);
-                    setDeadlineFilter('all');
-                  }}
-                  className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
-                >
-                  <X size={12} />
-                  Clear all filters
-                </button>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3 relative">
-                    Filter <ChevronDown className="h-4 w-4 ml-1" />
-                    {(degreeFilters.length + fundingFilter.length + (deadlineFilter !== 'all' ? 1 : 0) + countryFilters.length) > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
-                        {degreeFilters.length + fundingFilter.length + (deadlineFilter !== 'all' ? 1 : 0) + countryFilters.length}
+                    <SlidersHorizontal size={16} />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                        {activeFilterCount}
                       </span>
                     )}
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>Country</DropdownMenuLabel>
-                    {availableCountries.map(country => (
-                      <DropdownMenuCheckboxItem
-                        key={country}
-                        checked={countryFilters.includes(country)}
-                        onCheckedChange={checked => {
-                          setCountryFilters(prev =>
-                            checked ? [...prev, country] : prev.filter(c => c !== country)
-                          );
-                        }}
-                      >
-                        {country}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Degree Type</DropdownMenuLabel>
-                    {availableDegrees.map(degree => (
-                      <DropdownMenuCheckboxItem
-                        key={degree}
-                        checked={degreeFilters.includes(degree)}
-                        onCheckedChange={checked => {
-                          setDegreeFilters(prev =>
-                            checked ? [...prev, degree] : prev.filter(d => d !== degree)
-                          );
-                        }}
-                      >
-                        {degree}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Funding Available</DropdownMenuLabel>
-                    <DropdownMenuCheckboxItem
-                      checked={fundingFilter.includes('yes')}
-                      onCheckedChange={checked => {
-                        setFundingFilter(prev =>
-                          checked ? [...prev, 'yes'] : prev.filter(f => f !== 'yes')
-                        );
-                      }}
-                    >
-                      Yes
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={fundingFilter.includes('no')}
-                      onCheckedChange={checked => {
-                        setFundingFilter(prev =>
-                          checked ? [...prev, 'no'] : prev.filter(f => f !== 'no')
-                        );
-                      }}
-                    >
-                      No
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Deadline Range</DropdownMenuLabel>
-                    <DropdownMenuRadioGroup value={deadlineFilter} onValueChange={setDeadlineFilter}>
-                      <DropdownMenuRadioItem value="this_month">This month</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="next_3_months">Next 3 months</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                    <DropdownMenuSeparator />
-                    <div className="flex justify-between items-center px-2 py-2">
-                      <button
-                        onClick={() => {
-                          setDegreeFilters([]);
-                          setFundingFilter([]);
-                          setCountryFilters([]);
-                          setDeadlineFilter('all');
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground hover:underline"
-                      >
-                        Clear filters
-                      </button>
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </button>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3">
-                    Sort <ChevronDown className="h-4 w-4 ml-1" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuRadioGroup value={sortBy} onValueChange={handleSortChange}>
-                      <DropdownMenuRadioItem value="deadline">Nearest deadline</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="recent">Recently added</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="progress-high">Progress high to low</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="progress-low">Progress low to high</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="name">University name A–Z</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  {/* Filter popup */}
+                  {showFilter && (
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowFilter(false)}
+                      />
+                      {/* Panel */}
+                      <div
+                        className="absolute right-0 top-full mt-2 w-72 bg-background border border-border rounded-xl shadow-xl z-50 p-4"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-semibold">Filters</span>
+                          {activeFilterCount > 0 && (
+                            <button
+                              onClick={() => {
+                                setActiveStatuses([]);
+                                setFilterDegrees([]);
+                                setFilterFunding('');
+                              }}
+                              className="text-xs text-red-500 hover:underline"
+                            >
+                              Clear all
+                            </button>
+                          )}
+                        </div>
 
+                        {/* Status */}
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Status</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              'All',
+                              'Not Started',
+                              'In Progress',
+                              'Ready to Submit',
+                              'Submitted',
+                              'Interview',
+                              'Accepted',
+                              'Rejected',
+                              'Waitlisted'
+                            ].map(status => (
+                              <button
+                                key={status}
+                                onClick={() => {
+                                  if (status === 'All') {
+                                    setActiveStatuses([]);
+                                  } else {
+                                    setActiveStatuses(prev =>
+                                      prev.includes(status)
+                                        ? prev.filter(s => s !== status)
+                                        : [...prev, status]
+                                    );
+                                  }
+                                }}
+                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                  status === 'All'
+                                    ? activeStatuses.length === 0
+                                      ? 'bg-indigo-600 text-white'
+                                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                                    : activeStatuses.includes(status)
+                                      ? 'bg-indigo-600 text-white'
+                                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                                }`}
+                              >
+                                {status}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Degree type */}
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Degree Type</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {['MSc', 'PhD', 'MBA', 'Other'].map(degree => (
+                              <button
+                                key={degree}
+                                onClick={() => {
+                                  setFilterDegrees(prev =>
+                                    prev.includes(degree)
+                                      ? prev.filter(d => d !== degree)
+                                      : [...prev, degree]
+                                  );
+                                }}
+                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                  filterDegrees.includes(degree)
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                                }`}
+                              >
+                                {degree}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Funding */}
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Funding</p>
+                          <div className="flex gap-1.5">
+                            {[
+                              { label: 'Any', value: '' },
+                              { label: 'Available', value: 'yes' },
+                              { label: 'Not available', value: 'no' },
+                            ].map(opt => (
+                              <button
+                                key={opt.value}
+                                onClick={() =>
+                                  setFilterFunding(
+                                    filterFunding === opt.value ? '' : opt.value
+                                  )
+                                }
+                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                  filterFunding === opt.value
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Sort dropdown */}
+                <select
+                  value={sortOption}
+                  onChange={e => setSortOption(e.target.value)}
+                  className="py-2 px-2 text-sm border border-border rounded-lg bg-background focus:outline-none flex-shrink-0 max-w-[110px] md:max-w-[160px]"
+                >
+                  <option value="nearest-deadline">Deadline</option>
+                  <option value="recently-added">Recent</option>
+                  <option value="progress-high">Progress ↓</option>
+                  <option value="progress-low">Progress ↑</option>
+                  <option value="name-az">Name A-Z</option>
+                </select>
+
+                {/* Asc/Desc toggle */}
                 <button
-                  onClick={handleSortOrderChange}
-                  className="inline-flex items-center justify-center p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors h-8 w-8"
-                  title={sortOrder === 'asc' ? 'Ascending order' : 'Descending order'}
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors"
+                  title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
                 >
                   {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
                 </button>
               </div>
 
-              <p className="text-[13px] text-muted-foreground">
+              <p className="text-[13px] text-muted-foreground px-4 md:px-6">
                 Showing {filteredPrograms.length}{' '}
                 {filteredPrograms.length === 1 ? 'application' : 'applications'}
               </p>

@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
@@ -50,6 +50,7 @@ export function Documents() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const isOnline = useOnlineStatus();
@@ -346,9 +347,9 @@ export function Documents() {
           </div>
         ) : (
           <>
-            <div className="space-y-4">
-              {/* DESKTOP TOOLBAR */}
-              <div className="hidden md:flex items-center gap-2 px-6 py-3">
+            {/* Single-row toolbar */}
+            <div className="flex items-center gap-2 px-4 md:px-6 py-3">
+                {/* Search */}
                 <div className="relative flex-1 min-w-0">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
@@ -356,62 +357,85 @@ export function Documents() {
                     placeholder="Search documents..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <select
-                  value={sortOption}
-                  onChange={e => setSortOption(e.target.value)}
-                  className="py-2 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none w-44 flex-shrink-0"
-                >
-                  <option value="recent">Recently Added</option>
-                  <option value="name">Name A-Z</option>
-                  <option value="size">File Size</option>
-                </select>
-
-                {/* Sort order toggle — desktop */}
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors"
-                  title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                >
-                  {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
-                </button>
-
-                <button
-                  onClick={() => setUploadOpen(true)}
-                  className="flex items-center gap-2 py-2 px-4 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex-shrink-0"
-                >
-                  <Upload size={14} />
-                  Upload Document
-                </button>
-              </div>
-
-              {/* MOBILE TOOLBAR */}
-              <div className="flex md:hidden items-center gap-2 px-4 py-3">
-                <div className="relative flex-1 min-w-0">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
                     className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
+                {/* Filter icon */}
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFilter(!showFilter);
+                    }}
+                    className={`p-2 border rounded-lg hover:bg-accent transition-colors relative ${
+                      activeCategory !== 'All Documents'
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-border'
+                    }`}
+                  >
+                    <SlidersHorizontal size={16} />
+                    {activeCategory !== 'All Documents' && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
+                        1
+                      </span>
+                    )}
+                  </button>
+
+                  {showFilter && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowFilter(false)}
+                      />
+                      <div
+                        className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-xl shadow-xl z-50 p-4"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-semibold">Document Type</span>
+                          {activeCategory !== 'All Documents' && (
+                            <button
+                              onClick={() => setActiveCategory('All Documents')}
+                              className="text-xs text-red-500 hover:underline"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {CATEGORIES.map(cat => (
+                            <button
+                              key={cat}
+                              onClick={() => setActiveCategory(cat)}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                activeCategory === cat
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-muted text-muted-foreground hover:bg-accent'
+                              }`}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Sort dropdown */}
                 <select
                   value={sortOption}
                   onChange={e => setSortOption(e.target.value)}
-                  className="py-2 px-2 text-sm border border-border rounded-lg bg-background focus:outline-none flex-shrink-0 w-24"
+                  className="py-2 px-2 text-sm border border-border rounded-lg bg-background focus:outline-none flex-shrink-0 max-w-[90px] md:max-w-[150px]"
                 >
                   <option value="recent">Recent</option>
-                  <option value="name">Name</option>
+                  <option value="name">Name A-Z</option>
                   <option value="size">Size</option>
                 </select>
 
-                {/* Sort order toggle — mobile */}
+                {/* Asc/Desc toggle */}
                 <button
                   onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                   className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors"
@@ -419,36 +443,16 @@ export function Documents() {
                 >
                   {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
                 </button>
-              </div>
 
-              {/* CATEGORY CHIPS — always visible */}
-              <div className="flex flex-wrap gap-2 px-4 md:px-6 pb-2">
-                {CATEGORIES.map(category => (
-                  <button
-                    key={category}
-                    onClick={() => setActiveCategory(category)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-                      activeCategory === category
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-
-              {/* Clear filters */}
-              {hasActiveFilters && (
+                {/* Upload — desktop shows label */}
                 <button
-                  onClick={() => setActiveCategory('All Documents')}
-                  className="flex items-center gap-1 text-xs text-indigo-600 hover:underline px-4 md:px-6 pb-2"
+                  onClick={() => setUploadOpen(true)}
+                  className="hidden md:flex items-center gap-1.5 py-2 px-3 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex-shrink-0"
                 >
-                  <X size={12} />
-                  Clear filters
+                  <Upload size={14} />
+                  Upload
                 </button>
-              )}
-            </div>
+              </div>
 
             {isSelectionMode && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between sticky top-0 z-10 mb-4">

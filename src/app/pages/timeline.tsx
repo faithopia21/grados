@@ -82,8 +82,7 @@ export function Timeline() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const isOnline = useOnlineStatus();
-  const [urgencyFilter, setUrgencyFilter] = usePersistedState<string>('deadlines_urgency', 'all');
-  const [statusFilter, setStatusFilter] = usePersistedState<string>('deadlines_status', 'all');
+  const [selectedUrgencies, setSelectedUrgencies] = usePersistedState<string[]>('grados_deadlines_urgency', []);
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
@@ -161,20 +160,18 @@ export function Timeline() {
   const upcoming = useMemo(() => programs.filter(p => p.bucket === 'upcoming'), [programs]);
   const future = useMemo(() => programs.filter(p => p.bucket === 'future'), [programs]);
 
-  const hasActiveFilters = urgencyFilter !== 'all' || statusFilter !== 'all';
+  const handleUrgencyClick = (urgency: string) => {
+    setSelectedUrgencies(prev =>
+      prev.includes(urgency)
+        ? prev.filter(u => u !== urgency)
+        : [...prev, urgency]
+    );
+  };
 
   const filteredPrograms = useMemo(() => {
-    let result = programs;
-    if (urgencyFilter !== 'all') {
-      result = result.filter(p => p.bucket === urgencyFilter);
-    }
-    if (statusFilter !== 'all') {
-      result = result.filter(p =>
-        (p.status || 'Not Started').toLowerCase() === statusFilter.toLowerCase()
-      );
-    }
-    return result;
-  }, [programs, urgencyFilter, statusFilter]);
+    if (selectedUrgencies.length === 0) return programs;
+    return programs.filter(p => selectedUrgencies.includes(p.bucket));
+  }, [programs, selectedUrgencies]);
 
   const filteredUrgent = useMemo(() => filteredPrograms.filter(p => p.bucket === 'urgent'), [filteredPrograms]);
   const filteredSoon = useMemo(() => filteredPrograms.filter(p => p.bucket === 'soon'), [filteredPrograms]);
@@ -305,7 +302,16 @@ export function Timeline() {
         subtitle="All application deadlines in one place"
         backTo="/dashboard"
       />
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+
+      {/* Transparent overlay behind cards — clears selection on outside click */}
+      {selectedUrgencies.length > 0 && (
+        <div
+          className="fixed inset-0 z-0"
+          onClick={() => setSelectedUrgencies([])}
+        />
+      )}
+
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 relative z-10">
         <div className="flex justify-end">
           <Button
             variant="outline"
@@ -318,36 +324,15 @@ export function Timeline() {
           </Button>
         </div>
 
-        {/* Urgency filter chips */}
-        <div className="flex flex-wrap gap-2">
-          {[{ id: 'all', label: 'All Deadlines' }, { id: 'urgent', label: '🔴 Urgent' }, { id: 'soon', label: '🟡 Soon' }, { id: 'upcoming', label: '🔵 Upcoming' }, { id: 'future', label: '🟢 Future' }].map(opt => (
-            <button
-              key={opt.id}
-              onClick={() => setUrgencyFilter(opt.id)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                urgencyFilter === opt.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-muted text-muted-foreground hover:bg-accent'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Clear filters */}
-        {hasActiveFilters && (
-          <button
-            onClick={() => { setUrgencyFilter('all'); setStatusFilter('all'); }}
-            className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
-          >
-            <X size={12} />
-            Clear filters
-          </button>
-        )}
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <Card className="border-red-200 dark:border-red-800">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 relative z-10">
+        <Card
+          className={`border-2 cursor-pointer transition-all ${
+            selectedUrgencies.includes('urgent')
+              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
+              : 'border-transparent hover:border-border border-red-200 dark:border-red-800'
+          }`}
+          onClick={() => handleUrgencyClick('urgent')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">Urgent</CardTitle>
             <AlertCircle className="h-4 w-4 text-red-600" />
@@ -358,7 +343,14 @@ export function Timeline() {
           </CardContent>
         </Card>
 
-        <Card className="border-yellow-200 dark:border-yellow-800">
+        <Card
+          className={`border-2 cursor-pointer transition-all ${
+            selectedUrgencies.includes('soon')
+              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
+              : 'border-transparent hover:border-border border-yellow-200 dark:border-yellow-800'
+          }`}
+          onClick={() => handleUrgencyClick('soon')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">Soon</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
@@ -369,7 +361,14 @@ export function Timeline() {
           </CardContent>
         </Card>
 
-        <Card className="border-blue-200 dark:border-blue-800">
+        <Card
+          className={`border-2 cursor-pointer transition-all ${
+            selectedUrgencies.includes('upcoming')
+              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
+              : 'border-transparent hover:border-border border-blue-200 dark:border-blue-800'
+          }`}
+          onClick={() => handleUrgencyClick('upcoming')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">Upcoming</CardTitle>
             <Calendar className="h-4 w-4 text-blue-600" />
@@ -380,7 +379,14 @@ export function Timeline() {
           </CardContent>
         </Card>
 
-        <Card className="border-green-200 dark:border-green-800">
+        <Card
+          className={`border-2 cursor-pointer transition-all ${
+            selectedUrgencies.includes('future')
+              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
+              : 'border-transparent hover:border-border border-green-200 dark:border-green-800'
+          }`}
+          onClick={() => handleUrgencyClick('future')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">Future</CardTitle>
             <Calendar className="h-4 w-4 text-green-600" />
@@ -392,56 +398,71 @@ export function Timeline() {
         </Card>
       </div>
 
-        {filteredPrograms.length === 0 && programs.length > 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4">
-            <h3 className="text-base mb-2">No deadlines match your filters</h3>
+        {/* Clear selection link */}
+        {selectedUrgencies.length > 0 && (
+          <div className="px-4 md:px-6 -mt-2 mb-2 relative z-10">
             <button
-              onClick={() => { setUrgencyFilter('all'); setStatusFilter('all'); }}
-              className="text-sm text-indigo-600 hover:underline mt-2"
+              onClick={() => setSelectedUrgencies([])}
+              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
             >
-              Clear filters
+              <X size={11} />
+              Clear selection
             </button>
           </div>
-        ) : programs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4">
-            <h3 className="text-base mb-2">No deadlines to track</h3>
-            <p className="text-sm text-muted-foreground text-center mb-6 max-w-sm">
-              Add schools to your dashboard and their deadlines will appear here.
-            </p>
-            <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6">
-            {filteredUrgent.length > 0 && (
-              <div className="space-y-3">
-                {filteredUrgent.map(p => (
-                  <DeadlineCard key={p.id} program={p} />
-                ))}
-              </div>
-            )}
-            {filteredSoon.length > 0 && (
-              <div className="space-y-3">
-                {filteredSoon.map(p => (
-                  <DeadlineCard key={p.id} program={p} />
-                ))}
-              </div>
-            )}
-            {filteredUpcoming.length > 0 && (
-              <div className="space-y-3">
-                {filteredUpcoming.map(p => (
-                  <DeadlineCard key={p.id} program={p} />
-                ))}
-              </div>
-            )}
-            {filteredFuture.length > 0 && (
-              <div className="space-y-3">
-                {filteredFuture.map(p => (
-                  <DeadlineCard key={p.id} program={p} />
-                ))}
-              </div>
-            )}
-          </div>
         )}
+
+        <div className="relative z-10">
+          {filteredPrograms.length === 0 && programs.length > 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <h3 className="text-base mb-2">No deadlines match your filters</h3>
+              <button
+                onClick={() => setSelectedUrgencies([])}
+                className="text-sm text-indigo-600 hover:underline mt-2"
+              >
+                Clear filters
+              </button>
+            </div>
+          ) : programs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <h3 className="text-base mb-2">No deadlines to track</h3>
+              <p className="text-sm text-muted-foreground text-center mb-6 max-w-sm">
+                Add schools to your dashboard and their deadlines will appear here.
+              </p>
+              <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {filteredUrgent.length > 0 && (
+                <div className="space-y-3">
+                  {filteredUrgent.map(p => (
+                    <DeadlineCard key={p.id} program={p} />
+                  ))}
+                </div>
+              )}
+              {filteredSoon.length > 0 && (
+                <div className="space-y-3">
+                  {filteredSoon.map(p => (
+                    <DeadlineCard key={p.id} program={p} />
+                  ))}
+                </div>
+              )}
+              {filteredUpcoming.length > 0 && (
+                <div className="space-y-3">
+                  {filteredUpcoming.map(p => (
+                    <DeadlineCard key={p.id} program={p} />
+                  ))}
+                </div>
+              )}
+              {filteredFuture.length > 0 && (
+                <div className="space-y-3">
+                  {filteredFuture.map(p => (
+                    <DeadlineCard key={p.id} program={p} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

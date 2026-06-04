@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { ChevronDown, ChevronRight, CheckCircle2, ExternalLink, Mail, X, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle2, ExternalLink, Mail, X, AlertTriangle, FileText, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import { supabase } from '../../lib/supabase';
@@ -198,6 +198,74 @@ export function Settings() {
     }, 100);
     toast.success('PDF downloaded successfully');
   };
+
+  const handleExportCSV = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: programs } = await supabase
+      .from('programs')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('deadline', { ascending: true });
+
+    if (!programs || programs.length === 0) {
+      toast.error('No applications to export');
+      return;
+    }
+
+    const headers = [
+      'School',
+      'Program',
+      'Degree',
+      'Department',
+      'Country',
+      'Deadline',
+      'Status',
+      'Round',
+      'Funding Available',
+      'Tuition',
+      'Ranking',
+      'Portal URL',
+    ];
+
+    const rows = programs.map((p: any) => [
+      p.school_name || '',
+      p.program_name || '',
+      p.degree_type || '',
+      p.department || '',
+      p.country || '',
+      p.deadline
+        ? new Date(p.deadline).toLocaleDateString('en-GB')
+        : '',
+      p.status || '',
+      p.application_round || '',
+      p.funding_available ? 'Yes' : 'No',
+      p.tuition || '',
+      p.ranking || '',
+      p.portal_url || '',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row: string[]) =>
+        row.map((cell: string) =>
+          `"${String(cell).replace(/"/g, '""')}"`
+        ).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'GradOS-Applications.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast.success('CSV downloaded successfully');
+  };
+
 
   const handleClearData = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -522,16 +590,29 @@ export function Settings() {
         {expandedSection === 'privacy' && (
           <CardContent className="space-y-4 pt-6">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-4">
                 <div className="space-y-0.5">
                   <Label>Export my data</Label>
                   <p className="text-xs text-muted-foreground">
                     Download all your application data
                   </p>
                 </div>
-                <Button variant="outline" onClick={prepareExportData}>
-                  Export as PDF
-                </Button>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={prepareExportData}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <FileText size={15} />
+                    Export as PDF
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <FileSpreadsheet size={15} />
+                    Export as CSV
+                  </button>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-border flex items-center justify-between">
