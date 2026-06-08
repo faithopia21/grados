@@ -1,117 +1,221 @@
-# Security Policy
+# GradOS — Security Policy
 
-This repository handles production user data and privileged database access. Treat security requirements as **non-optional**.
+This file is a directive for all AI agents 
+and developers working on this codebase.
+All rules are non-optional. Read before 
+generating or reviewing any code.
+
+---
+
+## Stack
+
+- Frontend: React + Vite (client-side SPA)
+- Backend: Supabase (Auth, Database, Storage)
+- Hosting: Vercel
+- No server-side API routes currently exist
+
+---
 
 ## Agent Rules (MUST FOLLOW)
 
-- **No secrets in code**
-  - Never commit: Database passwords, JWT secrets, API keys, service account keys, or admin credentials.
-  - Client-side env vars must be limited to public-safe values only (e.g. public API URLs, publishable keys).
+### 1. Never put secrets in code
 
-- **Assume public keys are public**
-  - Anyone can extract client-side keys from a web app.
-  - All data protection must be enforced via database access control, safe RPCs, and server-side checks.
+Never commit or hardcode:
+- Supabase service role key
+- Any API key, JWT secret, or token
+- Database passwords
 
-- **Privileged key usage**
-  - Admin or service-level keys may only be used in:
-    - Server-side route handlers (e.g. Next.js `src/app/api/**`, Express routes)
-    - Serverless functions or edge functions
-    - Trusted backend workers
-  - Never expose privileged keys to the browser.
+Client-side environment variables must 
+use the VITE_ prefix and must only contain 
+non-sensitive values:
 
-- **Database access control is mandatory**
-  - Any table with user data must have access control (row-level security, middleware checks, or ORM-level policies).
-  - Avoid permissive write rules that allow any user to insert or modify any row.
+ALLOWED in .env:
+  VITE_SUPABASE_URL        (public, safe)
+  VITE_SUPABASE_ANON_KEY   (public, safe)
 
-- **Prefer server endpoints for public write actions**
-  - Any endpoint that records data (analytics, clicks, form submissions) must:
-    - Validate input (e.g. zod)
-    - Apply rate limits
-    - Use server-side database writes with privileged credentials
-  - Client components must not write to the database directly. Use a server route.
+NEVER in .env or any code file:
+  SUPABASE_SERVICE_ROLE_KEY
+  Any key with "secret" or "service" 
+  in the name
 
-- **Function and procedure hardening**
-  - Database functions that run with elevated privileges must:
-    - Have a fixed, safe execution context.
-    - Restrict execution to the roles that need it.
+The .env file must always be in .gitignore.
+Never commit .env to GitHub.
 
-- **Do not increase attack surface**
-  - Do not attach privileged objects to `window` or global scope unless strictly required.
-  - Avoid broad CORS (`*`) except where explicitly intended and reviewed.
+### 2. Never disable or weaken RLS
 
-## Required Checks Before Merge
+Row Level Security (RLS) is enabled on 
+every table in this project. Never:
 
-- **Repository scan**
-  - Search for leaked keys:
-    - Database passwords or connection strings
-    - JWTs (`eyJ...`)
-    - Any secret keys, tokens, or credentials
+- Set a policy to WITH CHECK (true) 
+  for INSERT, UPDATE, or DELETE
+- Create a policy using (true) for 
+  SELECT on sensitive tables
+- Disable RLS on any table to "fix" 
+  a permission error
 
-- **Database review** (required after any DB/access control change)
-  - Verify access control policies cover new tables and columns.
-  - Run security and performance checks available in your database platform.
+If a Supabase query fails due to RLS, 
+the correct fix is to write the right 
+RLS policy — not to remove the policy.
 
-- **Verify public write paths**
-  - Confirm no tables allow anonymous inserts without validation/rate limiting.
-  - Confirm any public write action is routed through a server endpoint.
+Current RLS-protected tables:
+- profiles
+- programs
+- checklist_items
+- documents
+- program_documents
+- recommenders
+- program_notes
+- portal_links
 
-## Patterns To Use
+Every policy must follow this pattern:
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id)
 
-- **Server-side event tracking**
-  - Use a server API route with rate limiting and privileged database writes.
-  - Example endpoints:
-    - `/api/track-click` -> records event via server-side DB client
-    - `/api/track-event` -> records event via server-side DB client
+### 3. The Supabase anon key is public
 
-- **Restrict direct database function execution**
-  - Sensitive database functions must not be callable by anonymous or public roles.
-  - Execution should be restricted to server-side service accounts.
+The VITE_SUPABASE_ANON_KEY is visible to 
+anyone who inspects the browser. This is 
+expected and safe ONLY because RLS 
+policies enforce data access.
 
-- **Public analytics**
-  - Prefer a server endpoint that accepts sanitized payloads and enforces bot checks.
+Never write client-side code that assumes 
+the anon key provides access control. 
+All access control is enforced by RLS.
 
-- **Admin-only actions**
-  - Admin endpoints must use privileged database credentials and proper authorization.
-  - Avoid using public/anonymous database clients inside admin routes.
+### 4. No service role key in the frontend
 
-## Enforced Architecture
+The Supabase service role key bypasses 
+all RLS policies. It must never appear 
+in any file under src/ or in any 
+environment variable prefixed with VITE_.
 
-### Option A: Server routes for any privileged writes
+GradOS has no server-side API routes.
+If a feature requires the service role 
+key, implement it as a Supabase Edge 
+Function — not as a client-side call.
 
-- Direct writes to protected tables from client code are not allowed.
-- All privileged writes must go through server-side route handlers.
-- Server routes must:
-  - Validate input (e.g. zod)
-  - Rate limit
-  - Authenticate via `Authorization: Bearer <JWT>` or session cookie
-  - Use privileged credentials for DB writes
+### 5. User data isolation
 
-### Option B: Anonymous activity is local-only
+Every database query that reads or writes 
+user data must filter by the authenticated 
+user's ID. Never query a table without 
+a user_id filter when handling user data.
 
-- Anonymous activity must remain local until login.
-- Cloud state for user data is **authenticated-only**:
-  - User lists and collections
-  - Recently viewed items
-  - Progress tracking
-  - Any user-specific data
+Pattern to always use:
+  supabase
+    .from('programs')
+    .select('*')
+    .eq('user_id', user.id)  // REQUIRED
 
-## Database Hardening Rules
+Never omit the user_id filter.
+RLS is a safety net, not a replacement 
+for correct query logic.
 
-- **Protected tables**
-  - Admin tables, user tokens, user data tables, and any sensitive business data.
+### 6. File storage security
 
-- **Access control and grants**
-  - Admin tables are accessible only via privileged server-side credentials.
-  - Public tables allow read-only access where appropriate.
-  - Table writes are server-side only (via server endpoints).
+The Supabase Storage bucket 'documents' 
+is private. Storage policies must follow 
+the same user isolation pattern:
 
-- **Function grants + hardening**
-  - Sensitive database functions are restricted to privileged roles only.
-  - Functions with elevated privileges must have a fixed, safe execution context.
+  auth.uid()::text = 
+    (storage.foldername(name))[1]
 
-## Incident Response (If a key is exposed)
+File paths must always be prefixed with 
+the user's UUID:
+  userId/timestamp-filename.pdf
 
-1. Rotate impacted keys immediately.
-2. Audit access control policies and function grants.
-3. Review logs for unusual access patterns.
-4. Add a regression test/checklist entry to prevent recurrence.
+Never use shared or public paths for 
+user-uploaded documents.
+
+### 7. Authentication checks
+
+Every page except sign-in, sign-up, 
+forgot-password, and auth/callback 
+is wrapped in ProtectedRoute.
+
+Never remove the ProtectedRoute wrapper 
+from protected pages.
+
+Never use a hardcoded user ID in any 
+query. Always get the user from:
+  supabase.auth.getUser()
+
+### 8. Input handling
+
+Never insert user-provided text directly 
+into Supabase queries as raw SQL.
+Always use the Supabase client's 
+parameterised query methods.
+
+Sanitise file names before using them 
+in Storage paths:
+  const safeName = file.name
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+
+---
+
+## Before Every Push — Checklist
+
+Run through this before git push:
+
+- [ ] No .env file staged in git add
+- [ ] No service role key anywhere in src/
+- [ ] Search codebase for 'service_role' 
+      — must return zero results in src/
+- [ ] Any new Supabase table has RLS 
+      enabled and correct policies
+- [ ] Any new query filters by user_id
+- [ ] No WITH CHECK (true) policies 
+      added to any table
+
+---
+
+## If a Security Problem Is Found
+
+1. If a key is exposed in git history:
+   - Immediately rotate the key in 
+     Supabase dashboard
+   - Force-push to remove from history
+   - Audit Supabase logs for unusual access
+
+2. If an RLS policy is too permissive:
+   - Drop the policy immediately
+   - Write the correct policy
+   - Check existing data for unauthorised 
+     rows and remove them
+
+3. Report any security concern by 
+   emailing support@grados.app
+
+---
+
+## Known Acceptable Risks (Documented)
+
+- VITE_SUPABASE_ANON_KEY is public.
+  This is intentional and safe because 
+  RLS enforces all data access.
+
+- Email confirmation is disabled during 
+  beta. This will be re-enabled before 
+  public launch.
+
+- Auth users are not deleted from 
+  auth.users when a user deletes their 
+  account. User data is fully deleted. 
+  The auth.users shell is cleaned up 
+  manually until a server-side deletion 
+  function is implemented in V2.
+
+---
+
+## V2 Security Improvements Planned
+
+- Supabase Edge Function for account 
+  deletion (removes auth.users entry)
+- Email confirmation re-enabled with 
+  proper redirect URLs
+- Rate limiting on sign-up and sign-in
+- Custom SMTP for all transactional 
+  email (Resend)
+- Content Security Policy headers 
+  via Vercel configuration
