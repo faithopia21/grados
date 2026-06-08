@@ -93,7 +93,7 @@ export function Timeline() {
   const [fetchError, setFetchError] = useState(false);
   const isOnline = useOnlineStatus();
   const [selectedUrgencies, setSelectedUrgencies] = usePersistedState<string[]>('grados_deadlines_urgency', []);
-  const [showReminderConfig, setShowReminderConfig] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [reminderIntervals, setReminderIntervals] = usePersistedState<number[]>(
     'grados_ics_reminders',
     [10080, 4320, 1440, 0] // 7 days, 3 days, 1 day, day of
@@ -173,6 +173,8 @@ export function Timeline() {
   const soon = useMemo(() => programs.filter(p => p.bucket === 'soon'), [programs]);
   const upcoming = useMemo(() => programs.filter(p => p.bucket === 'upcoming'), [programs]);
   const future = useMemo(() => programs.filter(p => p.bucket === 'future'), [programs]);
+
+  const eligiblePrograms = programs.filter(p => p.deadline);
 
   const handleUrgencyClick = (urgency: string) => {
     setSelectedUrgencies(prev =>
@@ -359,44 +361,58 @@ export function Timeline() {
       />
 
       {/* Export .ics Modal */}
-      {showReminderConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {showExportModal && (
+        <>
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowReminderConfig(false)}
+            className="fixed inset-0 z-40 bg-black/60"
+            onClick={() => setShowExportModal(false)}
           />
+
           {/* Modal */}
-          <div className="relative z-10 w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6">
-            <h3 className="text-base font-semibold mb-1">Export calendar file</h3>
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto bg-background border border-border rounded-xl shadow-2xl flex flex-col max-h-[85vh]">
 
-            {/* Section A — Select applications */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold">Select applications to export</p>
-                <button
-                  onClick={() =>
-                    setSelectedForExport(
-                      selectedForExport.length === programs.filter(p => p.deadline).length
-                        ? []
-                        : programs.filter(p => p.deadline).map(p => p.id)
-                    )
-                  }
-                  className="text-xs text-indigo-600 hover:underline"
-                >
-                  {selectedForExport.length === programs.filter(p => p.deadline).length
-                    ? 'Deselect all'
-                    : 'Select all'}
-                </button>
-              </div>
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+              <h3 className="text-base font-semibold">Export calendar file</h3>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="p-1 rounded-lg hover:bg-accent"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {programs
-                  .filter(p => p.deadline)
-                  .map(program => (
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+              {/* Section A: Select applications */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold">Select applications to export</p>
+                  <button
+                    onClick={() =>
+                      setSelectedForExport(
+                        selectedForExport.length === eligiblePrograms.length
+                          ? []
+                          : eligiblePrograms.map(p => p.id)
+                      )
+                    }
+                    className="text-xs text-indigo-600 hover:underline"
+                  >
+                    {selectedForExport.length === eligiblePrograms.length
+                      ? 'Deselect all'
+                      : 'Select all'}
+                  </button>
+                </div>
+
+                <div className="space-y-0.5 border border-border rounded-lg overflow-hidden">
+                  {eligiblePrograms.map((program, index) => (
                     <label
                       key={program.id}
-                      className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-accent cursor-pointer"
+                      className={`flex items-center gap-3 py-2.5 px-3 hover:bg-accent cursor-pointer${
+                        index < eligiblePrograms.length - 1 ? ' border-b border-border' : ''
+                      }`}
                     >
                       <input
                         type="checkbox"
@@ -418,58 +434,63 @@ export function Timeline() {
                       </div>
                     </label>
                   ))}
+                </div>
               </div>
+
+              {/* Section B: Reminder intervals */}
+              <div>
+                <p className="text-sm font-semibold mb-1">Reminder notifications</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  These reminders will be embedded in your calendar file.
+                </p>
+
+                <div className="space-y-2">
+                  {REMINDER_PRESETS.map(preset => (
+                    <label
+                      key={preset.minutes}
+                      className="flex items-center gap-3 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={reminderIntervals.includes(preset.minutes)}
+                        onChange={() => toggleReminder(preset.minutes)}
+                        className="accent-indigo-600 w-4 h-4 flex-shrink-0"
+                      />
+                      <span className="text-sm">{preset.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Info note */}
+              <p className="text-xs text-muted-foreground pb-1">
+                Re-importing this file will update existing events, not create duplicates.
+                Safe to re-export when you add new schools.
+              </p>
             </div>
 
-            {/* Section B — Reminder intervals */}
-            <p className="text-sm font-semibold mb-2">Reminder notifications</p>
-            <p className="text-sm text-muted-foreground mb-3">
-              These reminders will be embedded in your calendar file.
-            </p>
-
-            <div className="space-y-1 mb-4">
-              {REMINDER_PRESETS.map(preset => (
-                <label
-                  key={preset.minutes}
-                  className="flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={reminderIntervals.includes(preset.minutes)}
-                    onChange={() => toggleReminder(preset.minutes)}
-                    className="accent-indigo-600 w-4 h-4 rounded"
-                  />
-                  <span className="text-sm">{preset.label}</span>
-                </label>
-              ))}
-            </div>
-
-            <p className="text-xs text-muted-foreground mb-3">
-              Re-importing this file will update existing events, not create duplicates.
-              Safe to re-export when you add new schools.
-            </p>
-
-            <div className="flex gap-3">
+            {/* Sticky footer */}
+            <div className="flex gap-3 px-5 py-4 border-t border-border flex-shrink-0">
               <button
                 id="export-ics-confirm"
                 onClick={() => {
-                  setShowReminderConfig(false);
+                  setShowExportModal(false);
                   generateAndDownloadICS();
                 }}
                 disabled={selectedForExport.length === 0}
-                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition-colors"
               >
                 Export {selectedForExport.length > 0 ? `(${selectedForExport.length})` : ''} calendar file
               </button>
               <button
-                onClick={() => setShowReminderConfig(false)}
-                className="px-4 py-2 border border-border rounded-lg text-sm hover:bg-accent/50 transition-colors"
+                onClick={() => setShowExportModal(false)}
+                className="px-4 py-2.5 border border-border rounded-lg text-sm hover:bg-accent"
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Transparent overlay behind cards — clears selection on outside click */}
@@ -486,8 +507,8 @@ export function Timeline() {
             variant="outline"
             size="sm"
             onClick={() => {
-              setSelectedForExport(programs.filter(p => p.deadline).map(p => p.id));
-              setShowReminderConfig(true);
+              setSelectedForExport(eligiblePrograms.map(p => p.id));
+              setShowExportModal(true);
             }}
             disabled={loading || programs.length === 0}
             id="export-ics-button"

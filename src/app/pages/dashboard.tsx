@@ -13,7 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { PageSkeleton } from '../components/page-skeleton';
-import { getDeadlineInUserTimezone, getShortTimezoneLabel } from '../../lib/timezone';
+import { getShortTimezoneLabel } from '../../lib/timezone';
 
 export interface DbProgram {
   id: string;
@@ -337,19 +337,17 @@ export function Dashboard() {
                       </span>
                     )}
                   </div>
-                  {/* Show converted local time if timezone differs */}
-                  {program.deadline_timezone &&
-                    program.deadline !== null &&
-                    program.deadline_timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                        Your time:{' '}
-                        {getDeadlineInUserTimezone(
-                          program.deadline,
-                          program.deadline_time ?? '23:59',
-                          program.deadline_timezone
-                        ).localDate}
+                  {/* Show original timezone label only when user has enabled the setting */}
+                  {(() => {
+                    const showOriginalTz = localStorage.getItem('grados_show_original_tz') === 'true';
+                    return showOriginalTz &&
+                      program.deadline_timezone &&
+                      program.deadline_timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone ? (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {program.deadline_timezone.split('/').pop()?.replace(/_/g, ' ')} time
                       </p>
-                    )}
+                    ) : null;
+                  })()}
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </div>
