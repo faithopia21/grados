@@ -11,7 +11,7 @@ import {
   getStatusBadgeClassName,
   getStatusBadgeVariant,
 } from '../../lib/program-status';
-import { getDeadlineInUserTimezone, getShortTimezoneLabel } from '../../lib/timezone';
+import { getShortTimezoneLabel } from '../../lib/timezone';
 import { Calendar, Clock, AlertCircle, ArrowRight, Download, X } from 'lucide-react';
 import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -98,6 +98,7 @@ export function Timeline() {
     'grados_ics_reminders',
     [10080, 4320, 1440, 0] // 7 days, 3 days, 1 day, day of
   );
+  const [selectedForExport, setSelectedForExport] = useState<string[]>([]);
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
@@ -208,10 +209,12 @@ export function Timeline() {
       'METHOD:PUBLISH',
     ];
 
-    programs.forEach(program => {
-      if (!program.deadline) return;
+    const programsToExport = programs.filter(
+      p => selectedForExport.includes(p.id) && p.deadline
+    );
 
-      const deadlineDate = program.deadline;
+    programsToExport.forEach(program => {
+      const deadlineDate = program.deadline!;
       const deadlineTime = program.deadline_time || '23:59';
       const deadlineTimezone = program.deadline_timezone || 'UTC';
 
@@ -220,6 +223,7 @@ export function Timeline() {
       const timeStr = deadlineTime.replace(':', '') + '00';
 
       lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${program.id}@grados.app`);
       lines.push(`DTSTART;TZID=${deadlineTimezone}:${dateStr}T${timeStr}`);
       lines.push(`DTEND;TZID=${deadlineTimezone}:${dateStr}T${timeStr}`);
       lines.push(
@@ -267,15 +271,6 @@ export function Timeline() {
   };
 
   const DeadlineCard = ({ program }: { program: ProgramWithUrgency }) => {
-    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const tzDiffers = program.deadline_timezone && program.deadline_timezone !== userTz;
-    const converted = tzDiffers && program.deadline
-      ? getDeadlineInUserTimezone(
-          program.deadline,
-          program.deadline_time ?? '23:59',
-          program.deadline_timezone!
-        )
-      : null;
 
     return (
       <div
@@ -316,11 +311,14 @@ export function Timeline() {
                 {displayProgramStatus(program.status)}
               </Badge>
             </div>
-            {converted && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                Your time: {converted.localDate} at {converted.localTime}
-              </p>
-            )}
+            {(() => {
+              const showOriginalTz = localStorage.getItem('grados_show_original_tz') === 'true';
+              return showOriginalTz && program.deadline_timezone ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Original: {program.deadline_time} {program.deadline_timezone.split('/').pop()?.replace('_', ' ')}
+                </p>
+              ) : null;
+            })()}
           </div>
           <Button
             size="sm"
@@ -360,7 +358,7 @@ export function Timeline() {
         backTo="/dashboard"
       />
 
-      {/* Reminder Config Modal */}
+      {/* Export .ics Modal */}
       {showReminderConfig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
@@ -370,13 +368,66 @@ export function Timeline() {
           />
           {/* Modal */}
           <div className="relative z-10 w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6">
-            <h3 className="text-base font-semibold mb-1">Customise deadline reminders</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              These reminders will be added to every deadline in your calendar file. Your
-              calendar app will send notifications at each interval.
+            <h3 className="text-base font-semibold mb-1">Export calendar file</h3>
+
+            {/* Section A — Select applications */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold">Select applications to export</p>
+                <button
+                  onClick={() =>
+                    setSelectedForExport(
+                      selectedForExport.length === programs.filter(p => p.deadline).length
+                        ? []
+                        : programs.filter(p => p.deadline).map(p => p.id)
+                    )
+                  }
+                  className="text-xs text-indigo-600 hover:underline"
+                >
+                  {selectedForExport.length === programs.filter(p => p.deadline).length
+                    ? 'Deselect all'
+                    : 'Select all'}
+                </button>
+              </div>
+
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {programs
+                  .filter(p => p.deadline)
+                  .map(program => (
+                    <label
+                      key={program.id}
+                      className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-accent cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedForExport.includes(program.id)}
+                        onChange={() => {
+                          setSelectedForExport(prev =>
+                            prev.includes(program.id)
+                              ? prev.filter(id => id !== program.id)
+                              : [...prev, program.id]
+                          );
+                        }}
+                        className="accent-indigo-600 w-4 h-4 flex-shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{program.school_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {program.program_name} · {program.deadline}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+              </div>
+            </div>
+
+            {/* Section B — Reminder intervals */}
+            <p className="text-sm font-semibold mb-2">Reminder notifications</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              These reminders will be embedded in your calendar file.
             </p>
 
-            <div className="space-y-1 my-4">
+            <div className="space-y-1 mb-4">
               {REMINDER_PRESETS.map(preset => (
                 <label
                   key={preset.minutes}
@@ -393,8 +444,9 @@ export function Timeline() {
               ))}
             </div>
 
-            <p className="text-xs text-muted-foreground mb-4">
-              Your preferences are saved for next time.
+            <p className="text-xs text-muted-foreground mb-3">
+              Re-importing this file will update existing events, not create duplicates.
+              Safe to re-export when you add new schools.
             </p>
 
             <div className="flex gap-3">
@@ -404,9 +456,10 @@ export function Timeline() {
                   setShowReminderConfig(false);
                   generateAndDownloadICS();
                 }}
-                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+                disabled={selectedForExport.length === 0}
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                Export calendar file
+                Export {selectedForExport.length > 0 ? `(${selectedForExport.length})` : ''} calendar file
               </button>
               <button
                 onClick={() => setShowReminderConfig(false)}
@@ -432,7 +485,10 @@ export function Timeline() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowReminderConfig(true)}
+            onClick={() => {
+              setSelectedForExport(programs.filter(p => p.deadline).map(p => p.id));
+              setShowReminderConfig(true);
+            }}
             disabled={loading || programs.length === 0}
             id="export-ics-button"
           >

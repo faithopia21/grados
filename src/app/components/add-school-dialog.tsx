@@ -24,6 +24,7 @@ import { AutocompleteInput } from './autocomplete-input';
 import { searchUniversities, LOCAL_UNIVERSITIES } from '../../data/universities';
 import { COUNTRIES } from '../../data/countries';
 import { TIMEZONES } from '../../data/timezones';
+import { COUNTRY_TIMEZONES } from '../../data/country-timezones';
 
 interface AddSchoolDialogProps {
   open: boolean;
@@ -69,7 +70,7 @@ const emptyForm: SchoolFormData = {
   department: '',
   portalUrl: '',
   applicationDeadline: '',
-  deadlineTime: '23:59',
+  deadlineTime: '',
   deadlineTimezone: getUserTimezone(),
   fundingDeadline: '',
   fundingAvailable: false,
@@ -146,7 +147,7 @@ export function AddSchoolDialog({
       degree_type: formData.degree,
       country: formData.country.trim(),
       deadline: formData.applicationDeadline || null,
-      deadline_time: formData.deadlineTime || '23:59',
+      deadline_time: formData.deadlineTime || null,
       deadline_timezone: formData.deadlineTimezone || 'UTC',
       funding_available: formData.fundingAvailable,
     };
@@ -249,6 +250,16 @@ export function AddSchoolDialog({
     if (field === 'applicationDeadline' && fieldErrors.applicationDeadline) {
       setFieldErrors(prev => ({ ...prev, applicationDeadline: undefined }));
     }
+  };
+
+  const handleCountryChange = (country: string) => {
+    setFormData(prev => ({
+      ...prev,
+      country,
+      deadlineTimezone:
+        COUNTRY_TIMEZONES[country] ||
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }));
   };
 
   useEffect(() => {
@@ -445,10 +456,16 @@ export function AddSchoolDialog({
                   u => u.name.toLowerCase() === option.value.toLowerCase()
                 );
 
+                const resolvedCountry = option.secondary || localMatch?.country || '';
+                const resolvedTimezone = resolvedCountry
+                  ? (COUNTRY_TIMEZONES[resolvedCountry] || Intl.DateTimeFormat().resolvedOptions().timeZone)
+                  : Intl.DateTimeFormat().resolvedOptions().timeZone;
+
                 setFormData(prev => ({
                   ...prev,
                   universityName: option.value,
-                  country: option.secondary || localMatch?.country || prev.country,
+                  country: resolvedCountry || prev.country,
+                  deadlineTimezone: resolvedCountry ? resolvedTimezone : prev.deadlineTimezone,
                   portalUrl: prev.portalUrl || (option as any).web_pages?.[0] || localMatch?.web_pages?.[0] || '',
                   tuition: localMatch?.tuition || '',
                   ranking: localMatch?.ranking || '',
@@ -525,9 +542,15 @@ export function AddSchoolDialog({
                 id="country"
                 placeholder="e.g., United States"
                 value={formData.country}
-                onChange={value => handleChange('country', value)}
+                onChange={handleCountryChange}
                 options={countryOptions}
+                onSelect={option => handleCountryChange(option.value)}
               />
+              {formData.country && COUNTRY_TIMEZONES[formData.country] && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Timezone auto-set to {COUNTRY_TIMEZONES[formData.country]}
+                </p>
+              )}
             </div>
           </div>
 
@@ -603,7 +626,7 @@ export function AddSchoolDialog({
               <Input
                 id="deadlineTime"
                 type="time"
-                value={formData.deadlineTime || '23:59'}
+                value={formData.deadlineTime || ''}
                 onChange={e => handleChange('deadlineTime', e.target.value)}
                 className="[color-scheme:light] dark:[color-scheme:dark]"
               />

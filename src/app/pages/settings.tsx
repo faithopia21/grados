@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -47,6 +48,10 @@ export function Settings() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [emailReminders, setEmailReminders] = useState(true);
   const [weeklyProgress, setWeeklyProgress] = useState(false);
+  const [showOriginalTimezone, setShowOriginalTimezone] = usePersistedState<boolean>(
+    'grados_show_original_tz',
+    false
+  );
 
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
@@ -568,6 +573,27 @@ export function Settings() {
               <p className="text-[11px] italic text-muted-foreground mt-1">
                 Weekly summaries coming in a future update.
               </p>
+            </div>
+
+            <div className="flex items-center justify-between py-3 border-b border-border">
+              <div>
+                <p className="text-sm font-medium">Show original deadline timezone</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Show the school's timezone alongside your local time on deadlines
+                </p>
+              </div>
+              <button
+                onClick={() => setShowOriginalTimezone(!showOriginalTimezone)}
+                className={`relative w-10 h-6 rounded-full transition-colors ${
+                  showOriginalTimezone ? 'bg-indigo-600' : 'bg-muted'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    showOriginalTimezone ? 'translate-x-4 left-0.5' : 'left-0.5'
+                  }`}
+                />
+              </button>
             </div>
           </CardContent>
         )}

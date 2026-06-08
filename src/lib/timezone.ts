@@ -121,3 +121,79 @@ export function getShortTimezoneLabel(ianaTimezone: string): string {
     return ianaTimezone.split('/').pop()?.replace('_', ' ') ?? ianaTimezone;
   }
 }
+
+/**
+ * Formats a deadline for display, always converting to the user's local timezone.
+ * If no time is provided, just shows the date without timezone conversion.
+ */
+export function formatDeadlineForDisplay(
+  deadlineDate: string,
+  deadlineTime?: string | null,
+  deadlineTimezone?: string | null
+): {
+  displayDate: string;
+  displayTime: string | null;
+  daysLeft: number;
+} {
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  try {
+    // If no time provided, just show date (no tz conversion needed)
+    if (!deadlineTime) {
+      const date = new Date(deadlineDate + 'T00:00:00');
+      return {
+        displayDate: date.toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          timeZone: userTimezone,
+        }),
+        displayTime: null,
+        daysLeft: Math.ceil(
+          (date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        ),
+      };
+    }
+
+    // With time: convert from school timezone to user timezone
+    const sourceString = `${deadlineDate}T${deadlineTime}:00`;
+    const sourceTimezone = deadlineTimezone || userTimezone;
+
+    const naiveDate = new Date(sourceString);
+    const sourceTzOffsetMs = getTimezoneOffsetMs(naiveDate, sourceTimezone);
+    const userTzOffsetMs = getTimezoneOffsetMs(naiveDate, userTimezone);
+
+    const utcMs = naiveDate.getTime() - sourceTzOffsetMs;
+    const userMs = utcMs + userTzOffsetMs;
+    const userDate = new Date(userMs);
+
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: userTimezone,
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: userTimezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    return {
+      displayDate: formatter.format(userDate),
+      displayTime: timeFormatter.format(userDate),
+      daysLeft: Math.ceil((utcMs - Date.now()) / (1000 * 60 * 60 * 24)),
+    };
+  } catch {
+    return {
+      displayDate: deadlineDate,
+      displayTime: deadlineTime || null,
+      daysLeft: Math.ceil(
+        (new Date(deadlineDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      ),
+    };
+  }
+}
+

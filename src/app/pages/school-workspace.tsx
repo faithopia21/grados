@@ -40,7 +40,7 @@ import {
   getStatusBadgeVariant,
   normalizeProgramStatus,
 } from '../../lib/program-status';
-import { getDeadlineInUserTimezone, getShortTimezoneLabel } from '../../lib/timezone';
+import { getShortTimezoneLabel } from '../../lib/timezone';
 import {
   Tooltip,
   TooltipContent,
@@ -1129,23 +1129,15 @@ export function SchoolWorkspace() {
                         ? `${daysUntil} days remaining`
                         : 'Deadline passed'}
                     </p>
-                    {/* Show converted local time if timezone differs */}
-                    {program.deadline_timezone &&
-                      program.deadline_timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          Your time:{' '}
-                          {getDeadlineInUserTimezone(
-                            program.deadline,
-                            program.deadline_time ?? '23:59',
-                            program.deadline_timezone
-                          ).localDate}{' '}at{' '}
-                          {getDeadlineInUserTimezone(
-                            program.deadline,
-                            program.deadline_time ?? '23:59',
-                            program.deadline_timezone
-                          ).localTime}
+                    {/* Show original timezone if user enabled it in settings */}
+                    {(() => {
+                      const showOriginalTz = localStorage.getItem('grados_show_original_tz') === 'true';
+                      return showOriginalTz && program.deadline_timezone ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Original: {program.deadline_time} {program.deadline_timezone.split('/').pop()?.replace('_', ' ')}
                         </p>
-                      )}
+                      ) : null;
+                    })()}
                   </>
                 ) : (
                   <>
