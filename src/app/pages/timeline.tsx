@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { PageSkeleton } from '../components/page-skeleton';
-import { DeadlineCardSkeleton } from '../components/deadline-card-skeleton';
 import { supabase } from '../../lib/supabase';
 import { formatDate } from '../../lib/utils';
 import {
@@ -12,11 +11,13 @@ import {
   getStatusBadgeClassName,
   getStatusBadgeVariant,
 } from '../../lib/program-status';
+import { getDeadlineInUserTimezone, getShortTimezoneLabel } from '../../lib/timezone';
 import { Calendar, Clock, AlertCircle, ArrowRight, Download, X } from 'lucide-react';
 import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { toast } from 'sonner';
 
 interface DbProgram {
   id: string;
@@ -25,6 +26,8 @@ interface DbProgram {
   degree_type: string;
   country: string;
   deadline: string | null;
+  deadline_time?: string | null;
+  deadline_timezone?: string | null;
   status: string;
 }
 
@@ -72,9 +75,16 @@ function getLeftBorderClass(bucket: UrgencyBucket): string {
   }
 }
 
-function DeadlineCardSkeleton() {
-  return <Skeleton className="h-24 w-full rounded-lg" />;
-}
+const REMINDER_PRESETS = [
+  { label: '1 week before', minutes: 10080 },
+  { label: '3 days before', minutes: 4320 },
+  { label: '2 days before', minutes: 2880 },
+  { label: '1 day before', minutes: 1440 },
+  { label: '12 hours before', minutes: 720 },
+  { label: '6 hours before', minutes: 360 },
+  { label: '1 hour before', minutes: 60 },
+  { label: 'On the deadline day', minutes: 0 },
+];
 
 export function Timeline() {
   const navigate = useNavigate();
@@ -83,6 +93,11 @@ export function Timeline() {
   const [fetchError, setFetchError] = useState(false);
   const isOnline = useOnlineStatus();
   const [selectedUrgencies, setSelectedUrgencies] = usePersistedState<string[]>('grados_deadlines_urgency', []);
+  const [showReminderConfig, setShowReminderConfig] = useState(false);
+  const [reminderIntervals, setReminderIntervals] = usePersistedState<number[]>(
+    'grados_ics_reminders',
+    [10080, 4320, 1440, 0] // 7 days, 3 days, 1 day, day of
+  );
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
@@ -103,7 +118,7 @@ export function Timeline() {
 
       const { data, error } = await supabase
         .from('programs')
-        .select('*')
+        .select('id, school_name, program_name, degree_type, country, deadline, deadline_time, deadline_timezone, status')
         .eq('user_id', user.id)
         .order('deadline', { ascending: true });
 
@@ -139,8 +154,6 @@ export function Timeline() {
       setLoading(false);
     }
   }, []);
-
-
 
   useEffect(() => {
     fetchPrograms();
@@ -178,104 +191,148 @@ export function Timeline() {
   const filteredUpcoming = useMemo(() => filteredPrograms.filter(p => p.bucket === 'upcoming'), [filteredPrograms]);
   const filteredFuture = useMemo(() => filteredPrograms.filter(p => p.bucket === 'future'), [filteredPrograms]);
 
-  const handleExportIcs = () => {
-    const events: string[] = [];
-    programs.forEach(program => {
-      if (!program.deadline) return
-      
-      const deadlineDate = new Date(program.deadline)
-      
-      // Start event the day BEFORE deadline
-      const startDate = new Date(deadlineDate)
-      startDate.setDate(startDate.getDate() - 1)
-      
-      // End event ON the deadline day
-      const endDate = deadlineDate
-      
-      // Format as YYYYMMDD
-      const formatICSDate = (date: Date) => {
-        const year = date.getFullYear()
-        const month = String(
-          date.getMonth() + 1
-        ).padStart(2, '0')
-        const day = String(
-          date.getDate()
-        ).padStart(2, '0')
-        return `${year}${month}${day}`
-      }
-      
-      events.push([
-        'BEGIN:VEVENT',
-        `DTSTART:${formatICSDate(startDate)}`,
-        `DTEND:${formatICSDate(endDate)}`,
-        `SUMMARY:DEADLINE: ${program.school_name} - ${program.program_name}`,
-        `DESCRIPTION:Application deadline for ${program.program_name} at ${program.school_name}. Status: ${program.status || 'Not Started'}`,
-        `BEGIN:VALARM`,
-        `TRIGGER:-PT12H`,
-        `ACTION:DISPLAY`,
-        `DESCRIPTION:Reminder: ${program.school_name} application deadline tomorrow`,
-        `END:VALARM`,
-        'END:VEVENT'
-      ].join('\r\n'))
-    });
+  const toggleReminder = (minutes: number) => {
+    setReminderIntervals(prev =>
+      prev.includes(minutes)
+        ? prev.filter(m => m !== minutes)
+        : [...prev, minutes].sort((a, b) => b - a)
+    );
+  };
 
-    const icsContent = [
+  const generateAndDownloadICS = () => {
+    const lines = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//GradOS//Application Deadlines//EN',
-      ...events,
-      'END:VCALENDAR',
-    ].join('\r\n');
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+    ];
 
-    const blob = new Blob([icsContent], { type: 'text/calendar' });
+    programs.forEach(program => {
+      if (!program.deadline) return;
+
+      const deadlineDate = program.deadline;
+      const deadlineTime = program.deadline_time || '23:59';
+      const deadlineTimezone = program.deadline_timezone || 'UTC';
+
+      // Format DTSTART with timezone
+      const dateStr = deadlineDate.replace(/-/g, '');
+      const timeStr = deadlineTime.replace(':', '') + '00';
+
+      lines.push('BEGIN:VEVENT');
+      lines.push(`DTSTART;TZID=${deadlineTimezone}:${dateStr}T${timeStr}`);
+      lines.push(`DTEND;TZID=${deadlineTimezone}:${dateStr}T${timeStr}`);
+      lines.push(
+        `SUMMARY:DEADLINE: ${program.school_name} \u2014 ${program.program_name}`
+      );
+      lines.push(
+        `DESCRIPTION:Application deadline for ${program.program_name} at ${program.school_name}.\\n` +
+        `Status: ${program.status || 'Not Started'}\\n` +
+        `Timezone: ${deadlineTimezone}`
+      );
+      lines.push('STATUS:CONFIRMED');
+
+      // Add a VALARM for each selected interval
+      reminderIntervals.forEach(minutes => {
+        const triggerValue = minutes === 0
+          ? 'TRIGGER:PT0S'
+          : `TRIGGER:-PT${minutes}M`;
+
+        const reminderLabel = minutes === 0
+          ? `Today: ${program.school_name} deadline`
+          : minutes >= 1440
+            ? `${Math.floor(minutes / 1440)} day(s) until ${program.school_name} deadline`
+            : `${Math.floor(minutes / 60)} hour(s) until ${program.school_name} deadline`;
+
+        lines.push('BEGIN:VALARM');
+        lines.push('ACTION:DISPLAY');
+        lines.push(triggerValue);
+        lines.push(`DESCRIPTION:${reminderLabel}`);
+        lines.push('END:VALARM');
+      });
+
+      lines.push('END:VEVENT');
+    });
+
+    lines.push('END:VCALENDAR');
+
+    const icsContent = lines.join('\r\n');
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'grados-deadlines.ics';
+    a.download = 'GradOS-Deadlines.ics';
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const DeadlineCard = ({ program }: { program: ProgramWithUrgency }) => (
-    <div
-      className={`p-4 rounded-lg border transition-colors border-l-[3px] ${getLeftBorderClass(
-        program.bucket
-      )} border-border hover:bg-accent/50`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <h4 className="truncate font-medium">{program.school_name}</h4>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-medium ${getDaysBadgeClass(program.daysLeft)}`}
-            >
-              {program.daysLeft >= 0 ? `${program.daysLeft}d left` : 'Overdue'}
-            </span>
+  const DeadlineCard = ({ program }: { program: ProgramWithUrgency }) => {
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const tzDiffers = program.deadline_timezone && program.deadline_timezone !== userTz;
+    const converted = tzDiffers && program.deadline
+      ? getDeadlineInUserTimezone(
+          program.deadline,
+          program.deadline_time ?? '23:59',
+          program.deadline_timezone!
+        )
+      : null;
+
+    return (
+      <div
+        className={`p-4 rounded-lg border transition-colors border-l-[3px] ${getLeftBorderClass(
+          program.bucket
+        )} border-border hover:bg-accent/50`}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <h4 className="truncate font-medium">{program.school_name}</h4>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-medium ${getDaysBadgeClass(program.daysLeft!)}`}
+              >
+                {program.daysLeft! >= 0 ? `${program.daysLeft}d left` : 'Overdue'}
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {program.degree_type} in {program.program_name}
+            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>{formatDate(program.deadline)}</span>
+              {program.deadline_time && (
+                <span>
+                  at {program.deadline_time}
+                  {program.deadline_timezone && program.deadline_timezone !== 'UTC' && (
+                    <span className="ml-1 opacity-70">
+                      ({getShortTimezoneLabel(program.deadline_timezone)})
+                    </span>
+                  )}
+                </span>
+              )}
+              <Badge
+                variant={getStatusBadgeVariant(program.status)}
+                className={`text-xs ${getStatusBadgeClassName(program.status)}`}
+              >
+                {displayProgramStatus(program.status)}
+              </Badge>
+            </div>
+            {converted && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                Your time: {converted.localDate} at {converted.localTime}
+              </p>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {program.degree_type} in {program.program_name}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            <span>{formatDate(program.deadline)}</span>
-            <Badge
-              variant={getStatusBadgeVariant(program.status)}
-              className={`text-xs ${getStatusBadgeClassName(program.status)}`}
-            >
-              {displayProgramStatus(program.status)}
-            </Badge>
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate(`/applications/${program.id}`)}
+          >
+            <ArrowRight className="h-4 w-4" />
+          </Button>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => navigate(`/applications/${program.id}`)}
-        >
-          <ArrowRight className="h-4 w-4" />
-        </Button>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (loading) return <PageSkeleton />;
 
@@ -297,11 +354,70 @@ export function Timeline() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <PageHeader 
+      <PageHeader
         title="Deadlines"
         subtitle="All application deadlines in one place"
         backTo="/dashboard"
       />
+
+      {/* Reminder Config Modal */}
+      {showReminderConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowReminderConfig(false)}
+          />
+          {/* Modal */}
+          <div className="relative z-10 w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6">
+            <h3 className="text-base font-semibold mb-1">Customise deadline reminders</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              These reminders will be added to every deadline in your calendar file. Your
+              calendar app will send notifications at each interval.
+            </p>
+
+            <div className="space-y-1 my-4">
+              {REMINDER_PRESETS.map(preset => (
+                <label
+                  key={preset.minutes}
+                  className="flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg hover:bg-accent/50 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={reminderIntervals.includes(preset.minutes)}
+                    onChange={() => toggleReminder(preset.minutes)}
+                    className="accent-indigo-600 w-4 h-4 rounded"
+                  />
+                  <span className="text-sm">{preset.label}</span>
+                </label>
+              ))}
+            </div>
+
+            <p className="text-xs text-muted-foreground mb-4">
+              Your preferences are saved for next time.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                id="export-ics-confirm"
+                onClick={() => {
+                  setShowReminderConfig(false);
+                  generateAndDownloadICS();
+                }}
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Export calendar file
+              </button>
+              <button
+                onClick={() => setShowReminderConfig(false)}
+                className="px-4 py-2 border border-border rounded-lg text-sm hover:bg-accent/50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Transparent overlay behind cards — clears selection on outside click */}
       {selectedUrgencies.length > 0 && (
@@ -316,8 +432,9 @@ export function Timeline() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExportIcs}
+            onClick={() => setShowReminderConfig(true)}
             disabled={loading || programs.length === 0}
+            id="export-ics-button"
           >
             <Download className="h-4 w-4 mr-2" />
             Export .ics

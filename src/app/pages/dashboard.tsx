@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { PageSkeleton } from '../components/page-skeleton';
+import { getDeadlineInUserTimezone, getShortTimezoneLabel } from '../../lib/timezone';
 
 export interface DbProgram {
   id: string;
@@ -22,6 +23,8 @@ export interface DbProgram {
   degree_type: string;
   country: string;
   deadline: string | null;
+  deadline_time?: string | null;
+  deadline_timezone?: string | null;
   funding_available: boolean;
   portal_url: string | null;
   status: string;
@@ -65,7 +68,7 @@ export function Dashboard() {
 
       const { data, error } = await supabase
         .from('programs')
-        .select('id, school_name, program_name, status, deadline, created_at, funding_available, country')
+        .select('id, school_name, program_name, status, deadline, deadline_time, deadline_timezone, created_at, funding_available, country')
         .eq('user_id', user.id)
         .order('deadline', { ascending: true });
 
@@ -323,7 +326,30 @@ export function Dashboard() {
                   <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     Due {formatDate(program.deadline)}
+                    {program.deadline_time && (
+                      <span className="text-xs">
+                        at {program.deadline_time}
+                        {program.deadline_timezone && program.deadline_timezone !== 'UTC' && (
+                          <span className="ml-1 opacity-70">
+                            ({getShortTimezoneLabel(program.deadline_timezone)})
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </div>
+                  {/* Show converted local time if timezone differs */}
+                  {program.deadline_timezone &&
+                    program.deadline !== null &&
+                    program.deadline_timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                        Your time:{' '}
+                        {getDeadlineInUserTimezone(
+                          program.deadline,
+                          program.deadline_time ?? '23:59',
+                          program.deadline_timezone
+                        ).localDate}
+                      </p>
+                    )}
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </div>

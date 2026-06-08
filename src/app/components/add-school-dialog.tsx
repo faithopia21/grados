@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { AutocompleteInput } from './autocomplete-input';
 import { searchUniversities, LOCAL_UNIVERSITIES } from '../../data/universities';
 import { COUNTRIES } from '../../data/countries';
+import { TIMEZONES } from '../../data/timezones';
 
 interface AddSchoolDialogProps {
   open: boolean;
@@ -42,12 +43,22 @@ export interface SchoolFormData {
   department: string;
   portalUrl: string;
   applicationDeadline: string;
+  deadlineTime?: string;
+  deadlineTimezone?: string;
   fundingDeadline?: string;
   fundingAvailable: boolean;
   notes?: string;
   tuition?: string;
   ranking?: string;
   round?: string;
+}
+
+function getUserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
+  }
 }
 
 const emptyForm: SchoolFormData = {
@@ -58,6 +69,8 @@ const emptyForm: SchoolFormData = {
   department: '',
   portalUrl: '',
   applicationDeadline: '',
+  deadlineTime: '23:59',
+  deadlineTimezone: getUserTimezone(),
   fundingDeadline: '',
   fundingAvailable: false,
   notes: '',
@@ -89,6 +102,7 @@ export function AddSchoolDialog({
     Awaited<ReturnType<typeof searchUniversities>>
   >([]);
   const [profileInterests, setProfileInterests] = useState<string[]>([]);
+  const [timezoneSearch, setTimezoneSearch] = useState('');
 
   const resetForm = () => {
     setFormData(emptyForm);
@@ -132,6 +146,8 @@ export function AddSchoolDialog({
       degree_type: formData.degree,
       country: formData.country.trim(),
       deadline: formData.applicationDeadline || null,
+      deadline_time: formData.deadlineTime || '23:59',
+      deadline_timezone: formData.deadlineTimezone || 'UTC',
       funding_available: formData.fundingAvailable,
     };
 
@@ -356,6 +372,41 @@ export function AddSchoolDialog({
     ];
   }, [profileInterests, formData.programName]);
 
+  const filteredTimezones = useMemo(() => {
+    if (!timezoneSearch.trim()) return TIMEZONES;
+    const q = timezoneSearch.toLowerCase();
+    return TIMEZONES.filter(
+      tz => tz.label.toLowerCase().includes(q) || tz.value.toLowerCase().includes(q)
+    );
+  }, [timezoneSearch]);
+
+  const TimezoneSelect = ({ value, onChange }: { value: string; onChange: (tz: string) => void }) => {
+    const selected = TIMEZONES.find(tz => tz.value === value);
+    return (
+      <div className="relative">
+        <select
+          id="deadlineTimezone"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring appearance-none pr-8 text-foreground"
+          aria-label="Deadline timezone"
+        >
+          {TIMEZONES.map(tz => (
+            <option key={tz.value} value={tz.value}>
+              {tz.label}
+            </option>
+          ))}
+        </select>
+        <svg
+          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+          xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+        >
+          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] md:max-h-none overflow-y-auto w-full md:w-auto p-4 md:p-6 mb-0 mt-auto md:mb-auto rounded-b-none md:rounded-b-lg border-b-0 md:border-b transition-transform duration-300">
@@ -544,6 +595,31 @@ export function AddSchoolDialog({
               />
             </div>
           </div>
+
+          {/* Deadline Time & Timezone */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="deadlineTime">Deadline Time (optional)</Label>
+              <Input
+                id="deadlineTime"
+                type="time"
+                value={formData.deadlineTime || '23:59'}
+                onChange={e => handleChange('deadlineTime', e.target.value)}
+                className="[color-scheme:light] dark:[color-scheme:dark]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="deadlineTimezone">Deadline Timezone (optional)</Label>
+              <TimezoneSelect
+                value={formData.deadlineTimezone || 'UTC'}
+                onChange={tz => handleChange('deadlineTimezone', tz)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-2">
+            The deadline will be displayed in your local time. Leave blank to use UTC.
+          </p>
 
           <div className="space-y-2">
             <Label className="flex items-center gap-2 cursor-pointer">

@@ -40,6 +40,7 @@ import {
   getStatusBadgeVariant,
   normalizeProgramStatus,
 } from '../../lib/program-status';
+import { getDeadlineInUserTimezone, getShortTimezoneLabel } from '../../lib/timezone';
 import {
   Tooltip,
   TooltipContent,
@@ -75,6 +76,8 @@ interface DbProgram {
   degree_type: string;
   country: string;
   deadline: string | null;
+  deadline_time?: string | null;
+  deadline_timezone?: string | null;
   funding_available: boolean;
   portal_url: string | null;
   status: string;
@@ -1099,21 +1102,57 @@ export function SchoolWorkspace() {
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Column 1 — Application Deadline */}
+                      {/* Column 1 — Application Deadline */}
             <Card className="bg-white dark:bg-card border border-border/50 rounded-xl">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm">Application Deadline</CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-xl">{program.deadline ? formatDeadline(program.deadline) : 'No deadline set'}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {daysUntil === null
-                    ? 'No deadline'
-                    : daysUntil >= 0
-                    ? `${daysUntil} days remaining`
-                    : 'Deadline passed'}
-                </p>
+                {program.deadline ? (
+                  <>
+                    <div className="text-xl">{formatDeadline(program.deadline)}</div>
+                    {program.deadline_time && (
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        at {program.deadline_time}
+                        {program.deadline_timezone && program.deadline_timezone !== 'UTC' && (
+                          <span className="ml-1 text-xs">
+                            ({getShortTimezoneLabel(program.deadline_timezone)})
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {daysUntil === null
+                        ? 'No deadline'
+                        : daysUntil >= 0
+                        ? `${daysUntil} days remaining`
+                        : 'Deadline passed'}
+                    </p>
+                    {/* Show converted local time if timezone differs */}
+                    {program.deadline_timezone &&
+                      program.deadline_timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          Your time:{' '}
+                          {getDeadlineInUserTimezone(
+                            program.deadline,
+                            program.deadline_time ?? '23:59',
+                            program.deadline_timezone
+                          ).localDate}{' '}at{' '}
+                          {getDeadlineInUserTimezone(
+                            program.deadline,
+                            program.deadline_time ?? '23:59',
+                            program.deadline_timezone
+                          ).localTime}
+                        </p>
+                      )}
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xl">No deadline set</div>
+                    <p className="text-xs text-muted-foreground mt-1">No deadline</p>
+                  </>
+                )}
               </CardContent>
             </Card>
 
