@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
@@ -51,6 +51,15 @@ export function Documents() {
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
+  const [showDocSortMenu, setShowDocSortMenu] = useState(false);
+
+  const DOC_SORT_OPTIONS = [
+    { value: 'recent', label: 'Recent' },
+    { value: 'name', label: 'Name A-Z' },
+    { value: 'size', label: 'Size' },
+  ];
+
+  const currentDocSortLabel = DOC_SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Sort';
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const isOnline = useOnlineStatus();
@@ -367,6 +376,7 @@ export function Documents() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowFilter(!showFilter);
+                      setShowDocSortMenu(false);
                     }}
                     className={`p-2 border rounded-lg hover:bg-accent transition-colors relative ${
                       activeCategory !== 'All Documents'
@@ -385,39 +395,70 @@ export function Documents() {
                   {showFilter && (
                     <>
                       <div
-                        className="fixed inset-0 z-40"
+                        className="fixed inset-0 z-40 bg-black/40"
                         onClick={() => setShowFilter(false)}
                       />
-                      <div
-                        className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-xl shadow-xl z-50 p-4"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-semibold">Document Type</span>
-                          {activeCategory !== 'All Documents' && (
-                            <button
-                              onClick={() => setActiveCategory('All Documents')}
-                              className="text-xs text-red-500 hover:underline"
-                            >
-                              Clear
-                            </button>
-                          )}
+
+                      <div className="fixed z-50 bg-background border border-border shadow-xl md:absolute md:right-0 md:top-full md:mt-2 md:w-64 md:rounded-xl md:max-h-[80vh] md:overflow-y-auto inset-x-0 bottom-0 rounded-t-2xl md:inset-x-auto md:bottom-auto">
+
+                        {/* Drag handle */}
+                        <div className="md:hidden flex justify-center pt-3 pb-1">
+                          <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
                         </div>
 
-                        <div className="flex flex-wrap gap-1.5">
-                          {CATEGORIES.map(cat => (
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                          <span className="text-sm font-semibold">Document Type</span>
+                          <div className="flex items-center gap-3">
+                            {activeCategory !== 'All Documents' && (
+                              <button
+                                onClick={() => setActiveCategory('All Documents')}
+                                className="text-xs text-red-500 hover:underline"
+                              >
+                                Clear
+                              </button>
+                            )}
                             <button
-                              key={cat}
-                              onClick={() => setActiveCategory(cat)}
-                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                activeCategory === cat
-                                  ? 'bg-indigo-600 text-white'
-                                  : 'bg-muted text-muted-foreground hover:bg-accent'
-                              }`}
+                              onClick={() => setShowFilter(false)}
+                              className="p-1 rounded-lg hover:bg-accent md:hidden"
                             >
-                              {cat}
+                              <X size={16} />
                             </button>
-                          ))}
+                          </div>
+                        </div>
+
+                        {/* Options */}
+                        <div className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1.5">
+                            {CATEGORIES.map(cat => (
+                              <button
+                                key={cat}
+                                onClick={() => {
+                                  setActiveCategory(cat);
+                                  if (window.innerWidth < 768) {
+                                    setShowFilter(false);
+                                  }
+                                }}
+                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                  activeCategory === cat
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                                }`}
+                              >
+                                {cat}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Mobile close button */}
+                        <div className="md:hidden px-4 py-3 border-t border-border">
+                          <button
+                            onClick={() => setShowFilter(false)}
+                            className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium"
+                          >
+                            Done
+                          </button>
                         </div>
                       </div>
                     </>
@@ -425,15 +466,46 @@ export function Documents() {
                 </div>
 
                 {/* Sort dropdown */}
-                <select
-                  value={sortOption}
-                  onChange={e => setSortOption(e.target.value)}
-                  className="py-2 px-2 text-sm border border-border rounded-lg bg-background focus:outline-none flex-shrink-0 max-w-[90px] md:max-w-[150px]"
-                >
-                  <option value="recent">Recent</option>
-                  <option value="name">Name A-Z</option>
-                  <option value="size">Size</option>
-                </select>
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDocSortMenu(!showDocSortMenu);
+                      setShowFilter(false);
+                    }}
+                    className="flex items-center gap-1.5 py-2 px-3 text-sm border border-border rounded-lg hover:bg-accent bg-background"
+                  >
+                    {currentDocSortLabel}
+                    <ChevronDown size={14} />
+                  </button>
+
+                  {showDocSortMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowDocSortMenu(false)}
+                      />
+                      <div className="absolute z-50 top-full mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden right-0 min-w-[130px]">
+                        {DOC_SORT_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSortOption(option.value);
+                              setShowDocSortMenu(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${
+                              sortOption === option.value
+                                ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 font-medium'
+                                : 'text-foreground'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 {/* Asc/Desc toggle */}
                 <button

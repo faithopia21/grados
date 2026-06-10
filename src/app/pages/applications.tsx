@@ -19,7 +19,7 @@ import {
 } from '../components/ui/dialog';
 
 import { getDaysUntil, formatDate, safeGetTime } from '../../lib/utils';
-import { Plus, ArrowRight, Search, Trash2, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal } from 'lucide-react';
+import { Plus, ArrowRight, Search, Trash2, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
@@ -309,6 +309,16 @@ export function Applications() {
   const [sortOption, setSortOption] = usePersistedState<string>('apps_sort_v3', 'nearest-deadline');
   const [sortOrder, setSortOrder] = usePersistedState<'asc' | 'desc'>('apps_sort_order', 'asc');
   const [showFilter, setShowFilter] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+
+  const SORT_OPTIONS = [
+    { value: 'nearest-deadline', label: 'Deadline' },
+    { value: 'recently-added', label: 'Recent' },
+    { value: 'progress-high', label: 'Progress' },
+    { value: 'name-az', label: 'Name A-Z' },
+  ];
+
+  const currentSortLabel = SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Sort';
 
 
   const activeFilterCount =
@@ -664,6 +674,7 @@ export function Applications() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowFilter(!showFilter);
+                      setShowSortMenu(false);
                     }}
                     className={`p-2 border rounded-lg hover:bg-accent transition-colors relative ${
                       activeFilterCount > 0
@@ -679,189 +690,158 @@ export function Applications() {
                     )}
                   </button>
 
-                  {/* Filter popup */}
+                  {/* Filter popup — bottom sheet on mobile, dropdown on desktop */}
                   {showFilter && (
                     <>
                       {/* Backdrop */}
                       <div
-                        className="fixed inset-0 z-40"
+                        className="fixed inset-0 z-40 bg-black/40"
                         onClick={() => setShowFilter(false)}
                       />
-                      {/* Panel */}
-                      <div
-                        className="absolute right-0 top-full mt-2 w-72 bg-background border border-border rounded-xl shadow-xl z-50 p-4 max-h-[80vh] overflow-y-auto"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-between mb-3">
+
+                      {/* Desktop: dropdown | Mobile: bottom sheet */}
+                      <div className="fixed z-50 bg-background border border-border shadow-xl md:absolute md:right-0 md:top-full md:mt-2 md:w-80 md:rounded-xl md:max-h-[80vh] md:overflow-y-auto inset-x-0 bottom-0 rounded-t-2xl max-h-[80vh] flex flex-col md:inset-x-auto md:bottom-auto md:rounded-xl md:flex-none">
+
+                        {/* Drag handle — mobile only */}
+                        <div className="md:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+                          <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
+                        </div>
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
                           <span className="text-sm font-semibold">Filters</span>
-                          {activeFilterCount > 0 && (
+                          <div className="flex items-center gap-3">
+                            {activeFilterCount > 0 && (
+                              <button
+                                onClick={() => {
+                                  setActiveStatuses([]);
+                                  setFilterDegrees([]);
+                                  setFilterFunding('');
+                                }}
+                                className="text-xs text-red-500 hover:underline"
+                              >
+                                Clear all
+                              </button>
+                            )}
                             <button
-                              onClick={() => {
-                                setActiveStatuses([]);
-                                setFilterDegrees([]);
-                                setFilterFunding('');
-                                setFilterCountries([]);
-                                setFilterRounds([]);
-                              }}
-                              className="text-xs text-red-500 hover:underline"
+                              onClick={() => setShowFilter(false)}
+                              className="p-1 rounded-lg hover:bg-accent md:hidden"
                             >
-                              Clear all
+                              <X size={16} />
                             </button>
-                          )}
+                          </div>
                         </div>
 
-                        {/* Status */}
-                        <div className="mb-4">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Status</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {[
-                              'All',
-                              'Not Started',
-                              'In Progress',
-                              'Ready to Submit',
-                              'Submitted',
-                              'Interview',
-                              'Accepted',
-                              'Rejected',
-                              'Waitlisted'
-                            ].map(status => (
-                              <button
-                                key={status}
-                                onClick={() => {
-                                  if (status === 'All') {
-                                    setActiveStatuses([]);
-                                  } else {
-                                    setActiveStatuses(prev =>
-                                      prev.includes(status)
-                                        ? prev.filter(s => s !== status)
-                                        : [...prev, status]
+                        {/* Scrollable content */}
+                        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+
+                          {/* Status */}
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Status</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[
+                                'All',
+                                'Not Started',
+                                'In Progress',
+                                'Ready to Submit',
+                                'Submitted',
+                                'Interview',
+                                'Accepted',
+                                'Rejected',
+                                'Waitlisted'
+                              ].map(status => (
+                                <button
+                                  key={status}
+                                  onClick={() => {
+                                    if (status === 'All') {
+                                      setActiveStatuses([]);
+                                    } else {
+                                      setActiveStatuses(prev =>
+                                        prev.includes(status)
+                                          ? prev.filter(s => s !== status)
+                                          : [...prev, status]
+                                      );
+                                    }
+                                  }}
+                                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                    status === 'All'
+                                      ? activeStatuses.length === 0
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-muted text-muted-foreground hover:bg-accent'
+                                      : activeStatuses.includes(status)
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-muted text-muted-foreground hover:bg-accent'
+                                  }`}
+                                >
+                                  {status}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Degree Type */}
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Degree Type</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {['MSc', 'PhD', 'MBA', 'Other'].map(degree => (
+                                <button
+                                  key={degree}
+                                  onClick={() => {
+                                    setFilterDegrees(prev =>
+                                      prev.includes(degree)
+                                        ? prev.filter(d => d !== degree)
+                                        : [...prev, degree]
                                     );
+                                  }}
+                                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                    filterDegrees.includes(degree)
+                                      ? 'bg-indigo-600 text-white'
+                                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                                  }`}
+                                >
+                                  {degree}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Funding */}
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Funding</p>
+                            <div className="flex gap-1.5">
+                              {[
+                                { label: 'Any', value: '' },
+                                { label: 'Available', value: 'yes' },
+                                { label: 'Not available', value: 'no' },
+                              ].map(opt => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() =>
+                                    setFilterFunding(
+                                      filterFunding === opt.value ? '' : opt.value
+                                    )
                                   }
-                                }}
-                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                  status === 'All'
-                                    ? activeStatuses.length === 0
-                                      ? 'bg-indigo-600 text-white'
-                                      : 'bg-muted text-muted-foreground hover:bg-accent'
-                                    : activeStatuses.includes(status)
-                                      ? 'bg-indigo-600 text-white'
-                                      : 'bg-muted text-muted-foreground hover:bg-accent'
-                                }`}
-                              >
-                                {status}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Degree type */}
-                        <div className="mb-4">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Degree Type</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {['MSc', 'PhD', 'MBA', 'Other'].map(degree => (
-                              <button
-                                key={degree}
-                                onClick={() => {
-                                  setFilterDegrees(prev =>
-                                    prev.includes(degree)
-                                      ? prev.filter(d => d !== degree)
-                                      : [...prev, degree]
-                                  );
-                                }}
-                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                  filterDegrees.includes(degree)
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-muted text-muted-foreground hover:bg-accent'
-                                }`}
-                              >
-                                {degree}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Country */}
-                        {availableCountries.length > 0 && (
-                          <div className="mb-4">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Country</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {availableCountries.map(country => (
-                                <button
-                                  key={country}
-                                  onClick={() => {
-                                    setFilterCountries(prev =>
-                                      prev.includes(country)
-                                        ? prev.filter(c => c !== country)
-                                        : [...prev, country]
-                                    );
-                                  }}
                                   className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                    filterCountries.includes(country)
+                                    filterFunding === opt.value
                                       ? 'bg-indigo-600 text-white'
                                       : 'bg-muted text-muted-foreground hover:bg-accent'
                                   }`}
                                 >
-                                  {country}
+                                  {opt.label}
                                 </button>
                               ))}
                             </div>
                           </div>
-                        )}
+                        </div>
 
-                        {/* Application Round */}
-                        {availableRounds.length > 0 && (
-                          <div className="mb-4">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Application Round</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {availableRounds.map(round => (
-                                <button
-                                  key={round}
-                                  onClick={() => {
-                                    setFilterRounds(prev =>
-                                      prev.includes(round)
-                                        ? prev.filter(r => r !== round)
-                                        : [...prev, round]
-                                    );
-                                  }}
-                                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                    filterRounds.includes(round)
-                                      ? 'bg-indigo-600 text-white'
-                                      : 'bg-muted text-muted-foreground hover:bg-accent'
-                                  }`}
-                                >
-                                  {round}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Funding */}
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Funding</p>
-                          <div className="flex gap-1.5">
-                            {[
-                              { label: 'Any', value: '' },
-                              { label: 'Available', value: 'yes' },
-                              { label: 'Not available', value: 'no' },
-                            ].map(opt => (
-                              <button
-                                key={opt.value}
-                                onClick={() =>
-                                  setFilterFunding(
-                                    filterFunding === opt.value ? '' : opt.value
-                                  )
-                                }
-                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                  filterFunding === opt.value
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-muted text-muted-foreground hover:bg-accent'
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
+                        {/* Footer — mobile only */}
+                        <div className="md:hidden px-4 py-3 border-t border-border flex-shrink-0">
+                          <button
+                            onClick={() => setShowFilter(false)}
+                            className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium"
+                          >
+                            Apply filters
+                          </button>
                         </div>
                       </div>
                     </>
@@ -869,16 +849,46 @@ export function Applications() {
                 </div>
 
                 {/* Sort dropdown */}
-                <select
-                  value={sortOption}
-                  onChange={e => setSortOption(e.target.value)}
-                  className="py-2 px-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none flex-shrink-0 max-w-[110px] md:max-w-[160px] appearance-none"
-                >
-                  <option value="nearest-deadline">Deadline</option>
-                  <option value="recently-added">Recent</option>
-                  <option value="progress">Progress</option>
-                  <option value="name-az">Name A-Z</option>
-                </select>
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSortMenu(!showSortMenu);
+                      setShowFilter(false);
+                    }}
+                    className="flex items-center gap-1.5 py-2 px-3 text-sm border border-border rounded-lg hover:bg-accent bg-background"
+                  >
+                    {currentSortLabel}
+                    <ChevronDown size={14} />
+                  </button>
+
+                  {showSortMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowSortMenu(false)}
+                      />
+                      <div className="absolute z-50 top-full mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden right-0 min-w-[140px]">
+                        {SORT_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSortOption(option.value);
+                              setShowSortMenu(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${
+                              sortOption === option.value
+                                ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 font-medium'
+                                : 'text-foreground'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 {/* Asc/Desc toggle */}
                 <button
