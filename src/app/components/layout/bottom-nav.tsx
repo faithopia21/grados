@@ -3,11 +3,11 @@ import { LayoutDashboard, School, Calendar, FileText, Settings } from 'lucide-re
 import { cn } from '../../../lib/utils';
 
 const navItems = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Applications', path: '/applications', icon: School },
-  { name: 'Deadlines', path: '/deadlines', icon: Calendar },
-  { name: 'Documents', path: '/documents', icon: FileText },
-  { name: 'Settings', path: '/settings', icon: Settings },
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, tourId: undefined },
+  { name: 'Applications', path: '/applications', icon: School, tourId: 'tour-nav-applications' },
+  { name: 'Deadlines', path: '/deadlines', icon: Calendar, tourId: 'tour-nav-deadlines' },
+  { name: 'Documents', path: '/documents', icon: FileText, tourId: 'tour-nav-documents' },
+  { name: 'Settings', path: '/settings', icon: Settings, tourId: 'tour-nav-settings' },
 ];
 
 export function BottomNav() {
@@ -26,6 +26,7 @@ export function BottomNav() {
           return (
             <button
               key={item.path}
+              id={item.tourId}
               type="button"
               onClick={() => navigate(item.path)}
               className={cn(

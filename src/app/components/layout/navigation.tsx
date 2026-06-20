@@ -22,11 +22,11 @@ import {
 } from '../ui/tooltip';
 
 const navItems = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Applications', path: '/applications', icon: School },
-  { name: 'Deadlines', path: '/deadlines', icon: Calendar },
-  { name: 'Documents', path: '/documents', icon: FileText },
-  { name: 'Settings', path: '/settings', icon: Settings },
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, tourId: undefined },
+  { name: 'Applications', path: '/applications', icon: School, tourId: 'tour-nav-applications' },
+  { name: 'Deadlines', path: '/deadlines', icon: Calendar, tourId: 'tour-nav-deadlines' },
+  { name: 'Documents', path: '/documents', icon: FileText, tourId: 'tour-nav-documents' },
+  { name: 'Settings', path: '/settings', icon: Settings, tourId: 'tour-nav-settings' },
 ];
 
 interface NavigationProps {
@@ -136,6 +136,7 @@ export function Navigation({
                     {/* Desktop: icon + text in a row. Tablet: icon only, centered */}
                     <Link
                       to={item.path}
+                      id={item.tourId}
                       onClick={closeOverlay}
                       className={cn(
                         // Shared base

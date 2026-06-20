@@ -205,7 +205,7 @@ export function Dashboard() {
             Overview of your graduate application journey
           </p>
         </div>
-        <Button onClick={() => setIsAddSchoolOpen(true)} className="hidden md:flex">
+        <Button id="tour-add-school" onClick={() => setIsAddSchoolOpen(true)} className="hidden md:flex">
           <Plus className="h-4 w-4 mr-2" />
           Add New School
         </Button>

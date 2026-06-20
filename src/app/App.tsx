@@ -22,6 +22,7 @@ import { MobileHeader } from './components/layout/mobile-header';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { OfflineBanner } from './components/offline-banner';
 import { ErrorBoundary } from '@/app/components/error-boundary';
+import { ProductTour } from './components/product-tour';
 
 function LegacyApplicationRedirect() {
   const { id } = useParams();
@@ -110,6 +111,7 @@ function AppLayout() {
         </main>
       </div>
       {showBottomNav && <BottomNav />}
+      <ProductTour />
     </>
   );
 }

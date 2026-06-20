@@ -18,6 +18,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { toast } from 'sonner';
+import { fromZonedTime } from 'date-fns-tz';
 
 interface DbProgram {
   id: string;
@@ -211,34 +212,55 @@ export function Timeline() {
       'METHOD:PUBLISH',
     ];
 
+    const formatUTC = (date: Date): string => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
     const programsToExport = programs.filter(
       p => selectedForExport.includes(p.id) && p.deadline
     );
 
     programsToExport.forEach(program => {
-      const deadlineDate = program.deadline!;
       const deadlineTime = program.deadline_time || '23:59';
       const deadlineTimezone = program.deadline_timezone || 'UTC';
 
-      // Format DTSTART with timezone
-      const dateStr = deadlineDate.replace(/-/g, '');
-      const timeStr = deadlineTime.replace(':', '') + '00';
+      let deadlineUTC: Date;
+
+      try {
+        // fromZonedTime interprets the naive date-time string as being in
+        // the given timezone and returns the correct UTC Date.
+        const localDateTimeString = `${program.deadline}T${deadlineTime}:00`;
+        deadlineUTC = fromZonedTime(localDateTimeString, deadlineTimezone);
+        if (isNaN(deadlineUTC.getTime())) throw new Error('Invalid date');
+      } catch {
+        // Fallback: treat the deadline as UTC directly
+        deadlineUTC = new Date(`${program.deadline}T${deadlineTime}:00Z`);
+      }
+
+      // Event starts the day before at 8am UTC, ends at the actual deadline
+      const startUTC = new Date(deadlineUTC);
+      startUTC.setUTCDate(startUTC.getUTCDate() - 1);
+      startUTC.setUTCHours(8, 0, 0, 0);
 
       lines.push('BEGIN:VEVENT');
       lines.push(`UID:${program.id}@grados.app`);
-      lines.push(`DTSTART;TZID=${deadlineTimezone}:${dateStr}T${timeStr}`);
-      lines.push(`DTEND;TZID=${deadlineTimezone}:${dateStr}T${timeStr}`);
-      lines.push(
-        `SUMMARY:DEADLINE: ${program.school_name} \u2014 ${program.program_name}`
-      );
-      lines.push(
-        `DESCRIPTION:Application deadline for ${program.program_name} at ${program.school_name}.\\n` +
-        `Status: ${program.status || 'Not Started'}\\n` +
-        `Timezone: ${deadlineTimezone}`
-      );
+      lines.push(`DTSTAMP:${formatUTC(new Date())}`);
+      lines.push(`DTSTART:${formatUTC(startUTC)}`);
+      lines.push(`DTEND:${formatUTC(deadlineUTC)}`);
+      lines.push(`SUMMARY:DEADLINE: ${program.school_name} \u2014 ${program.program_name}`);
+
+      const description = [
+        `Application deadline for `,
+        `${program.program_name} at `,
+        `${program.school_name}.`,
+        `\\nStatus: ${program.status || 'Not Started'}`,
+      ].join('');
+
+      lines.push(`DESCRIPTION:${description}`);
       lines.push('STATUS:CONFIRMED');
 
-      // Add a VALARM for each selected interval
+      // Add a VALARM for each selected reminder interval,
+      // calculated relative to the UTC deadline time
       reminderIntervals.forEach(minutes => {
         const triggerValue = minutes === 0
           ? 'TRIGGER:PT0S'
@@ -262,6 +284,7 @@ export function Timeline() {
 
     lines.push('END:VCALENDAR');
 
+    // ICS requires CRLF line endings
     const icsContent = lines.join('\r\n');
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -270,6 +293,8 @@ export function Timeline() {
     a.download = 'GradOS-Deadlines.ics';
     a.click();
     URL.revokeObjectURL(url);
+
+    toast.success('Calendar file downloaded');
   };
 
   const DeadlineCard = ({ program }: { program: ProgramWithUrgency }) => {
