@@ -1,6 +1,23 @@
 import React from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 
+async function handleRefresh() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      for (const registration of registrations) {
+        await registration.unregister()
+      }
+    }
+    if ('caches' in window) {
+      const cacheNames = await caches.keys()
+      await Promise.all(cacheNames.map(name => caches.delete(name)))
+    }
+  } finally {
+    window.location.href = window.location.pathname + '?refresh=' + Date.now()
+  }
+}
+
 interface State {
   hasError: boolean
   error: Error | null
@@ -28,10 +45,10 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
     if (isChunkError) {
       const lastReload = localStorage.getItem('last_chunk_reload')
       const now = Date.now()
-      
+
       if (!lastReload || now - parseInt(lastReload) > 10000) {
         localStorage.setItem('last_chunk_reload', now.toString())
-        window.location.reload()
+        handleRefresh()
         return
       }
     }
@@ -56,7 +73,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => window.location.reload()}
+              onClick={handleRefresh}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
             >
               <RefreshCw size={14} />

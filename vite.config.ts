@@ -27,10 +27,46 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // Do NOT precache html — it must always come from the network first
+        // so it references the correct current chunk hashes
+        globPatterns: [
+          '**/*.{js,css,ico,png,svg,woff2}'
+        ],
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            // Navigation requests (the HTML shell) — always try network first,
+            // only use cache if completely offline
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html-cache',
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 5,
+                maxAgeSeconds: 60 * 60, // 1 hour
+              },
+            },
+          },
+          {
+            // JS and CSS chunks — content-hashed and immutable, safe to cache
+            // aggressively, but still verify with network when possible
+            urlPattern: ({ request }) =>
+              request.destination === 'script' ||
+              request.destination === 'style',
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'asset-cache',
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+            },
+          },
+        ],
       },
       manifest: {
         name: 'GradOS',
