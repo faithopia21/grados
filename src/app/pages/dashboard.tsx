@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
+import { ProductTour } from '@/app/components/product-tour';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -197,7 +198,9 @@ export function Dashboard() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-8">
+    <>
+      <ProductTour />
+      <div className="p-4 md:p-8 space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
@@ -211,7 +214,7 @@ export function Dashboard() {
         </Button>
       </div>
 
-      <FABButton onClick={() => setIsAddSchoolOpen(true)} />
+      <FABButton id="tour-add-school-mobile" onClick={() => setIsAddSchoolOpen(true)} />
 
       <AddSchoolDialog
         open={isAddSchoolOpen}
@@ -440,5 +443,6 @@ export function Dashboard() {
       </>
       )}
     </div>
+    </>
   );
 }

@@ -4,10 +4,10 @@ import { cn } from '../../../lib/utils';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, tourId: undefined },
-  { name: 'Applications', path: '/applications', icon: School, tourId: 'tour-nav-applications' },
-  { name: 'Deadlines', path: '/deadlines', icon: Calendar, tourId: 'tour-nav-deadlines' },
-  { name: 'Documents', path: '/documents', icon: FileText, tourId: 'tour-nav-documents' },
-  { name: 'Settings', path: '/settings', icon: Settings, tourId: 'tour-nav-settings' },
+  { name: 'Applications', path: '/applications', icon: School, tourId: 'tour-nav-applications-mobile' },
+  { name: 'Deadlines', path: '/deadlines', icon: Calendar, tourId: 'tour-nav-deadlines-mobile' },
+  { name: 'Documents', path: '/documents', icon: FileText, tourId: 'tour-nav-documents-mobile' },
+  { name: 'Settings', path: '/settings', icon: Settings, tourId: 'tour-nav-settings-mobile' },
 ];
 
 export function BottomNav() {

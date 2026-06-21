@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 
 interface TourStep {
   targetId: string;
+  mobileTargetId?: string;
   title: string;
   description: string;
   placement: 'bottom' | 'top' | 'left' | 'right';
@@ -12,13 +13,15 @@ interface TourStep {
 const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'tour-add-school',
+    mobileTargetId: 'tour-add-school-mobile',
     title: 'Add your first school',
     description:
-      'Click here to add a graduate school and start tracking your application.',
+      'Tap here to add a graduate school and start tracking your application.',
     placement: 'bottom',
   },
   {
     targetId: 'tour-nav-applications',
+    mobileTargetId: 'tour-nav-applications-mobile',
     title: 'All your applications',
     description:
       'See every application you have added, with search, filter, and sort.',
@@ -26,6 +29,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'tour-nav-deadlines',
+    mobileTargetId: 'tour-nav-deadlines-mobile',
     title: 'Never miss a deadline',
     description:
       'Track every deadline in one place and export them to your calendar.',
@@ -33,6 +37,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'tour-nav-documents',
+    mobileTargetId: 'tour-nav-documents-mobile',
     title: 'Your document library',
     description:
       'Upload your SOP, CV, and transcripts once — reuse them across every application.',
@@ -40,12 +45,34 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'tour-nav-settings',
+    mobileTargetId: 'tour-nav-settings-mobile',
     title: 'Settings and support',
     description:
       'Manage your account, get help, and export your application data anytime.',
     placement: 'right',
   },
 ];
+
+function getVisibleElement(step: TourStep): HTMLElement | null {
+  const isMobile = window.innerWidth < 768;
+
+  const tryId = (id: string): HTMLElement | null => {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    // offsetParent is null when an element or an ancestor has display: none
+    if (el.offsetParent === null) return null;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    return el;
+  };
+
+  if (isMobile && step.mobileTargetId) {
+    const mobileEl = tryId(step.mobileTargetId);
+    if (mobileEl) return mobileEl;
+  }
+
+  return tryId(step.targetId);
+}
 
 export function ProductTour() {
   const [isActive, setIsActive] = useState(false);
@@ -64,12 +91,15 @@ export function ProductTour() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('product_tour_completed')
+      .select('onboarding_completed, product_tour_completed')
       .eq('id', user.id)
       .maybeSingle();
 
-    if (profile && !profile.product_tour_completed) {
-      // Small delay to let the dashboard fully render first
+    // Only show tour if onboarding IS complete AND tour has NOT been seen
+    if (
+      profile?.onboarding_completed === true &&
+      profile?.product_tour_completed !== true
+    ) {
       setTimeout(() => {
         setIsActive(true);
         setCurrentStep(0);
@@ -77,26 +107,58 @@ export function ProductTour() {
     }
   };
 
+  // Step change: scroll to element then measure after scroll settles
   useEffect(() => {
     if (!isActive) return;
 
     const step = TOUR_STEPS[currentStep];
-    const element = document.getElementById(step.targetId);
 
-    if (element) {
-      const rect = element.getBoundingClientRect();
-      setTargetRect(rect);
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      // Element not found (e.g. mobile sidebar hidden) — skip to next available step
-      if (currentStep < TOUR_STEPS.length - 1) {
-        setCurrentStep(currentStep + 1);
+    // Small delay to ensure layout has settled after any previous scroll
+    const timer = setTimeout(() => {
+      const element = getVisibleElement(step);
+
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Wait for scroll animation to finish before measuring position
+        setTimeout(() => {
+          const rect = element.getBoundingClientRect();
+          setTargetRect(rect);
+        }, 350);
       } else {
-        handleFinish();
+        // No visible element for this step on this screen size — skip to next step
+        if (currentStep < TOUR_STEPS.length - 1) {
+          setCurrentStep(currentStep + 1);
+        } else {
+          handleFinish();
+        }
       }
-    }
+    }, 100);
+
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, currentStep]);
+
+  // Recalculate position on window resize or scroll
+  useEffect(() => {
+    if (!isActive || !targetRect) return;
+
+    const updateRect = () => {
+      const step = TOUR_STEPS[currentStep];
+      const element = getVisibleElement(step);
+      if (element) {
+        setTargetRect(element.getBoundingClientRect());
+      }
+    };
+
+    window.addEventListener('resize', updateRect);
+    window.addEventListener('scroll', updateRect, true);
+
+    return () => {
+      window.removeEventListener('resize', updateRect);
+      window.removeEventListener('scroll', updateRect, true);
+    };
+  }, [isActive, currentStep, targetRect]);
 
   const handleNext = () => {
     if (currentStep < TOUR_STEPS.length - 1) {
@@ -133,33 +195,40 @@ export function ProductTour() {
 
   const step = TOUR_STEPS[currentStep];
 
-  // Calculate tooltip position based on placement
+  // Calculate tooltip position based on placement, clamped within viewport
   const getTooltipStyle = (): React.CSSProperties => {
     const gap = 12;
+    const tooltipWidth = 288; // w-72
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let top = 0;
+    let left = 0;
+
     switch (step.placement) {
       case 'bottom':
-        return {
-          top: targetRect.bottom + gap,
-          left: Math.max(16, targetRect.left),
-        };
+        top = targetRect.bottom + gap;
+        left = targetRect.left;
+        break;
       case 'right':
-        return {
-          top: targetRect.top,
-          left: targetRect.right + gap,
-        };
+        top = targetRect.top;
+        left = targetRect.right + gap;
+        break;
       case 'top':
-        return {
-          top: targetRect.top - gap - 140,
-          left: targetRect.left,
-        };
+        top = targetRect.top - gap - 160;
+        left = targetRect.left;
+        break;
       case 'left':
-        return {
-          top: targetRect.top,
-          left: targetRect.left - gap - 280,
-        };
-      default:
-        return { top: targetRect.bottom + gap, left: targetRect.left };
+        top = targetRect.top;
+        left = targetRect.left - gap - tooltipWidth;
+        break;
     }
+
+    // Clamp within viewport with 16px margin
+    left = Math.max(16, Math.min(left, viewportWidth - tooltipWidth - 16));
+    top = Math.max(16, Math.min(top, viewportHeight - 200));
+
+    return { top, left };
   };
 
   return (
