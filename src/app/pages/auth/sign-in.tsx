@@ -15,6 +15,7 @@ export function SignIn() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const [searchParams] = useSearchParams();
   const wasDeleted = searchParams.get('deleted');
@@ -31,6 +32,8 @@ export function SignIn() {
     setLoading(true);
 
     try {
+      localStorage.setItem('grados_remember_me', rememberMe ? 'true' : 'false');
+
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -56,6 +59,7 @@ export function SignIn() {
   const handleGoogleSignIn = async () => {
     setError('');
     setGoogleLoading(true);
+    localStorage.setItem('grados_remember_me', 'true');
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -130,7 +134,16 @@ export function SignIn() {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                className="accent-indigo-600 w-4 h-4"
+              />
+              <span className="text-sm text-muted-foreground">Remember me</span>
+            </label>
             <button
               type="button"
               onClick={() => navigate('/forgot-password')}

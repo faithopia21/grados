@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router';
 import { X, ChevronRight, ChevronLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -75,13 +76,19 @@ function getVisibleElement(step: TourStep): HTMLElement | null {
 }
 
 export function ProductTour() {
+  const location = useLocation();
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [stepsShown, setStepsShown] = useState(0);
 
   useEffect(() => {
+    // Only ever check/run on the dashboard route
+    if (location.pathname !== '/dashboard') {
+      return;
+    }
     checkShouldShowTour();
-  }, []);
+  }, [location.pathname]);
 
   const checkShouldShowTour = async () => {
     const {
@@ -107,6 +114,11 @@ export function ProductTour() {
     }
   };
 
+  // Hide without writing to Supabase — tour will be offered again next visit
+  const hideTourWithoutCompleting = () => {
+    setIsActive(false);
+  };
+
   // Step change: scroll to element then measure after scroll settles
   useEffect(() => {
     if (!isActive) return;
@@ -118,6 +130,7 @@ export function ProductTour() {
       const element = getVisibleElement(step);
 
       if (element) {
+        setStepsShown(prev => prev + 1);
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         // Wait for scroll animation to finish before measuring position
@@ -130,7 +143,10 @@ export function ProductTour() {
         if (currentStep < TOUR_STEPS.length - 1) {
           setCurrentStep(currentStep + 1);
         } else {
-          handleFinish();
+          // Ran out of steps because NO elements were found at all — this means
+          // we are not actually in a state where the tour should run.
+          // Hide without marking complete so it can try again next visit.
+          hideTourWithoutCompleting();
         }
       }
     }, 100);
@@ -180,6 +196,13 @@ export function ProductTour() {
 
   const handleFinish = async () => {
     setIsActive(false);
+
+    // Only write to Supabase if at least one step was actually shown
+    if (stepsShown === 0) {
+      // Tour never displayed anything real — do not mark as completed
+      return;
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
