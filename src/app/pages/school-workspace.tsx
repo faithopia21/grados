@@ -722,23 +722,59 @@ export function SchoolWorkspace() {
   const handleGenerateDefaultChecklist = async () => {
     if (!program) return;
 
-    const rows = DEFAULT_CHECKLIST_LABELS.map(label => ({
-      program_id: program.id,
-      label,
-      is_required: true,
-      is_done: false,
-      status: 'Not Started',
-    }));
+    // Check what labels already exist for this program before inserting
+    const { data: existing } = await supabase
+      .from('checklist_items')
+      .select('label')
+      .eq('program_id', program.id);
 
-    const { data, error } = await supabase.from('checklist_items').insert(rows).select();
+    const existingLabels = new Set(
+      (existing || []).map(item => item.label.toLowerCase().trim())
+    );
+
+    const defaultItems = [
+      { label: 'Statement of Purpose', is_required: true, is_done: false, status: 'Not Started' },
+      { label: 'CV/Resume', is_required: true, is_done: false, status: 'Not Started' },
+      { label: 'Transcripts', is_required: true, is_done: false, status: 'Not Started' },
+      { label: 'Letter of Recommendation 1', is_required: true, is_done: false, status: 'Not Started' },
+      { label: 'Letter of Recommendation 2', is_required: true, is_done: false, status: 'Not Started' },
+      { label: 'Letter of Recommendation 3', is_required: false, is_done: false, status: 'Not Started' },
+      { label: 'Application Fee', is_required: true, is_done: false, status: 'Not Started' },
+      { label: 'Personal Statement', is_required: false, is_done: false, status: 'Not Started' },
+      { label: 'Research Proposal', is_required: false, is_done: false, status: 'Not Started' },
+      { label: 'English Proficiency Test', is_required: false, is_done: false, status: 'Not Started' },
+      { label: 'GRE Scores', is_required: false, is_done: false, status: 'Not Started' },
+      { label: 'Writing Sample', is_required: false, is_done: false, status: 'Not Started' },
+    ];
+
+    // Only insert items whose label does not already exist for this program
+    const itemsToInsert = defaultItems.filter(
+      item => !existingLabels.has(item.label.toLowerCase().trim())
+    );
+
+    if (itemsToInsert.length === 0) {
+      toast.info('Checklist already exists for this application');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('checklist_items')
+      .insert(
+        itemsToInsert.map(item => ({
+          ...item,
+          program_id: program.id,
+          created_at: new Date().toISOString(),
+        }))
+      )
+      .select();
 
     if (error) {
       toast.error(error.message);
       return;
     }
 
-    setChecklistItems(data as ChecklistItem[]);
-    toast.success('Default checklist created');
+    setChecklistItems(prev => [...prev, ...(data as ChecklistItem[])]);
+    toast.success(`Added ${itemsToInsert.length} item${itemsToInsert.length === 1 ? '' : 's'} to your checklist`);
   };
 
   const handleDeleteChecklistItem = async (itemId: string) => {

@@ -122,22 +122,28 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
   };
 
   const handleDelete = async (noteId: string) => {
-    const { data, error } = await supabase.from('program_notes').delete().eq('id', noteId).select('id');
-
-    if (error) {
-      toast.error(error.message);
+    if (!noteId) {
+      toast.error('Invalid note ID');
       return;
     }
 
-    if (!data || data.length === 0) {
-      toast.error('Note could not be deleted or was already deleted');
-      fetchNotes(); // Resync state since delete failed on server
-      setDeleteConfirmId(null);
-      return;
-    }
-
+    // Optimistic update — remove from UI immediately
     setNotes(prev => prev.filter(n => n.id !== noteId));
     setDeleteConfirmId(null);
+
+    const { error } = await supabase
+      .from('program_notes')
+      .delete()
+      .eq('id', noteId);
+
+    if (error) {
+      // Delete failed on the server — restore correct state
+      toast.error('Failed to delete note. Please try again.');
+      fetchNotes();
+      return;
+    }
+
+    toast.success('Note deleted');
   };
 
   const handleTogglePin = async (note: ProgramNoteRow, e: React.MouseEvent) => {
