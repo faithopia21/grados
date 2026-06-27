@@ -15,6 +15,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { PageSkeleton } from '../components/page-skeleton';
 import { getShortTimezoneLabel } from '../../lib/timezone';
+import { toast } from 'sonner';
 
 export interface DbProgram {
   id: string;
@@ -34,12 +35,17 @@ export interface DbProgram {
 }
 
 function mapDbStatus(status: string) {
-  const normalized = status?.toLowerCase().replace(/\s+/g, '_');
-  if (normalized === 'Not Started') return 'Not Started';
-  if (normalized === 'In Progress') return 'In Progress';
-  if (normalized === 'submitted') return 'submitted';
-  if (normalized === 'Ready to Submit') return 'Ready to Submit';
-  return 'Not Started';
+  const normalized = status?.toLowerCase()
+    .replace(/\s+/g, '_') ?? 'not_started'
+  if (normalized === 'not_started') return 'Not Started'
+  if (normalized === 'in_progress') return 'In Progress'
+  if (normalized === 'submitted') return 'submitted'
+  if (normalized === 'ready_to_submit') return 'Ready to Submit'
+  if (normalized === 'accepted') return 'accepted'
+  if (normalized === 'rejected') return 'rejected'
+  if (normalized === 'interview') return 'interview'
+  if (normalized === 'waitlisted') return 'waitlisted'
+  return 'Not Started'
 }
 
 export function Dashboard() {

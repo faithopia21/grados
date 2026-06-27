@@ -104,7 +104,7 @@ export function ForgotPassword() {
         {/* Footer */}
         <div className="mt-6 text-center">
           <button
-            onClick={() => navigate('/sign-in')}
+            onClick={() => navigate('/signin')}
             className="text-[13px] hover:underline"
             style={{ color: '#4F46E5' }}
           >

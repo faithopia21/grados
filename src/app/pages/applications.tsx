@@ -28,6 +28,7 @@ import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { Skeleton } from '../components/ui/skeleton';
 
 interface DbProgram {
   id: string;
@@ -41,6 +42,12 @@ interface DbProgram {
   portal_url: string | null;
   status: string;
   created_at: string;
+  department?: string | null;
+  tuition?: string | null;
+  ranking?: string | null;
+  application_round?: string | null;
+  funding_deadline?: string | null;
+  notes?: string | null;
 }
 
 interface ProgramWithProgress extends DbProgram {
