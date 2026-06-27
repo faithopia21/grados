@@ -29,14 +29,36 @@ interface ProfileSummary {
 }
 
 function getProfileCompletion(profile: ProfileSummary | null): number {
-  if (!profile) return 0;
+  if (!profile) return 0
+
+  const educationData = (profile as any).education
+    ? (() => {
+        try {
+          return JSON.parse((profile as any).education)
+        } catch { return null }
+      })()
+    : null
+
+  const hasEducation = !!(
+    educationData?.institution &&
+    educationData?.degree
+  )
+
   const fields = [
-    profile.full_name,
+    (profile as any).full_name,
     profile.nationality,
     profile.current_institution,
-  ];
-  const filled = fields.filter(f => f != null && String(f).trim() !== '').length;
-  return Math.round((filled / fields.length) * 100);
+    (profile as any).intended_degree,
+    (profile as any).field_of_study,
+    (profile as any).intended_start_term,
+    hasEducation ? 'filled' : null,
+  ]
+
+  const filled = fields.filter(
+    f => f != null && String(f).trim() !== ''
+  ).length
+
+  return Math.round((filled / 7) * 100)
 }
 
 export function Settings() {
@@ -90,7 +112,11 @@ export function Settings() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, nationality, current_institution')
+        .select(`
+          full_name, nationality, current_institution,
+          intended_degree, field_of_study,
+          intended_start_term, education
+        `)
         .eq('id', user.id)
         .maybeSingle();
 
@@ -328,10 +354,7 @@ export function Settings() {
       toast.success('All application data cleared successfully.');
       setIsClearDataModalOpen(false);
       setClearDataConfirmText('');
-      
-      // Clear local onboarding settings to force reset
-      await supabase.from('user_settings').delete().eq('user_id', userId);
-      
+
       navigate('/onboarding');
     } catch (error: any) {
       toast.error('Failed to clear data: ' + error.message);
@@ -379,7 +402,32 @@ export function Settings() {
         
         await supabase.from('programs').delete().eq('user_id', userId);
       }
-      
+
+      // Delete files from storage
+      const { data: docs } = await supabase
+        .from('documents')
+        .select('storage_path, file_url')
+        .eq('user_id', userId)
+
+      if (docs && docs.length > 0) {
+        const paths = docs
+          .map((d: any) => {
+            if (d.storage_path) return d.storage_path
+            if (!d.file_url) return null
+            const marker = '/documents/'
+            const idx = d.file_url.indexOf(marker)
+            if (idx === -1) return null
+            return decodeURIComponent(
+              d.file_url.slice(idx + marker.length).split('?')[0]
+            )
+          })
+          .filter(Boolean) as string[]
+
+        if (paths.length > 0) {
+          await supabase.storage.from('documents').remove(paths)
+        }
+      }
+
       // Delete documents
       await supabase.from('documents').delete().eq('user_id', userId);
       

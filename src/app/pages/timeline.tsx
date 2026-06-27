@@ -247,7 +247,7 @@ export function Timeline() {
       lines.push(`DTSTAMP:${formatUTC(new Date())}`);
       lines.push(`DTSTART:${formatUTC(startUTC)}`);
       lines.push(`DTEND:${formatUTC(deadlineUTC)}`);
-      lines.push(`SUMMARY:DEADLINE: ${program.school_name} \u2014 ${program.program_name}`);
+      lines.push(`SUMMARY:DEADLINE: ${program.school_name} - ${program.program_name}`);
 
       const description = [
         `Application deadline for `,

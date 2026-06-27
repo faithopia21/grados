@@ -28,7 +28,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
