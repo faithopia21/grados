@@ -206,6 +206,15 @@ Run through this before git push:
   manually until a server-side deletion 
   function is implemented in V2.
 
+- Auth tokens are stored in localStorage
+  when "Remember me" is enabled. This 
+  follows Supabase's recommended pattern
+  for SPAs. The risk is documented and 
+  accepted for beta. AUTH.md's 
+  recommendation against localStorage 
+  applies to custom JWT implementations, 
+  not Supabase's managed auth SDK.
+
 ---
 
 ## V2 Security Improvements Planned

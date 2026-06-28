@@ -74,7 +74,8 @@ export function UploadDocumentFlow({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const filePath = `${user.id}/${Date.now()}-${fileToUpload.name}`;
+    const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filePath = `${user.id}/${Date.now()}-${safeName}`;
 
     const uploadPromise = supabase.storage
       .from('documents')
@@ -113,7 +114,7 @@ export function UploadDocumentFlow({
       .from('documents')
       .insert({
         user_id: user.id,
-        name: fileToUpload.name,
+        name: safeName,
         doc_type: selectedType,
         file_url: urlData.publicUrl,
         file_size: `${(fileToUpload.size / 1024).toFixed(0)} KB`,

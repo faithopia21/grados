@@ -12,7 +12,7 @@ import {
   GraduationCap,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
-import { ThemeToggle } from '../theme-toggle';
+
 import gradosLogo from '../../../assets/logo.svg';
 import { supabase } from '../../../lib/supabase';
 import {
@@ -70,24 +70,7 @@ export function Navigation({
     location.pathname === path ||
     (path === '/dashboard' && location.pathname === '/');
 
-  // Desktop (lg+): full row with icon + text
-  const desktopLinkClass = (isActive: boolean) =>
-    cn(
-      'flex flex-row items-center gap-3 w-full px-4 py-2.5 rounded-lg transition-colors min-h-[44px]',
-      'text-[13px] font-medium',
-      isActive
-        ? 'bg-[#EEF2FF] text-[#4F46E5] border-l-2 border-[#4F46E5] dark:bg-indigo-950/40'
-        : 'text-[#888780] hover:bg-accent/60'
-    );
 
-  // Tablet (md, not lg): icon-only centered
-  const tabletLinkClass = (isActive: boolean) =>
-    cn(
-      'flex items-center justify-center w-full min-h-[44px] rounded-lg transition-colors',
-      isActive
-        ? 'bg-[--primary-light] text-primary border-l-2 border-primary'
-        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-    );
 
   return (
     <>
@@ -118,7 +101,7 @@ export function Navigation({
             <img 
               src={gradosLogo} 
               alt="GradOS"
-              className="h-13 w-auto object-contain"
+              className="h-12 w-auto object-contain"
             />
           </div>
         </div>
@@ -175,9 +158,13 @@ export function Navigation({
         <div className="md:flex lg:hidden flex-col border-t border-border p-2 items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex justify-center w-full">
-                <ThemeToggle />
-              </div>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="flex items-center justify-center w-full min-h-[44px] rounded-lg transition-colors text-muted-foreground hover:bg-accent/60"
+              >
+                {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              </button>
             </TooltipTrigger>
             <TooltipContent side="right">Theme</TooltipContent>
           </Tooltip>
