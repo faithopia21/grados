@@ -108,7 +108,6 @@ export function UploadDocumentFlow({
     setUploadProgress(100);
     await new Promise(r => setTimeout(r, 400));
     
-    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
 
     const { data: inserted, error: insertError } = await supabase
       .from('documents')
@@ -116,7 +115,7 @@ export function UploadDocumentFlow({
         user_id: user.id,
         name: safeName,
         doc_type: selectedType,
-        file_url: urlData.publicUrl,
+        file_url: '',
         file_size: `${(fileToUpload.size / 1024).toFixed(0)} KB`,
         version: version,
         storage_path: filePath,

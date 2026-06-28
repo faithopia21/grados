@@ -334,7 +334,11 @@ export function SchoolWorkspace() {
 
   const handleBulkDeleteChecklist = async () => {
     const ids = Array.from(checklistSelection.selectedIds);
-    const { error } = await supabase.from('checklist_items').delete().in('id', ids);
+    const { error } = await supabase
+      .from('checklist_items')
+      .delete()
+      .in('id', ids)
+      .eq('program_id', program?.id);
     if (!error) {
       setChecklistItems(prev => prev.filter(i => !checklistSelection.selectedIds.has(i.id)));
       checklistSelection.clearSelection();
@@ -358,7 +362,11 @@ export function SchoolWorkspace() {
 
   const handleBulkDeleteRecommenders = async () => {
     const ids = Array.from(recommenderSelection.selectedIds);
-    const { error } = await supabase.from('recommenders').delete().in('id', ids);
+    const { error } = await supabase
+      .from('recommenders')
+      .delete()
+      .in('id', ids)
+      .eq('program_id', program?.id);
     if (!error) {
       setRecommenders(prev => prev.filter(r => !recommenderSelection.selectedIds.has(r.id)));
       recommenderSelection.clearSelection();
@@ -370,7 +378,11 @@ export function SchoolWorkspace() {
 
   const handleBulkDeleteLinks = async () => {
     const ids = Array.from(linkSelection.selectedIds);
-    const { error } = await supabase.from('portal_links').delete().in('id', ids);
+    const { error } = await supabase
+      .from('portal_links')
+      .delete()
+      .in('id', ids)
+      .eq('program_id', program?.id);
     if (!error) {
       setPortalLinks(prev => prev.filter(l => !linkSelection.selectedIds.has(l.id)));
       linkSelection.clearSelection();

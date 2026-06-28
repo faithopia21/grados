@@ -152,6 +152,9 @@ function ApplicationCard({
   const handleDelete = async () => {
     setDeleting(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       await Promise.all([
         supabase.from('checklist_items').delete().eq('program_id', program.id),
         supabase.from('program_notes').delete().eq('program_id', program.id),
@@ -159,7 +162,11 @@ function ApplicationCard({
         supabase.from('portal_links').delete().eq('program_id', program.id),
         supabase.from('program_documents').delete().eq('program_id', program.id)
       ]);
-      const { error } = await supabase.from('programs').delete().eq('id', program.id);
+      const { error } = await supabase
+        .from('programs')
+        .delete()
+        .eq('id', program.id)
+        .eq('user_id', user.id);
       if (error) throw error;
       onDeleted(program.id);
       toast.success('Application deleted');

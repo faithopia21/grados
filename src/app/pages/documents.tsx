@@ -165,7 +165,11 @@ export function Documents() {
         if (storageError) throw storageError;
       }
 
-      const { error: dbError } = await supabase.from('documents').delete().eq('id', doc.id);
+      const { error: dbError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', doc.id)
+        .eq('user_id', doc.user_id);
       if (dbError) throw dbError;
 
       setDocuments(prev => prev.filter(d => d.id !== doc.id));
@@ -181,22 +185,27 @@ export function Documents() {
   };
 
   const handleDownload = async (doc: DbDocument) => {
-    try {
-      if (doc.storage_path) {
-        const { data, error } = await supabase.storage
-          .from('documents')
-          .createSignedUrl(doc.storage_path, 60);
+    if (!doc.storage_path) {
+      toast.error(
+        'File path not found. Please re-upload this document.'
+      )
+      return
+    }
 
-        if (error) throw error;
-        if (data?.signedUrl) {
-          window.open(data.signedUrl, '_blank');
-        }
-      } else if (doc.file_url) {
-        window.open(doc.file_url, '_blank');
+    try {
+      const { data, error } = await supabase
+        .storage
+        .from('documents')
+        .createSignedUrl(doc.storage_path, 60)
+
+      if (error) throw error
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank')
       }
     } catch (err: any) {
-      console.error('Download error:', err);
-      toast.error('Failed to download document');
+      console.error('Download error:', err)
+      toast.error('Failed to download document')
     }
   };
 
