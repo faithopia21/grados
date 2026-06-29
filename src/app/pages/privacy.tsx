@@ -82,7 +82,7 @@ export function PrivacyPolicy() {
                 <span className="text-foreground font-medium">
                   Documents.
                 </span>{' '}
-                Files you upload — such as statements of purpose, CVs,
+                Files you upload such as statements of purpose, CVs,
                 transcripts, and writing samples. These are stored in a private
                 storage bucket that only you can access.
               </p>
@@ -109,7 +109,7 @@ export function PrivacyPolicy() {
             <p className="text-muted-foreground">
               Only you. Your data is protected by row-level security policies in
               our database, which means no other user can access your
-              applications, documents, or profile — even if they knew your
+              applications, documents, or profile even if they knew your
               account existed. The GradOS team can access anonymised usage
               patterns for the purpose of improving the product, but not your
               personal application data or uploaded files.
@@ -163,7 +163,7 @@ export function PrivacyPolicy() {
             </h2>
             <p className="text-muted-foreground">
               GradOS stores a small amount of information in your browser's
-              local storage — your session token (to keep you signed in), your
+              local storage your session token (to keep you signed in), your
               theme preference (light or dark), and your last-used filter and
               sort settings. We do not use third-party tracking cookies or
               advertising cookies of any kind.
