@@ -3,9 +3,13 @@
   import App from "./app/App.tsx";
   import "./styles/index.css";
 
-  const theme = localStorage.getItem('theme');
-  if (theme === 'dark') {
-    document.documentElement.classList.add('dark');
+  try {
+    const theme = localStorage.getItem('theme');
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+  } catch {
+    // localStorage unavailable
   }
 
 // Unregister stale service worker and clear all caches before reloading,
