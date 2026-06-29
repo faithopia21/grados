@@ -778,6 +778,22 @@ export function Settings() {
               </div>
               <span className="text-sm">MVP v1.0</span>
             </div>
+            <div className="flex items-center justify-between pt-2">
+              <div className="space-y-0.5">
+                <Label>Privacy Policy</Label>
+                <p className="text-xs text-muted-foreground">
+                  How we handle your data
+                </p>
+              </div>
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-indigo-600 hover:underline"
+              >
+                View Policy
+              </a>
+            </div>
           </CardContent>
         )}
       </Card>

@@ -208,11 +208,18 @@ export function SignUp() {
             />
             <label htmlFor="terms" className="text-[13px] text-muted-foreground leading-tight">
               I agree to the{' '}
+              {/* TODO: add a Terms of Service page */}
               <a href="#" className="hover:underline" style={{ color: '#4F46E5' }}>
                 Terms of Service
               </a>{' '}
               and{' '}
-              <a href="#" className="hover:underline" style={{ color: '#4F46E5' }}>
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+                style={{ color: '#4F46E5' }}
+              >
                 Privacy Policy
               </a>
             </label>

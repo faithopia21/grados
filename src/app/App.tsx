@@ -16,6 +16,7 @@ import { SignIn } from './pages/auth/sign-in';
 import { SignUp } from './pages/auth/sign-up';
 import { Onboarding } from './pages/auth/onboarding';
 import { ForgotPassword } from './pages/auth/forgot-password';
+import { PrivacyPolicy } from './pages/privacy';
 import { ResetPassword } from './pages/auth/reset-password';
 import { AuthCallback } from './pages/auth/callback';
 import { BottomNav } from './components/layout/bottom-nav';
@@ -125,6 +126,7 @@ function AppRoutes() {
         <Route path="/signin" element={<SignIn />} />
         <Route path="/sign-in" element={<Navigate to="/signin" replace />} />
         <Route path="/sign-up" element={<SignUp />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
