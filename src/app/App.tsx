@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router';
 import { Menu } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import { ApplicationProvider } from '../contexts/ApplicationContext';
 import { Toaster } from './components/ui/sonner';
 import { Navigation } from './components/layout/navigation';
@@ -147,6 +148,7 @@ export default function App() {
       <BrowserRouter>
         <AppRoutes />
         <Toaster />
+        <Analytics />
       </BrowserRouter>
     </ApplicationProvider>
   );
