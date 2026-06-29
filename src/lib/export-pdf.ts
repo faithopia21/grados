@@ -11,7 +11,7 @@ export async function exportApplicationsPDF(
   // Header
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('GradOS — Application Summary', 20, y);
+  doc.text('GradOS - Application Summary', 20, y);
   y += 8;
   
   doc.setFontSize(10);
