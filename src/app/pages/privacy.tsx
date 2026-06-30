@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, X } from 'lucide-react'
 import gradosLogo from '../../assets/logo.svg'
 
 export function PrivacyPolicy() {
@@ -16,13 +16,23 @@ export function PrivacyPolicy() {
             alt="GradOS"
             className="h-8 w-auto object-contain"
           />
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronLeft size={16} />
-            Back
-          </button>
+          {window.opener ? (
+            <button
+              onClick={() => window.close()}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X size={16} />
+              Close
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronLeft size={16} />
+              Back
+            </button>
+          )}
         </div>
       </div>
 
