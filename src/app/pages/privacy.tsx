@@ -1,38 +1,20 @@
-import { useNavigate } from 'react-router'
-import { ChevronLeft, X } from 'lucide-react'
 import gradosLogo from '../../assets/logo.svg'
 
+
 export function PrivacyPolicy() {
-  const navigate = useNavigate()
+
 
   return (
     <div className="min-h-screen bg-[#F8F8F8] dark:bg-background">
 
       {/* Header */}
       <div className="border-b border-border bg-card px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+        <div className="max-w-2xl mx-auto flex items-center">
           <img
             src={gradosLogo}
             alt="GradOS"
             className="h-8 w-auto object-contain"
           />
-          {window.opener ? (
-            <button
-              onClick={() => window.close()}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X size={16} />
-              Close
-            </button>
-          ) : (
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronLeft size={16} />
-              Back
-            </button>
-          )}
         </div>
       </div>
 
