@@ -79,10 +79,7 @@ function getLeftBorderClass(bucket: UrgencyBucket): string {
 const REMINDER_PRESETS = [
   { label: '1 week before', minutes: 10080 },
   { label: '3 days before', minutes: 4320 },
-  { label: '2 days before', minutes: 2880 },
   { label: '1 day before', minutes: 1440 },
-  { label: '12 hours before', minutes: 720 },
-  { label: '6 hours before', minutes: 360 },
   { label: '1 hour before', minutes: 60 },
   { label: 'On the deadline day', minutes: 0 },
 ];
@@ -540,10 +537,10 @@ export function Timeline() {
                   </div>
 
                   {/* Show custom interval tags */}
-                  {reminderIntervals.filter(m => ![10080, 4320, 2880, 1440, 720, 360, 60, 0].includes(m)).length > 0 && (
+                  {reminderIntervals.filter(m => ![10080, 4320, 1440, 60, 0].includes(m)).length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {reminderIntervals
-                        .filter(m => ![10080, 4320, 2880, 1440, 720, 360, 60, 0].includes(m))
+                        .filter(m => ![10080, 4320, 1440, 60, 0].includes(m))
                         .map(m => {
                           const label = m >= 43200
                             ? `${Math.round(m / 43200)} month(s) before`
