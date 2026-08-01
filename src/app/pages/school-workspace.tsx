@@ -312,6 +312,7 @@ export function SchoolWorkspace() {
     }
   };
   const [newItemLabel, setNewItemLabel] = useState('');
+  const [newItemRequired, setNewItemRequired] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [recommenderDeleteId, setRecommenderDeleteId] = useState<string | null>(null);
   const [briefingOverlayId, setBriefingOverlayId] = useState<string | null>(null);
@@ -714,8 +715,8 @@ export function SchoolWorkspace() {
         program_id: program.id,
         label: newItemLabel.trim(),
         is_done: false,
-        is_required: false,
-        status: 'Not Started',
+        is_required: newItemRequired,
+        status: 'pending',
       })
       .select()
       .single();
@@ -727,6 +728,7 @@ export function SchoolWorkspace() {
 
     setChecklistItems(prev => [...prev, data as ChecklistItem]);
     setNewItemLabel('');
+    setNewItemRequired(false);
     setShowAddItem(false);
     toast.success('Item added');
   };
@@ -745,18 +747,12 @@ export function SchoolWorkspace() {
     );
 
     const defaultItems = [
-      { label: 'Statement of Purpose', is_required: true, is_done: false, status: 'Not Started' },
-      { label: 'CV/Resume', is_required: true, is_done: false, status: 'Not Started' },
-      { label: 'Transcripts', is_required: true, is_done: false, status: 'Not Started' },
-      { label: 'Letter of Recommendation 1', is_required: true, is_done: false, status: 'Not Started' },
-      { label: 'Letter of Recommendation 2', is_required: true, is_done: false, status: 'Not Started' },
-      { label: 'Letter of Recommendation 3', is_required: false, is_done: false, status: 'Not Started' },
-      { label: 'Application Fee', is_required: true, is_done: false, status: 'Not Started' },
-      { label: 'Personal Statement', is_required: false, is_done: false, status: 'Not Started' },
-      { label: 'Research Proposal', is_required: false, is_done: false, status: 'Not Started' },
-      { label: 'English Proficiency Test', is_required: false, is_done: false, status: 'Not Started' },
-      { label: 'GRE Scores', is_required: false, is_done: false, status: 'Not Started' },
-      { label: 'Writing Sample', is_required: false, is_done: false, status: 'Not Started' },
+      { label: 'Statement of Purpose', is_required: true, is_done: false, status: 'pending' },
+      { label: 'CV/Resume', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Transcripts', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Letter of Recommendation 1', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Letter of Recommendation 2', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Application Fee', is_required: true, is_done: false, status: 'pending' },
     ];
 
     // Only insert items whose label does not already exist for this program
@@ -1358,29 +1354,29 @@ export function SchoolWorkspace() {
                           e.preventDefault();
                           e.stopPropagation();
                           checklistSelection.toggleSelection(item.id);
+                        } else {
+                          handleToggleChecklistItem(item, !item.is_done);
                         }
                       }}
-                      className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-lg border transition-colors ${isSelected ? 'border-[#4F46E5] bg-[#4F46E5]/5' : 'border-border hover:bg-accent/30'} ${checklistSelection.isSelectionMode ? 'cursor-pointer' : ''}`}
+                      className={`flex items-center gap-3 py-3 px-2 rounded-lg cursor-pointer hover:bg-accent/50 min-h-[48px] transition-colors ${isSelected ? 'border border-[#4F46E5] bg-[#4F46E5]/5' : ''}`}
                     >
-                      <div className="mt-1" onClick={e => checklistSelection.isSelectionMode && e.stopPropagation()}>
+                      <div className="pointer-events-none flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <Checkbox
                           checked={item.is_done}
-                          onCheckedChange={checked =>
-                            handleToggleChecklistItem(item, checked === true)
-                          }
+                          onCheckedChange={() => {}}
                         />
                       </div>
                       <div className="flex-1 space-y-2 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span
-                            className={`text-sm ${item.is_done ? 'line-through text-muted-foreground' : ''}`}
+                            className={`text-sm ${item.is_done ? 'line-through text-muted-foreground' : 'text-foreground'}`}
                           >
                             {item.label}
                           </span>
                           {item.is_required && (
-                            <Badge variant="destructive" className="text-xs">
+                            <span className="text-xs font-medium text-red-600 bg-red-50 dark:bg-red-950 px-2 py-0.5 rounded-full flex-shrink-0">
                               Required
-                            </Badge>
+                            </span>
                           )}
                         </div>
                         {item.due_date && (
@@ -1388,7 +1384,7 @@ export function SchoolWorkspace() {
                             Due {formatDate(item.due_date)}
                           </p>
                         )}
-                        <div onClick={e => checklistSelection.isSelectionMode && e.stopPropagation()}>
+                        <div onClick={e => { e.stopPropagation(); }}>
                           <ChecklistStatusSelect
                             value={item.status || 'Not Started'}
                             onChange={status => handleChecklistStatusChange(item, status)}
@@ -1411,15 +1407,35 @@ export function SchoolWorkspace() {
               {checklistItems.length > 0 && (
                 <div className="space-y-3 pt-2">
                   {showAddItem ? (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Item label"
-                        value={newItemLabel}
-                        onChange={e => setNewItemLabel(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleAddChecklistItem()}
-                      />
-                      <Button onClick={handleAddChecklistItem}>Add</Button>
-                      <Button variant="outline" onClick={() => setShowAddItem(false)}>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newItemLabel}
+                          onChange={e => setNewItemLabel(e.target.value)}
+                          placeholder="Add a requirement..."
+                          className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleAddChecklistItem();
+                          }}
+                        />
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer whitespace-nowrap flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={newItemRequired}
+                            onChange={e => setNewItemRequired(e.target.checked)}
+                            className="accent-indigo-600 w-3.5 h-3.5"
+                          />
+                          Required
+                        </label>
+                        <button
+                          onClick={handleAddChecklistItem}
+                          className="px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex-shrink-0"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setShowAddItem(false)}>
                         Cancel
                       </Button>
                     </div>
