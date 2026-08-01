@@ -392,24 +392,24 @@ function ProfilePageContent({ profile, email, onProfileUpdated }: ProfilePageCon
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="flex w-full justify-start overflow-x-auto pb-1 scrollbar-hide">
-          <TabsTrigger value="personal" className="text-xs md:text-sm">
+        <TabsList className="flex w-full border-b border-border bg-transparent overflow-x-auto scrollbar-hide rounded-none h-auto p-0 gap-0">
+          <TabsTrigger value="personal" className="px-4 py-3 text-xs md:text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0">
             <User className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Personal</span>
           </TabsTrigger>
-          <TabsTrigger value="education" className="text-xs md:text-sm">
+          <TabsTrigger value="education" className="px-4 py-3 text-xs md:text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0">
             <GraduationCap className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Education</span>
           </TabsTrigger>
-          <TabsTrigger value="tests" className="text-xs md:text-sm">
+          <TabsTrigger value="tests" className="px-4 py-3 text-xs md:text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0">
             <Award className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Tests</span>
           </TabsTrigger>
-          <TabsTrigger value="research" className="text-xs md:text-sm">
+          <TabsTrigger value="research" className="px-4 py-3 text-xs md:text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0">
             <BookOpen className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Research</span>
           </TabsTrigger>
-          <TabsTrigger value="experience" className="text-xs md:text-sm">
+          <TabsTrigger value="experience" className="px-4 py-3 text-xs md:text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0">
             <Briefcase className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Experience</span>
           </TabsTrigger>
