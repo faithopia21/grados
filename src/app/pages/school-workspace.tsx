@@ -1360,10 +1360,12 @@ export function SchoolWorkspace() {
                       }}
                       className={`flex items-center gap-3 py-3 px-2 rounded-lg cursor-pointer hover:bg-accent/50 min-h-[48px] transition-colors ${isSelected ? 'border border-[#4F46E5] bg-[#4F46E5]/5' : ''}`}
                     >
-                      <div className="pointer-events-none flex-shrink-0" onClick={e => e.stopPropagation()}>
+                      <div className="flex-shrink-0" onClick={e => e.stopPropagation()}>
                         <Checkbox
                           checked={item.is_done}
-                          onCheckedChange={() => {}}
+                          onCheckedChange={(checked) =>
+                            handleToggleChecklistItem(item, checked === true)
+                          }
                         />
                       </div>
                       <div className="flex-1 space-y-2 min-w-0">
