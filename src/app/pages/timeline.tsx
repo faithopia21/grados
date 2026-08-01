@@ -100,6 +100,8 @@ export function Timeline() {
     [10080, 4320, 1440, 0] // 7 days, 3 days, 1 day, day of
   );
   const [selectedForExport, setSelectedForExport] = useState<string[]>([]);
+  const [customValue, setCustomValue] = useState('');
+  const [customUnit, setCustomUnit] = useState<'months' | 'weeks' | 'days' | 'hours' | 'minutes'>('days');
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
@@ -484,6 +486,91 @@ export function Timeline() {
                       <span className="text-sm">{preset.label}</span>
                     </label>
                   ))}
+                </div>
+
+                {/* Custom reminder input */}
+                <div className="pt-3 border-t border-border mt-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Custom reminder
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={customValue}
+                      onChange={e => setCustomValue(e.target.value)}
+                      placeholder="2"
+                      className="w-16 px-2 py-1.5 text-sm border border-border rounded-lg bg-background text-center focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <select
+                      value={customUnit}
+                      onChange={e => setCustomUnit(e.target.value as any)}
+                      className="flex-1 px-2 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none"
+                    >
+                      <option value="months">months before</option>
+                      <option value="weeks">weeks before</option>
+                      <option value="days">days before</option>
+                      <option value="hours">hours before</option>
+                      <option value="minutes">minutes before</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        const num = parseInt(customValue);
+                        if (!num || num < 1) return;
+
+                        let minutes = 0;
+                        switch (customUnit) {
+                          case 'months': minutes = num * 30 * 24 * 60; break;
+                          case 'weeks': minutes = num * 7 * 24 * 60; break;
+                          case 'days': minutes = num * 24 * 60; break;
+                          case 'hours': minutes = num * 60; break;
+                          case 'minutes': minutes = num; break;
+                        }
+
+                        if (!reminderIntervals.includes(minutes)) {
+                          setReminderIntervals(prev => [...prev, minutes].sort((a, b) => b - a));
+                        }
+                        setCustomValue('');
+                      }}
+                      className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex-shrink-0"
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  {/* Show custom interval tags */}
+                  {reminderIntervals.filter(m => ![10080, 4320, 2880, 1440, 720, 360, 60, 0].includes(m)).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {reminderIntervals
+                        .filter(m => ![10080, 4320, 2880, 1440, 720, 360, 60, 0].includes(m))
+                        .map(m => {
+                          const label = m >= 43200
+                            ? `${Math.round(m / 43200)} month(s) before`
+                            : m >= 10080
+                            ? `${Math.round(m / 10080)} week(s) before`
+                            : m >= 1440
+                            ? `${Math.round(m / 1440)} day(s) before`
+                            : m >= 60
+                            ? `${Math.round(m / 60)} hour(s) before`
+                            : `${m} min before`;
+                          return (
+                            <span
+                              key={m}
+                              className="flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full"
+                            >
+                              {label}
+                              <button
+                                onClick={() => setReminderIntervals(prev => prev.filter(x => x !== m))}
+                                className="hover:text-red-500 ml-0.5"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
               </div>
 
