@@ -18,7 +18,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { toast } from 'sonner';
-import { fromZonedTime } from 'date-fns-tz';
+import { initGoogleCalendarAuth, syncEventToGoogleCalendar } from '../../lib/google-calendar';
 
 interface DbProgram {
   id: string;
@@ -30,6 +30,7 @@ interface DbProgram {
   deadline_time?: string | null;
   deadline_timezone?: string | null;
   status: string;
+  google_calendar_event_id?: string | null;
 }
 
 type UrgencyBucket = 'urgent' | 'soon' | 'upcoming' | 'future';
@@ -99,6 +100,8 @@ export function Timeline() {
   const [selectedForExport, setSelectedForExport] = useState<string[]>([]);
   const [customValue, setCustomValue] = useState('');
   const [customUnit, setCustomUnit] = useState<'months' | 'weeks' | 'days' | 'hours' | 'minutes'>('days');
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ done: 0, total: 0 });
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
@@ -119,7 +122,7 @@ export function Timeline() {
 
       const { data, error } = await supabase
         .from('programs')
-        .select('id, school_name, program_name, degree_type, country, deadline, deadline_time, deadline_timezone, status')
+        .select('id, school_name, program_name, degree_type, country, deadline, deadline_time, deadline_timezone, status, google_calendar_event_id')
         .eq('user_id', user.id)
         .order('deadline', { ascending: true });
 
@@ -220,46 +223,34 @@ export function Timeline() {
     );
 
     programsToExport.forEach(program => {
-      const deadlineTime = program.deadline_time || '23:59';
-      const deadlineTimezone = program.deadline_timezone || 'UTC';
-
-      let deadlineUTC: Date;
-
-      try {
-        // fromZonedTime interprets the naive date-time string as being in
-        // the given timezone and returns the correct UTC Date.
-        const localDateTimeString = `${program.deadline}T${deadlineTime}:00`;
-        deadlineUTC = fromZonedTime(localDateTimeString, deadlineTimezone);
-        if (isNaN(deadlineUTC.getTime())) throw new Error('Invalid date');
-      } catch {
-        // Fallback: treat the deadline as UTC directly
-        deadlineUTC = new Date(`${program.deadline}T${deadlineTime}:00Z`);
-      }
-
-      // Event starts the day before at 8am UTC, ends at the actual deadline
-      const startUTC = new Date(deadlineUTC);
-      startUTC.setUTCDate(startUTC.getUTCDate() - 1);
-      startUTC.setUTCHours(8, 0, 0, 0);
+      // Format the deadline as an all-day event (single day, no multi-day span)
+      // VALUE=DATE uses YYYYMMDD format; DTEND is the day AFTER (exclusive end per iCal spec)
+      const deadlineDateRaw = program.deadline!.replace(/-/g, '');
+      const nextDay = new Date(program.deadline!);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const nextDayRaw = nextDay.toISOString().slice(0, 10).replace(/-/g, '');
 
       lines.push('BEGIN:VEVENT');
       lines.push(`UID:${program.id}@grados.app`);
       lines.push(`DTSTAMP:${formatUTC(new Date())}`);
-      lines.push(`DTSTART:${formatUTC(startUTC)}`);
-      lines.push(`DTEND:${formatUTC(deadlineUTC)}`);
+      lines.push(`DTSTART;VALUE=DATE:${deadlineDateRaw}`);
+      lines.push(`DTEND;VALUE=DATE:${nextDayRaw}`);
       lines.push(`SUMMARY:DEADLINE: ${program.school_name} - ${program.program_name}`);
 
-      const description = [
-        `Application deadline for `,
-        `${program.program_name} at `,
-        `${program.school_name}.`,
-        `\\nStatus: ${program.status || 'Not Started'}`,
-      ].join('');
+      const descParts = [
+        `Application deadline for ${program.program_name} at ${program.school_name}.`,
+      ];
+      if (program.deadline_time) {
+        descParts.push(`\\nDue by: ${program.deadline_time}${program.deadline_timezone ? ' ' + program.deadline_timezone : ''}`);
+      }
+      descParts.push(`\\nStatus: ${program.status || 'Not Started'}`);
 
-      lines.push(`DESCRIPTION:${description}`);
+      lines.push(`DESCRIPTION:${descParts.join('')}`);
       lines.push('STATUS:CONFIRMED');
+      // Tell Apple Calendar to use our alarms, not the default 30-min one
+      lines.push('X-APPLE-DEFAULT-ALARM:TRUE');
 
-      // Add a VALARM for each selected reminder interval,
-      // calculated relative to the UTC deadline time
+      // Add a VALARM for each selected reminder interval
       reminderIntervals.forEach(minutes => {
         const triggerValue = minutes === 0
           ? 'TRIGGER:PT0S'
@@ -269,7 +260,9 @@ export function Timeline() {
           ? `Today: ${program.school_name} deadline`
           : minutes >= 1440
             ? `${Math.floor(minutes / 1440)} day(s) until ${program.school_name} deadline`
-            : `${Math.floor(minutes / 60)} hour(s) until ${program.school_name} deadline`;
+            : minutes >= 60
+              ? `${Math.floor(minutes / 60)} hour(s) until ${program.school_name} deadline`
+              : `${minutes} min until ${program.school_name} deadline`;
 
         lines.push('BEGIN:VALARM');
         lines.push('ACTION:DISPLAY');
@@ -579,24 +572,86 @@ export function Timeline() {
             </div>
 
             {/* Sticky footer */}
-            <div className="flex gap-3 px-5 py-4 border-t border-border flex-shrink-0">
-              <button
-                id="export-ics-confirm"
-                onClick={() => {
-                  setShowExportModal(false);
-                  generateAndDownloadICS();
-                }}
-                disabled={selectedForExport.length === 0}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition-colors"
-              >
-                Export {selectedForExport.length > 0 ? `(${selectedForExport.length})` : ''} calendar file
-              </button>
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="px-4 py-2.5 border border-border rounded-lg text-sm hover:bg-accent"
-              >
-                Cancel
-              </button>
+            <div className="px-5 py-4 border-t border-border flex-shrink-0 space-y-3">
+              {/* Google Calendar sync */}
+              <div>
+                <button
+                  onClick={() => {
+                    initGoogleCalendarAuth(
+                      async () => {
+                        setSyncing(true);
+                        const toSync = programs.filter(
+                          p => selectedForExport.includes(p.id) && p.deadline
+                        );
+                        setSyncProgress({ done: 0, total: toSync.length });
+
+                        for (const program of toSync) {
+                          const result = await syncEventToGoogleCalendar({
+                            programId: program.id,
+                            schoolName: program.school_name,
+                            programName: program.program_name,
+                            deadline: program.deadline!,
+                            status: program.status || 'Not Started',
+                            existingEventId: program.google_calendar_event_id,
+                            reminderMinutes: reminderIntervals,
+                          });
+
+                          if (result.success && result.eventId) {
+                            await supabase
+                              .from('programs')
+                              .update({ google_calendar_event_id: result.eventId })
+                              .eq('id', program.id);
+                          }
+
+                          setSyncProgress(prev => ({ ...prev, done: prev.done + 1 }));
+                        }
+
+                        setSyncing(false);
+                        toast.success(`Synced ${toSync.length} deadline(s) to Google Calendar`);
+                        setShowExportModal(false);
+                      },
+                      () => {
+                        setSyncing(false);
+                        toast.error('Google Calendar sync failed. Please try again.');
+                      }
+                    );
+                  }}
+                  disabled={syncing || selectedForExport.length === 0}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors"
+                >
+                  {syncing
+                    ? `Syncing... (${syncProgress.done}/${syncProgress.total})`
+                    : 'Sync to Google Calendar'
+                  }
+                </button>
+                <p className="text-xs text-muted-foreground text-center mt-1">
+                  Recommended for Google Calendar users — reminders work reliably
+                </p>
+              </div>
+
+              {/* ICS export */}
+              <div className="flex gap-3">
+                <button
+                  id="export-ics-confirm"
+                  onClick={() => {
+                    setShowExportModal(false);
+                    generateAndDownloadICS();
+                  }}
+                  disabled={selectedForExport.length === 0}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition-colors"
+                >
+                  Export {selectedForExport.length > 0 ? `(${selectedForExport.length})` : ''} calendar file
+                </button>
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="px-4 py-2.5 border border-border rounded-lg text-sm hover:bg-accent"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Use .ics export for Apple Calendar, Outlook, or other calendar apps
+              </p>
             </div>
           </div>
         </>
