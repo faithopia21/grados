@@ -18,7 +18,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { toast } from 'sonner';
-import { initGoogleCalendarAuth, syncEventToGoogleCalendar } from '../../lib/google-calendar';
+import { initGoogleCalendarAuth, syncEventToGoogleCalendar, clearAllGradosEvents } from '../../lib/google-calendar';
 
 interface DbProgram {
   id: string;
@@ -106,6 +106,26 @@ export function Timeline() {
   const [customUnit, setCustomUnit] = useState<'months' | 'weeks' | 'days' | 'hours' | 'minutes'>('days');
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ done: 0, total: 0 });
+  const [clearing, setClearing] = useState(false);
+
+  const handleClearSyncedEvents = () => {
+    initGoogleCalendarAuth(
+      async () => {
+        setClearing(true);
+        const result = await clearAllGradosEvents();
+        setClearing(false);
+        if (result.error) {
+          toast.error('Could not clear old events');
+        } else {
+          toast.success(`Removed ${result.deleted} old synced event(s). You can sync again now.`);
+        }
+      },
+      () => {
+        setClearing(false);
+        toast.error('Google authorisation failed');
+      }
+    );
+  };
 
   const fetchPrograms = useCallback(async () => {
     setLoading(true);
@@ -173,7 +193,7 @@ export function Timeline() {
       setFetchError(false);
       fetchPrograms();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
   const urgent = useMemo(() => programs.filter(p => p.bucket === 'urgent'), [programs]);
@@ -431,9 +451,8 @@ export function Timeline() {
                   {eligiblePrograms.map((program, index) => (
                     <label
                       key={program.id}
-                      className={`flex items-center gap-3 py-2.5 px-3 hover:bg-accent cursor-pointer${
-                        index < eligiblePrograms.length - 1 ? ' border-b border-border' : ''
-                      }`}
+                      className={`flex items-center gap-3 py-2.5 px-3 hover:bg-accent cursor-pointer${index < eligiblePrograms.length - 1 ? ' border-b border-border' : ''
+                        }`}
                     >
                       <input
                         type="checkbox"
@@ -470,12 +489,12 @@ export function Timeline() {
                     const label = m >= 43200
                       ? `${Math.round(m / 43200)} month(s) before`
                       : m >= 10080
-                      ? `${Math.round(m / 10080)} week(s) before`
-                      : m >= 1440
-                      ? `${Math.round(m / 1440)} day(s) before`
-                      : m >= 60
-                      ? `${Math.round(m / 60)} hour(s) before`
-                      : `${m} min before`;
+                        ? `${Math.round(m / 10080)} week(s) before`
+                        : m >= 1440
+                          ? `${Math.round(m / 1440)} day(s) before`
+                          : m >= 60
+                            ? `${Math.round(m / 60)} hour(s) before`
+                            : `${m} min before`;
                     return { label, minutes: m };
                   })].sort((a, b) => b.minutes - a.minutes).map(preset => {
                     const isCustom = ![10080, 4320, 1440, 60, 0].includes(preset.minutes);
@@ -636,11 +655,11 @@ export function Timeline() {
                     ? `Syncing... (${syncProgress.done}/${syncProgress.total})`
                     : (
                       <>
-                        Sync to 
-                        <img 
-                          src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg" 
-                          alt="Google Calendar" 
-                          className="w-4 h-4 ml-1" 
+                        Sync to
+                        <img
+                          src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg"
+                          alt="Google Calendar"
+                          className="w-4 h-4 ml-1"
                         />
                       </>
                     )
@@ -648,8 +667,18 @@ export function Timeline() {
                 </button>
               </div>
               <p className="text-[11px] text-muted-foreground text-center">
-                Use .ics export for Apple Calendar, Outlook, or other calendar apps and Sync Google Calendar for Google Calendar
+                Use .ics export for Apple Calendar, Outlook, or other calendar apps and Sync to Google Calendar for Google Calendar
               </p>
+              <button
+                onClick={handleClearSyncedEvents}
+                disabled={clearing}
+                className="w-full text-xs text-muted-foreground hover:text-red-500 hover:underline text-center mt-2 disabled:opacity-50"
+              >
+                {clearing 
+                  ? 'Removing old synced events...' 
+                  : 'Having duplicate events? Clear all synced events'
+                }
+              </button>
             </div>
           </div>
         </>
@@ -680,79 +709,75 @@ export function Timeline() {
           </Button>
         </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 relative z-10">
-        <Card
-          className={`border-2 cursor-pointer transition-all ${
-            selectedUrgencies.includes('urgent')
-              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
-              : 'border-transparent hover:border-border border-red-200 dark:border-red-800'
-          }`}
-          onClick={() => handleUrgencyClick('urgent')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Urgent</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl text-red-600">{loading ? '—' : urgent.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">≤ 7 days away</p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 relative z-10">
+          <Card
+            className={`border-2 cursor-pointer transition-all ${selectedUrgencies.includes('urgent')
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
+                : 'border-transparent hover:border-border border-red-200 dark:border-red-800'
+              }`}
+            onClick={() => handleUrgencyClick('urgent')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm">Urgent</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl text-red-600">{loading ? '—' : urgent.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">≤ 7 days away</p>
+            </CardContent>
+          </Card>
 
-        <Card
-          className={`border-2 cursor-pointer transition-all ${
-            selectedUrgencies.includes('soon')
-              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
-              : 'border-transparent hover:border-border border-yellow-200 dark:border-yellow-800'
-          }`}
-          onClick={() => handleUrgencyClick('soon')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Soon</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl text-yellow-600">{loading ? '—' : soon.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">8–30 days away</p>
-          </CardContent>
-        </Card>
+          <Card
+            className={`border-2 cursor-pointer transition-all ${selectedUrgencies.includes('soon')
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
+                : 'border-transparent hover:border-border border-yellow-200 dark:border-yellow-800'
+              }`}
+            onClick={() => handleUrgencyClick('soon')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm">Soon</CardTitle>
+              <Clock className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl text-yellow-600">{loading ? '—' : soon.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">8–30 days away</p>
+            </CardContent>
+          </Card>
 
-        <Card
-          className={`border-2 cursor-pointer transition-all ${
-            selectedUrgencies.includes('upcoming')
-              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
-              : 'border-transparent hover:border-border border-blue-200 dark:border-blue-800'
-          }`}
-          onClick={() => handleUrgencyClick('upcoming')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Upcoming</CardTitle>
-            <Calendar className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl text-blue-600">{loading ? '—' : upcoming.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">31–60 days away</p>
-          </CardContent>
-        </Card>
+          <Card
+            className={`border-2 cursor-pointer transition-all ${selectedUrgencies.includes('upcoming')
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
+                : 'border-transparent hover:border-border border-blue-200 dark:border-blue-800'
+              }`}
+            onClick={() => handleUrgencyClick('upcoming')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm">Upcoming</CardTitle>
+              <Calendar className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl text-blue-600">{loading ? '—' : upcoming.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">31–60 days away</p>
+            </CardContent>
+          </Card>
 
-        <Card
-          className={`border-2 cursor-pointer transition-all ${
-            selectedUrgencies.includes('future')
-              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
-              : 'border-transparent hover:border-border border-green-200 dark:border-green-800'
-          }`}
-          onClick={() => handleUrgencyClick('future')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Future</CardTitle>
-            <Calendar className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl text-green-600">{loading ? '—' : future.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">&gt; 60 days away</p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card
+            className={`border-2 cursor-pointer transition-all ${selectedUrgencies.includes('future')
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
+                : 'border-transparent hover:border-border border-green-200 dark:border-green-800'
+              }`}
+            onClick={() => handleUrgencyClick('future')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm">Future</CardTitle>
+              <Calendar className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl text-green-600">{loading ? '—' : future.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">&gt; 60 days away</p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Clear selection link */}
         {selectedUrgencies.length > 0 && (

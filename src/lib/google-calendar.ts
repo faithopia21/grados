@@ -76,14 +76,35 @@ export async function syncEventToGoogleCalendar(
         minutes,
       })),
     },
+    extendedProperties: {
+      private: {
+        gradosApp: 'true',
+        gradosProgramId: input.programId,
+      },
+    },
   };
 
   try {
-    const url = input.existingEventId
-      ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${input.existingEventId}`
+    // STEP 1 — search for an existing event tagged with this exact program ID
+    const searchUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?privateExtendedProperty=gradosProgramId%3D${input.programId}`;
+    
+    const searchRes = await fetch(searchUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    
+    let existing;
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      existing = searchData.items?.[0];
+    }
+
+    const url = existing
+      ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${existing.id}`
       : 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 
-    const method = input.existingEventId ? 'PATCH' : 'POST';
+    const method = existing ? 'PATCH' : 'POST';
 
     const response = await fetch(url, {
       method,
@@ -106,5 +127,41 @@ export async function syncEventToGoogleCalendar(
     return { success: true, eventId: data.id };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+export async function clearAllGradosEvents(): Promise<{ deleted: number; error?: string }> {
+  if (!accessToken) {
+    return { deleted: 0, error: 'Not authenticated' };
+  }
+
+  try {
+    const listUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?privateExtendedProperty=gradosApp%3Dtrue&maxResults=250`;
+    
+    const listRes = await fetch(listUrl, {
+      headers: { 
+        Authorization: `Bearer ${accessToken}` 
+      },
+    });
+    const listData = await listRes.json();
+    const events = listData.items || [];
+
+    let deleted = 0;
+    for (const event of events) {
+      const delRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`,
+        {
+          method: 'DELETE',
+          headers: { 
+            Authorization: `Bearer ${accessToken}` 
+          },
+        }
+      );
+      if (delRes.ok) deleted++;
+    }
+
+    return { deleted };
+  } catch (err: any) {
+    return { deleted: 0, error: err.message };
   }
 }
