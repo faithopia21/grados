@@ -97,6 +97,10 @@ export function Timeline() {
     'grados_ics_reminders',
     [10080, 4320, 1440, 0] // 7 days, 3 days, 1 day, day of
   );
+  const [customReminders, setCustomReminders] = usePersistedState<number[]>(
+    'grados_custom_reminders',
+    []
+  );
   const [selectedForExport, setSelectedForExport] = useState<string[]>([]);
   const [customValue, setCustomValue] = useState('');
   const [customUnit, setCustomUnit] = useState<'months' | 'weeks' | 'days' | 'hours' | 'minutes'>('days');
@@ -462,20 +466,44 @@ export function Timeline() {
                 </p>
 
                 <div className="space-y-2">
-                  {REMINDER_PRESETS.map(preset => (
-                    <label
-                      key={preset.minutes}
-                      className="flex items-center gap-3 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={reminderIntervals.includes(preset.minutes)}
-                        onChange={() => toggleReminder(preset.minutes)}
-                        className="accent-indigo-600 w-4 h-4 flex-shrink-0"
-                      />
-                      <span className="text-sm">{preset.label}</span>
-                    </label>
-                  ))}
+                  {[...REMINDER_PRESETS, ...customReminders.map(m => {
+                    const label = m >= 43200
+                      ? `${Math.round(m / 43200)} month(s) before`
+                      : m >= 10080
+                      ? `${Math.round(m / 10080)} week(s) before`
+                      : m >= 1440
+                      ? `${Math.round(m / 1440)} day(s) before`
+                      : m >= 60
+                      ? `${Math.round(m / 60)} hour(s) before`
+                      : `${m} min before`;
+                    return { label, minutes: m };
+                  })].sort((a, b) => b.minutes - a.minutes).map(preset => {
+                    const isCustom = ![10080, 4320, 1440, 60, 0].includes(preset.minutes);
+                    return (
+                      <div key={preset.minutes} className="flex items-center justify-between group">
+                        <label className="flex items-center gap-3 cursor-pointer flex-1">
+                          <input
+                            type="checkbox"
+                            checked={reminderIntervals.includes(preset.minutes)}
+                            onChange={() => toggleReminder(preset.minutes)}
+                            className="accent-indigo-600 w-4 h-4 flex-shrink-0"
+                          />
+                          <span className="text-sm">{preset.label}</span>
+                        </label>
+                        {isCustom && (
+                          <button
+                            onClick={() => {
+                              setCustomReminders(prev => prev.filter(x => x !== preset.minutes));
+                              setReminderIntervals(prev => prev.filter(x => x !== preset.minutes));
+                            }}
+                            className="text-xs text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Custom reminder input */}
@@ -521,6 +549,9 @@ export function Timeline() {
                         if (!reminderIntervals.includes(minutes)) {
                           setReminderIntervals(prev => [...prev, minutes].sort((a, b) => b - a));
                         }
+                        if (![10080, 4320, 1440, 60, 0].includes(minutes) && !customReminders.includes(minutes)) {
+                          setCustomReminders(prev => [...prev, minutes]);
+                        }
                         setCustomValue('');
                       }}
                       className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex-shrink-0"
@@ -529,38 +560,7 @@ export function Timeline() {
                     </button>
                   </div>
 
-                  {/* Show custom interval tags */}
-                  {reminderIntervals.filter(m => ![10080, 4320, 1440, 60, 0].includes(m)).length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {reminderIntervals
-                        .filter(m => ![10080, 4320, 1440, 60, 0].includes(m))
-                        .map(m => {
-                          const label = m >= 43200
-                            ? `${Math.round(m / 43200)} month(s) before`
-                            : m >= 10080
-                            ? `${Math.round(m / 10080)} week(s) before`
-                            : m >= 1440
-                            ? `${Math.round(m / 1440)} day(s) before`
-                            : m >= 60
-                            ? `${Math.round(m / 60)} hour(s) before`
-                            : `${m} min before`;
-                          return (
-                            <span
-                              key={m}
-                              className="flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full"
-                            >
-                              {label}
-                              <button
-                                onClick={() => setReminderIntervals(prev => prev.filter(x => x !== m))}
-                                className="hover:text-red-500 ml-0.5"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          );
-                        })}
-                    </div>
-                  )}
+
                 </div>
               </div>
 
@@ -573,8 +573,21 @@ export function Timeline() {
 
             {/* Sticky footer */}
             <div className="px-5 py-4 border-t border-border flex-shrink-0 space-y-3">
-              {/* Google Calendar sync */}
-              <div>
+              <div className="flex gap-3">
+                {/* ICS export */}
+                <button
+                  id="export-ics-confirm"
+                  onClick={() => {
+                    setShowExportModal(false);
+                    generateAndDownloadICS();
+                  }}
+                  disabled={selectedForExport.length === 0}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition-colors"
+                >
+                  Export {selectedForExport.length > 0 ? `(${selectedForExport.length})` : ''} .ics
+                </button>
+
+                {/* Google Calendar sync */}
                 <button
                   onClick={() => {
                     initGoogleCalendarAuth(
@@ -617,40 +630,26 @@ export function Timeline() {
                     );
                   }}
                   disabled={syncing || selectedForExport.length === 0}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors"
                 >
                   {syncing
                     ? `Syncing... (${syncProgress.done}/${syncProgress.total})`
-                    : 'Sync to Google Calendar'
+                    : (
+                      <>
+                        Sync to 
+                        <svg className="w-4 h-4 ml-0.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path fill="#4285F4" d="M21.5 2h-19C1.1 2 .1 3.1.1 4.5v15c0 1.4 1 2.5 2.4 2.5h19c1.4 0 2.4-1.1 2.4-2.5v-15c0-1.4-1-2.5-2.4-2.5zm-19 2h19c.3 0 .4.2.4.5v3H2v-3c0-.3.1-.5.4-.5zm19 16h-19c-.3 0-.4-.2-.4-.5V9h19.8v10.5c0 .3-.1.5-.4.5z"/>
+                          <path fill="#34A853" d="M16 11h3v3h-3z"/>
+                          <path fill="#FBBC05" d="M11 11h3v3h-3z"/>
+                          <path fill="#EA4335" d="M6 11h3v3H6z"/>
+                        </svg>
+                      </>
+                    )
                   }
                 </button>
-                <p className="text-xs text-muted-foreground text-center mt-1">
-                  Recommended for Google Calendar users — reminders work reliably
-                </p>
               </div>
-
-              {/* ICS export */}
-              <div className="flex gap-3">
-                <button
-                  id="export-ics-confirm"
-                  onClick={() => {
-                    setShowExportModal(false);
-                    generateAndDownloadICS();
-                  }}
-                  disabled={selectedForExport.length === 0}
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition-colors"
-                >
-                  Export {selectedForExport.length > 0 ? `(${selectedForExport.length})` : ''} calendar file
-                </button>
-                <button
-                  onClick={() => setShowExportModal(false)}
-                  className="px-4 py-2.5 border border-border rounded-lg text-sm hover:bg-accent"
-                >
-                  Cancel
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Use .ics export for Apple Calendar, Outlook, or other calendar apps
+              <p className="text-[11px] text-muted-foreground text-center">
+                Use .ics export for Apple Calendar, Outlook, or other calendar apps and Sync Google Calendar for Google Calendar
               </p>
             </div>
           </div>
