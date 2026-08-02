@@ -5,7 +5,7 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 
-import { ApplicationCardSkeleton } from '../components/application-card-skeleton';
+
 import { PageSkeleton } from '../components/page-skeleton';
 import { AddSchoolDialog, SchoolFormData } from '../components/add-school-dialog';
 import { Checkbox } from '../components/ui/checkbox';
