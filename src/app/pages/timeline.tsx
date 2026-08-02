@@ -637,12 +637,11 @@ export function Timeline() {
                     : (
                       <>
                         Sync to 
-                        <svg className="w-4 h-4 ml-0.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path fill="#4285F4" d="M21.5 2h-19C1.1 2 .1 3.1.1 4.5v15c0 1.4 1 2.5 2.4 2.5h19c1.4 0 2.4-1.1 2.4-2.5v-15c0-1.4-1-2.5-2.4-2.5zm-19 2h19c.3 0 .4.2.4.5v3H2v-3c0-.3.1-.5.4-.5zm19 16h-19c-.3 0-.4-.2-.4-.5V9h19.8v10.5c0 .3-.1.5-.4.5z"/>
-                          <path fill="#34A853" d="M16 11h3v3h-3z"/>
-                          <path fill="#FBBC05" d="M11 11h3v3h-3z"/>
-                          <path fill="#EA4335" d="M6 11h3v3H6z"/>
-                        </svg>
+                        <img 
+                          src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg" 
+                          alt="Google Calendar" 
+                          className="w-4 h-4 ml-1" 
+                        />
                       </>
                     )
                   }
