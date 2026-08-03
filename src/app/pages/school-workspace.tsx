@@ -280,6 +280,54 @@ function getStatusDotColor(status: string | null): string {
   }
 }
 
+const handleDeleteWithUndo = <T extends { id: string }>(
+  item: T,
+  deleteFn: () => Promise<void>,
+  restoreFn: (item: T) => void,
+  itemLabel: string
+) => {
+  let undone = false;
+  const timeoutId = setTimeout(async () => {
+    if (!undone) await deleteFn();
+  }, 5000);
+  
+  toast(`${itemLabel} deleted`, {
+    action: {
+      label: 'Undo',
+      onClick: () => {
+        undone = true;
+        clearTimeout(timeoutId);
+        restoreFn(item);
+      }
+    },
+    duration: 5000
+  });
+};
+
+const handleBulkDeleteWithUndo = <T extends { id: string }>(
+  items: T[],
+  deleteFn: () => Promise<void>,
+  restoreFn: (items: T[]) => void,
+  itemsLabel: string
+) => {
+  let undone = false;
+  const timeoutId = setTimeout(async () => {
+    if (!undone) await deleteFn();
+  }, 5000);
+  
+  toast(`${items.length} ${itemsLabel} deleted`, {
+    action: {
+      label: 'Undo',
+      onClick: () => {
+        undone = true;
+        clearTimeout(timeoutId);
+        restoreFn(items);
+      }
+    },
+    duration: 5000
+  });
+};
+
 export function SchoolWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -333,20 +381,32 @@ export function SchoolWorkspace() {
   const recommenderSelection = useSelection();
   const linkSelection = useSelection();
 
-  const handleBulkDeleteChecklist = async () => {
+  const handleBulkDeleteChecklist = () => {
     const ids = Array.from(checklistSelection.selectedIds);
-    const { error } = await supabase
-      .from('checklist_items')
-      .delete()
-      .in('id', ids)
-      .eq('program_id', program?.id);
-    if (!error) {
-      setChecklistItems(prev => prev.filter(i => !checklistSelection.selectedIds.has(i.id)));
-      checklistSelection.clearSelection();
-      toast.success(`${ids.length} requirements deleted`);
-    } else {
-      toast.error('Failed to delete requirements');
-    }
+    const itemsToDelete = checklistItems.filter(i => ids.includes(i.id));
+    
+    // Remove from UI immediately
+    setChecklistItems(prev => prev.filter(i => !ids.includes(i.id)));
+    checklistSelection.clearSelection();
+
+    handleBulkDeleteWithUndo(
+      itemsToDelete,
+      async () => {
+        const { error } = await supabase
+          .from('checklist_items')
+          .delete()
+          .in('id', ids)
+          .eq('program_id', program?.id);
+        if (error) {
+          toast.error('Failed to delete requirements');
+          setChecklistItems(prev => [...prev, ...itemsToDelete]);
+        }
+      },
+      (restoredItems) => {
+        setChecklistItems(prev => [...prev, ...restoredItems]);
+      },
+      'requirements'
+    );
   };
 
   const handleBulkUnlinkDocuments = async () => {
@@ -361,36 +421,69 @@ export function SchoolWorkspace() {
     }
   };
 
-  const handleBulkDeleteRecommenders = async () => {
+  const handleBulkDeleteRecommenders = () => {
     const ids = Array.from(recommenderSelection.selectedIds);
-    const { error } = await supabase
-      .from('recommenders')
-      .delete()
-      .in('id', ids)
-      .eq('program_id', program?.id);
-    if (!error) {
-      setRecommenders(prev => prev.filter(r => !recommenderSelection.selectedIds.has(r.id)));
-      recommenderSelection.clearSelection();
-      toast.success(`${ids.length} recommenders deleted`);
-    } else {
-      toast.error('Failed to delete recommenders');
-    }
+    const itemsToDelete = recommenders.filter(r => ids.includes(r.id));
+    const savedBriefings = itemsToDelete.reduce((acc, rec) => {
+      acc[rec.id] = lastSavedBriefingRef.current[rec.id];
+      delete lastSavedBriefingRef.current[rec.id];
+      return acc;
+    }, {} as Record<string, string | undefined>);
+
+    setRecommenders(prev => prev.filter(r => !ids.includes(r.id)));
+    recommenderSelection.clearSelection();
+
+    handleBulkDeleteWithUndo(
+      itemsToDelete,
+      async () => {
+        const { error } = await supabase
+          .from('recommenders')
+          .delete()
+          .in('id', ids)
+          .eq('program_id', program?.id);
+        if (error) {
+          toast.error('Failed to delete recommenders');
+          setRecommenders(prev => [...prev, ...itemsToDelete]);
+          Object.entries(savedBriefings).forEach(([id, val]) => {
+            if (val !== undefined) lastSavedBriefingRef.current[id] = val;
+          });
+        }
+      },
+      (restoredItems) => {
+        setRecommenders(prev => [...prev, ...restoredItems]);
+        Object.entries(savedBriefings).forEach(([id, val]) => {
+          if (val !== undefined) lastSavedBriefingRef.current[id] = val;
+        });
+      },
+      'recommenders'
+    );
   };
 
-  const handleBulkDeleteLinks = async () => {
+  const handleBulkDeleteLinks = () => {
     const ids = Array.from(linkSelection.selectedIds);
-    const { error } = await supabase
-      .from('portal_links')
-      .delete()
-      .in('id', ids)
-      .eq('program_id', program?.id);
-    if (!error) {
-      setPortalLinks(prev => prev.filter(l => !linkSelection.selectedIds.has(l.id)));
-      linkSelection.clearSelection();
-      toast.success(`${ids.length} links deleted`);
-    } else {
-      toast.error('Failed to delete links');
-    }
+    const itemsToDelete = portalLinks.filter(l => ids.includes(l.id));
+    
+    setPortalLinks(prev => prev.filter(l => !ids.includes(l.id)));
+    linkSelection.clearSelection();
+
+    handleBulkDeleteWithUndo(
+      itemsToDelete,
+      async () => {
+        const { error } = await supabase
+          .from('portal_links')
+          .delete()
+          .in('id', ids)
+          .eq('program_id', program?.id);
+        if (error) {
+          toast.error('Failed to delete links');
+          setPortalLinks(prev => [...prev, ...itemsToDelete]);
+        }
+      },
+      (restoredItems) => {
+        setPortalLinks(prev => [...prev, ...restoredItems]);
+      },
+      'links'
+    );
   };
 
   const fetchChecklist = useCallback(async (programId: string) => {
@@ -800,15 +893,26 @@ export function SchoolWorkspace() {
     toast.success(`Added ${itemsToInsert.length} item${itemsToInsert.length === 1 ? '' : 's'} to your checklist`);
   };
 
-  const handleDeleteChecklistItem = async (itemId: string) => {
-    const { error } = await supabase.from('checklist_items').delete().eq('id', itemId);
-
-    if (error) {
-      toast.error(error.message);
-      return;
+  const handleDeleteChecklistItem = (item: ChecklistItem) => {
+    setChecklistItems(prev => prev.filter(i => i.id !== item.id));
+    if (checklistSelection.selectedIds.has(item.id)) {
+      checklistSelection.toggleSelection(item.id, false);
     }
 
-    setChecklistItems(prev => prev.filter(i => i.id !== itemId));
+    handleDeleteWithUndo(
+      item,
+      async () => {
+        const { error } = await supabase.from('checklist_items').delete().eq('id', item.id);
+        if (error) {
+          toast.error(error.message);
+          setChecklistItems(prev => [...prev, item]);
+        }
+      },
+      (restoredItem) => {
+        setChecklistItems(prev => [...prev, restoredItem]);
+      },
+      'Requirement'
+    );
   };
 
   const handleStartEditPortalUrl = () => {
@@ -940,15 +1044,26 @@ export function SchoolWorkspace() {
     toast.error('Could not download file');
   };
 
-  const handleDeletePortalLink = async (linkId: string) => {
-    const { error } = await supabase.from('portal_links').delete().eq('id', linkId);
-
-    if (error) {
-      toast.error(error.message);
-      return;
+  const handleDeletePortalLink = (link: PortalLink) => {
+    setPortalLinks(prev => prev.filter(l => l.id !== link.id));
+    if (linkSelection.selectedIds.has(link.id)) {
+      linkSelection.toggleSelection(link.id, false);
     }
 
-    setPortalLinks(prev => prev.filter(l => l.id !== linkId));
+    handleDeleteWithUndo(
+      link,
+      async () => {
+        const { error } = await supabase.from('portal_links').delete().eq('id', link.id);
+        if (error) {
+          toast.error(error.message);
+          setPortalLinks(prev => [...prev, link]);
+        }
+      },
+      (restoredLink) => {
+        setPortalLinks(prev => [...prev, restoredLink]);
+      },
+      'Link'
+    );
   };
 
   const daysUntil = getDaysRemaining(program?.deadline);
@@ -1412,7 +1527,7 @@ export function SchoolWorkspace() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteChecklistItem(item.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteChecklistItem(item); }}
                         aria-label="Delete item"
                       >
                         <Trash2 className="h-4 w-4 text-muted-foreground" />
@@ -1974,7 +2089,7 @@ export function SchoolWorkspace() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={(e) => { e.stopPropagation(); handleDeletePortalLink(link.id); }}
+                                onClick={(e) => { e.stopPropagation(); handleDeletePortalLink(link); }}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

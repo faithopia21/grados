@@ -157,32 +157,57 @@ export function Documents() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
-  const handleDelete = async (doc: DbDocument) => {
+  const handleDelete = (doc: DbDocument) => {
     setDeleteError('');
-    try {
-      const path = getStoragePath(doc);
-      if (path) {
-        const { error: storageError } = await supabase.storage.from('documents').remove([path]);
-        if (storageError) throw storageError;
-      }
-
-      const { error: dbError } = await supabase
-        .from('documents')
-        .delete()
-        .eq('id', doc.id)
-        .eq('user_id', doc.user_id);
-      if (dbError) throw dbError;
-
-      setDocuments(prev => prev.filter(d => d.id !== doc.id));
-      if (selectedIds.has(doc.id)) {
-        toggleSelection(doc.id, false);
-      }
-      toast.success('Document deleted');
-    } catch (err: any) {
-      console.error('Delete error:', err);
-      toast.error(err.message || 'Failed to delete document');
-      setDeleteError(err.message || 'Failed to delete document. Please try again.');
+    
+    // Remove from UI immediately
+    setDocuments(prev => prev.filter(d => d.id !== doc.id));
+    const wasSelected = selectedIds.has(doc.id);
+    if (wasSelected) {
+      toggleSelection(doc.id, false);
     }
+
+    let undone = false;
+    
+    const timeoutId = setTimeout(async () => {
+      if (!undone) {
+        try {
+          const path = getStoragePath(doc);
+          if (path) {
+            const { error: storageError } = await supabase.storage.from('documents').remove([path]);
+            if (storageError) throw storageError;
+          }
+
+          const { error: dbError } = await supabase
+            .from('documents')
+            .delete()
+            .eq('id', doc.id)
+            .eq('user_id', doc.user_id);
+          if (dbError) throw dbError;
+        } catch (err: any) {
+          console.error('Delete error:', err);
+          setDeleteError(err.message || 'Failed to delete document. Please try again.');
+          // Restore on error
+          setDocuments(prev => [...prev, doc].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        }
+      }
+    }, 5000);
+
+    toast('Document deleted', {
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          undone = true;
+          clearTimeout(timeoutId);
+          // Restore to UI
+          setDocuments(prev => [...prev, doc].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+          if (wasSelected) {
+            toggleSelection(doc.id, true);
+          }
+        }
+      },
+      duration: 5000
+    });
   };
 
   const handleDownload = async (doc: DbDocument) => {

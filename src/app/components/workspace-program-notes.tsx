@@ -29,6 +29,30 @@ interface WorkspaceProgramNotesProps {
   programId: string;
 }
 
+const handleBulkDeleteWithUndo = <T extends { id: string }>(
+  items: T[],
+  deleteFn: () => Promise<void>,
+  restoreFn: (items: T[]) => void,
+  itemsLabel: string
+) => {
+  let undone = false;
+  const timeoutId = setTimeout(async () => {
+    if (!undone) await deleteFn();
+  }, 5000);
+  
+  toast(`${items.length} ${itemsLabel} deleted`, {
+    action: {
+      label: 'Undo',
+      onClick: () => {
+        undone = true;
+        clearTimeout(timeoutId);
+        restoreFn(items);
+      }
+    },
+    duration: 5000
+  });
+};
+
 export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps) {
   const [notes, setNotes] = useState<ProgramNoteRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,24 +67,31 @@ export function WorkspaceProgramNotes({ programId }: WorkspaceProgramNotesProps)
   
   const noteSelection = useSelection();
 
-  const handleBulkDeleteNotes = async () => {
+  const handleBulkDeleteNotes = () => {
     const ids = Array.from(noteSelection.selectedIds);
-    const { error, data } = await supabase.from('program_notes').delete().in('id', ids).select('id');
+    const itemsToDelete = notes.filter(n => ids.includes(n.id));
     
-    if (!error) {
-      const deletedIds = data ? data.map(d => d.id) : [];
-      setNotes(prev => prev.filter(n => !deletedIds.includes(n.id)));
-      noteSelection.clearSelection();
-      
-      if (deletedIds.length === ids.length) {
-        toast.success(`${ids.length} notes deleted`);
-      } else {
-        toast.error(`Only deleted ${deletedIds.length} of ${ids.length} notes`);
-        fetchNotes(); // Resync state if deletion was partial or failed
-      }
-    } else {
-      toast.error('Failed to delete notes: ' + error.message);
-    }
+    // Optimistic update — remove from UI immediately
+    setNotes(prev => prev.filter(n => !ids.includes(n.id)));
+    noteSelection.clearSelection();
+    
+    handleBulkDeleteWithUndo(
+      itemsToDelete,
+      async () => {
+        const { error, data } = await supabase.from('program_notes').delete().in('id', ids).select('id');
+        if (error) {
+          toast.error('Failed to delete notes: ' + error.message);
+          setNotes(prev => [...prev, ...itemsToDelete]);
+        } else if (data && data.length !== ids.length) {
+          toast.error(`Only deleted ${data.length} of ${ids.length} notes`);
+          fetchNotes();
+        }
+      },
+      (restoredItems) => {
+        setNotes(prev => [...prev, ...restoredItems]);
+      },
+      'notes'
+    );
   };
 
   const fetchNotes = useCallback(async () => {
