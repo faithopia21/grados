@@ -1113,11 +1113,11 @@ export function SchoolWorkspace() {
       />
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
-        <div className="sticky top-[52px] md:top-0 z-20 bg-background border-b border-border shadow-sm">
+        <div className="sticky top-0 z-20 bg-background border-b border-border shadow-sm">
           {/* Mobile Header */}
           <div className="md:hidden overflow-hidden">
             {/* Row 1 — navigation and actions */}
-            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            <div className="flex items-center justify-between px-4 pt-2 pb-0">
               {/* Back button */}
               <button
                 onClick={() => navigate('/applications')}
@@ -1154,7 +1154,7 @@ export function SchoolWorkspace() {
             </div>
             
             {/* Row 2 — Compact Header Details */}
-            <div className="px-4 pb-2">
+            <div className="px-4 pb-1">
               <h1 className="text-lg font-semibold text-foreground leading-tight mb-0.5">
                 {program?.school_name}
               </h1>
@@ -1235,41 +1235,41 @@ export function SchoolWorkspace() {
             </PageHeader>
           </div>
 
-          <div className="overflow-x-auto px-4 md:px-8 scrollbar-hide pt-2 md:pt-0">
+          <div className="overflow-x-auto px-4 md:px-8 scrollbar-hide">
             <TabsList className="flex w-full bg-transparent overflow-x-auto scrollbar-hide rounded-none h-auto p-0 gap-0 border-0">
               <TabsTrigger
                 value="overview"
-                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+                className="px-4 py-2 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
               >
                 Overview
               </TabsTrigger>
               <TabsTrigger
                 value="requirements"
-                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+                className="px-4 py-2 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
               >
                 Requirements
               </TabsTrigger>
               <TabsTrigger
                 value="recommendations"
-                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+                className="px-4 py-2 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
               >
                 Recommendations
               </TabsTrigger>
               <TabsTrigger
                 value="documents"
-                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+                className="px-4 py-2 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
               >
                 Documents
               </TabsTrigger>
               <TabsTrigger
                 value="notes"
-                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+                className="px-4 py-2 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
               >
                 Notes
               </TabsTrigger>
               <TabsTrigger
                 value="portal"
-                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+                className="px-4 py-2 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
               >
                 Portal Access
               </TabsTrigger>
