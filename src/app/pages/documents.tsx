@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown, LayoutGrid, List } from 'lucide-react';
 
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
@@ -47,6 +47,7 @@ export function Documents() {
   const [sortOption, setSortOption] = usePersistedState<string>('docs_sort', 'recent');
   const [sortOrder, setSortOrder] = usePersistedState<'asc' | 'desc'>('docs_sort_order', 'desc');
   const [activeCategory, setActiveCategory] = usePersistedState<string>('docs_category', 'All Documents');
+  const [viewMode, setViewMode] = usePersistedState<'card' | 'list'>('grados_docs_view', 'card');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState(false);
@@ -525,6 +526,15 @@ export function Documents() {
                   {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
                 </button>
 
+                {/* View Mode Toggle */}
+                <button
+                  onClick={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
+                  className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors"
+                  title={viewMode === 'card' ? 'Switch to list view' : 'Switch to card view'}
+                >
+                  {viewMode === 'card' ? <List size={16} /> : <LayoutGrid size={16} />}
+                </button>
+
                 {/* Upload — desktop shows label */}
                 <button
                   onClick={() => setUploadOpen(true)}
@@ -576,13 +586,71 @@ export function Documents() {
                     No documents match your search or filter.
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className={viewMode === 'list' ? 'bg-card border border-border rounded-xl overflow-hidden' : 'space-y-3'}>
                     {filteredDocuments.map(doc => {
                       const isSelected = selectedIds.has(doc.id);
                       const isLatest = !documents.some(
                         d => d.name === doc.name && 
                              d.version > doc.version
                       );
+
+                      if (viewMode === 'list') {
+                        return (
+                          <div
+                            key={doc.id}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              toggleSelection(doc.id, true);
+                            }}
+                            onClick={(e) => {
+                              if (isSelectionMode) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleSelection(doc.id);
+                              }
+                            }}
+                            className={`flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-accent/50 cursor-pointer transition-colors last:border-b-0 ${
+                              isSelected ? 'bg-[#4F46E5]/5' : ''
+                            }`}
+                          >
+                            {isSelectionMode && (
+                              <div className="flex-shrink-0" onClick={e => e.stopPropagation()}>
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleSelection(doc.id)}
+                                />
+                              </div>
+                            )}
+                            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="min-w-0 flex-1 flex items-center gap-2">
+                              <p className="text-sm font-medium truncate">{doc.name}</p>
+                              <Badge className={cn('text-[10px] py-0 h-4 border-0 hidden sm:inline-flex shrink-0', getDocTypeBadgeClass(doc.doc_type))}>
+                                {getDocTypeLabel(doc.doc_type)}
+                              </Badge>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0">
+                                v{doc.version}
+                              </span>
+                            </div>
+                            <span className="text-xs text-muted-foreground flex-shrink-0 hidden md:block">
+                              {formatDocumentDate(doc.created_at)} · {doc.file_size}
+                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); handleDelete(doc); }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                       <div
                         key={doc.id}

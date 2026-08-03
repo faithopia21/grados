@@ -19,11 +19,11 @@ import {
 } from '../components/ui/dialog';
 
 import { getDaysUntil, formatDate, safeGetTime } from '../../lib/utils';
-import { Plus, ArrowRight, Search, Trash2, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Plus, ArrowRight, Search, Trash2, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown, LayoutGrid, List, MoreVertical, ChevronRight } from 'lucide-react';
 import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
-import { displayProgramStatus } from '../../lib/program-status';
+import { displayProgramStatus, getStatusBadgeClassName } from '../../lib/program-status';
 import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
@@ -149,7 +149,8 @@ function ApplicationCard({
       : 0;
   const submitted = isSubmitted(program.status);
 
-  const handleDelete = async () => {
+  const handleDelete = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setDeleting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -188,12 +189,14 @@ function ApplicationCard({
       e.preventDefault();
       e.stopPropagation();
       toggleSelection(program.id);
+    } else {
+      navigate(`/applications/${program.id}`);
     }
   };
 
   return (
     <Card 
-      className={`transition-shadow ${isSelected ? 'border-[#4F46E5] ring-1 ring-[#4F46E5] bg-[#4F46E5]/5' : 'hover:shadow-md'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+      className={`transition-shadow ${isSelected ? 'border-[#4F46E5] ring-1 ring-[#4F46E5] bg-[#4F46E5]/5' : 'hover:shadow-md'} cursor-pointer`}
       onContextMenu={handleContextMenu}
       onClick={handleClick}
     >
@@ -254,7 +257,10 @@ function ApplicationCard({
                   {deleting ? 'Deleting...' : 'Yes, delete'}
                 </button>
                 <button
-                  onClick={() => setConfirming(false)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirming(false);
+                  }}
                   disabled={deleting}
                   className="text-muted-foreground hover:underline disabled:opacity-50"
                 >
@@ -266,7 +272,10 @@ function ApplicationCard({
                 <Button
                   variant="outline"
                   className="flex-1 md:w-full"
-                  onClick={() => navigate(`/applications/${program.id}`)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/applications/${program.id}`);
+                  }}
                 >
                   View
                   <ArrowRight className="h-4 w-4 ml-2" />
@@ -275,7 +284,10 @@ function ApplicationCard({
                   <Button
                     size="sm"
                     className="flex-1 md:w-full"
-                    onClick={() => handleMarkSubmitted(program)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMarkSubmitted(program);
+                    }}
                   >
                     Mark Submitted
                   </Button>
@@ -286,13 +298,19 @@ function ApplicationCard({
                       size="sm"
                       variant="ghost"
                       className="flex-1"
-                      onClick={() => handleEditProgram(program)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditProgram(program);
+                      }}
                     >
                       Edit
                     </Button>
                   )}
                   <button
-                    onClick={() => setConfirming(true)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirming(true);
+                    }}
                     title="Delete application"
                     className="flex items-center justify-center w-9 h-9 rounded-md text-[#DC2626] bg-transparent hover:bg-[#FCEBEB] transition-colors shrink-0"
                   >
@@ -322,8 +340,10 @@ export function Applications() {
   const [filterRounds, setFilterRounds] = usePersistedState<string[]>('apps_round_filters', []);
   const [sortOption, setSortOption] = usePersistedState<string>('apps_sort_v3', 'nearest-deadline');
   const [sortOrder, setSortOrder] = usePersistedState<'asc' | 'desc'>('apps_sort_order', 'asc');
+  const [viewMode, setViewMode] = usePersistedState<'card' | 'list'>('grados_apps_view', 'card');
   const [showFilter, setShowFilter] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [activeRowMenu, setActiveRowMenu] = useState<string | null>(null);
 
   const SORT_OPTIONS = [
     { value: 'nearest-deadline', label: 'Deadline' },
@@ -942,6 +962,15 @@ export function Applications() {
                 >
                   {sortOrder === 'asc' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
                 </button>
+
+                {/* View Mode Toggle */}
+                <button
+                  onClick={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
+                  className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors"
+                  title={viewMode === 'card' ? 'Switch to list view' : 'Switch to card view'}
+                >
+                  {viewMode === 'card' ? <List size={16} /> : <LayoutGrid size={16} />}
+                </button>
               </div>
 
               <p className="text-[13px] text-muted-foreground px-4 md:px-6">
@@ -981,6 +1010,97 @@ export function Applications() {
             <p className="text-sm text-muted-foreground text-center py-8">
               No applications match your search or filters.
             </p>
+          ) : viewMode === 'list' ? (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              {sortedPrograms.map(program => (
+                <div
+                  key={program.id}
+                  onClick={() => {
+                    if (isSelectionMode) toggleSelection(program.id);
+                    else navigate(`/applications/${program.id}`);
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    toggleSelection(program.id, true);
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-accent/50 cursor-pointer transition-colors last:border-b-0 ${
+                    selectedIds.has(program.id) ? 'bg-[#4F46E5]/5' : ''
+                  }`}
+                >
+                  {isSelectionMode && (
+                    <div className="flex-shrink-0" onClick={e => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(program.id)}
+                        onCheckedChange={() => toggleSelection(program.id)}
+                      />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {program.school_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {program.program_name}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground flex-shrink-0 hidden sm:block">
+                    {program.deadline ? formatDate(program.deadline) : 'No deadline'}
+                  </span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 border ${getStatusBadgeClassName(program.status)}`}>
+                    {displayProgramStatus(program.status) || 'Not Started'}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveRowMenu(activeRowMenu === program.id ? null : program.id);
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-accent flex-shrink-0 relative"
+                  >
+                    <MoreVertical size={16} />
+                    {activeRowMenu === program.id && (
+                      <div 
+                        className="absolute right-0 top-full mt-1 w-40 bg-background border border-border rounded-lg shadow-lg z-50 py-1"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => {
+                            setActiveRowMenu(null);
+                            handleEditProgram(program);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                        >
+                          Edit
+                        </button>
+                        {!isSubmitted(program.status) && (
+                          <button
+                            onClick={() => {
+                              setActiveRowMenu(null);
+                              handleMarkSubmitted(program);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                          >
+                            Mark Submitted
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setActiveRowMenu(null);
+                            // Set a program ID to delete or re-use confirming state
+                            // Using a quick bulk delete for single since confirming is inside card
+                            toggleSelection(program.id, true);
+                            setShowBulkDeleteModal(true);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </button>
+                  <ChevronRight size={16} className="text-muted-foreground flex-shrink-0" />
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
               {sortedPrograms.map(program => (

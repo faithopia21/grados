@@ -12,7 +12,7 @@ import {
   getStatusBadgeVariant,
 } from '../../lib/program-status';
 import { getShortTimezoneLabel } from '../../lib/timezone';
-import { Calendar, Clock, AlertCircle, ArrowRight, Download, X } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, ArrowRight, Download, X, LayoutGrid, List, ChevronRight } from 'lucide-react';
 import { PageHeader } from '../components/page-header';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
@@ -92,6 +92,7 @@ export function Timeline() {
   const [fetchError, setFetchError] = useState(false);
   const isOnline = useOnlineStatus();
   const [selectedUrgencies, setSelectedUrgencies] = usePersistedState<string[]>('grados_deadlines_urgency', []);
+  const [viewMode, setViewMode] = usePersistedState<'card' | 'list'>('grados_deadlines_view', 'card');
   const [showExportModal, setShowExportModal] = useState(false);
   const [reminderIntervals, setReminderIntervals] = usePersistedState<number[]>(
     'grados_ics_reminders',
@@ -314,12 +315,33 @@ export function Timeline() {
   };
 
   const DeadlineCard = ({ program }: { program: ProgramWithUrgency }) => {
+    if (viewMode === 'list') {
+      return (
+        <div
+          onClick={() => navigate(`/applications/${program.id}`)}
+          className={`flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-accent/50 cursor-pointer transition-colors last:border-b-0 border-l-[3px] ${getLeftBorderClass(program.bucket)}`}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate">{program.school_name}</p>
+            <p className="text-xs text-muted-foreground truncate">{program.program_name}</p>
+          </div>
+          <span className="text-xs text-muted-foreground flex-shrink-0 hidden sm:block">
+            {formatDate(program.deadline)}
+          </span>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${getDaysBadgeClass(program.daysLeft!)}`}>
+            {program.daysLeft! >= 0 ? `${program.daysLeft}d left` : 'Overdue'}
+          </span>
+          <ChevronRight size={16} className="text-muted-foreground flex-shrink-0" />
+        </div>
+      );
+    }
 
     return (
       <div
+        onClick={() => navigate(`/applications/${program.id}`)}
         className={`p-4 rounded-lg border transition-colors border-l-[3px] ${getLeftBorderClass(
           program.bucket
-        )} border-border hover:bg-accent/50`}
+        )} border-border hover:bg-accent/50 cursor-pointer`}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -366,7 +388,10 @@ export function Timeline() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => navigate(`/applications/${program.id}`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/applications/${program.id}`);
+            }}
           >
             <ArrowRight className="h-4 w-4" />
           </Button>
@@ -697,7 +722,16 @@ export function Timeline() {
       )}
 
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 relative z-10">
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {/* View Mode Toggle */}
+          <button
+            onClick={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
+            className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 transition-colors"
+            title={viewMode === 'card' ? 'Switch to list view' : 'Switch to card view'}
+          >
+            {viewMode === 'card' ? <List size={16} /> : <LayoutGrid size={16} />}
+          </button>
+          
           <Button
             variant="outline"
             size="sm"
@@ -707,6 +741,7 @@ export function Timeline() {
             }}
             disabled={loading || programs.length === 0}
             id="export-ics-button"
+            className="h-[34px]"
           >
             <Download className="h-4 w-4 mr-2" />
             Export .ics
@@ -818,28 +853,28 @@ export function Timeline() {
           ) : (
             <div className="grid grid-cols-1 gap-6">
               {filteredUrgent.length > 0 && (
-                <div className="space-y-3">
+                <div className={viewMode === 'list' ? 'bg-card border border-border rounded-xl overflow-hidden' : 'space-y-3'}>
                   {filteredUrgent.map(p => (
                     <DeadlineCard key={p.id} program={p} />
                   ))}
                 </div>
               )}
               {filteredSoon.length > 0 && (
-                <div className="space-y-3">
+                <div className={viewMode === 'list' ? 'bg-card border border-border rounded-xl overflow-hidden' : 'space-y-3'}>
                   {filteredSoon.map(p => (
                     <DeadlineCard key={p.id} program={p} />
                   ))}
                 </div>
               )}
               {filteredUpcoming.length > 0 && (
-                <div className="space-y-3">
+                <div className={viewMode === 'list' ? 'bg-card border border-border rounded-xl overflow-hidden' : 'space-y-3'}>
                   {filteredUpcoming.map(p => (
                     <DeadlineCard key={p.id} program={p} />
                   ))}
                 </div>
               )}
               {filteredFuture.length > 0 && (
-                <div className="space-y-3">
+                <div className={viewMode === 'list' ? 'bg-card border border-border rounded-xl overflow-hidden' : 'space-y-3'}>
                   {filteredFuture.map(p => (
                     <DeadlineCard key={p.id} program={p} />
                   ))}
