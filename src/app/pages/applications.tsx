@@ -730,6 +730,8 @@ export function Applications() {
                                 onClick={() => {
                                   setActiveStatuses([]);
                                   setFilterDegrees([]);
+                                  setFilterCountries([]);
+                                  setFilterRounds([]);
                                   setFilterFunding('');
                                 }}
                                 className="text-xs text-red-500 hover:underline"
@@ -818,6 +820,34 @@ export function Applications() {
                               ))}
                             </div>
                           </div>
+
+                          {/* Country */}
+                          {availableCountries.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Country</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {availableCountries.map(country => (
+                                  <button
+                                    key={country}
+                                    onClick={() => {
+                                      setFilterCountries(prev =>
+                                        prev.includes(country)
+                                          ? prev.filter(c => c !== country)
+                                          : [...prev, country]
+                                      );
+                                    }}
+                                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                      filterCountries.includes(country)
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-muted text-muted-foreground hover:bg-accent'
+                                    }`}
+                                  >
+                                    {country}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Funding */}
                           <div>
