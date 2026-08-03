@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
 import { UploadDocumentFlow } from '../components/upload-document-flow';
+import { DocumentViewerModal } from '../components/document-viewer-modal';
 import { PageSkeleton } from '../components/page-skeleton';
 import { supabase } from '../../lib/supabase';
 import {
@@ -27,7 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown, LayoutGrid, List } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown, LayoutGrid, List, Eye } from 'lucide-react';
 
 import { toast } from 'sonner';
 import { PageHeader } from '../components/page-header';
@@ -50,6 +51,7 @@ export function Documents() {
   const [viewMode, setViewMode] = usePersistedState<'card' | 'list'>('grados_docs_view', 'card');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [viewerDoc, setViewerDoc] = useState<DbDocument | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [showDocSortMenu, setShowDocSortMenu] = useState(false);
@@ -660,6 +662,9 @@ export function Documents() {
                               {formatDocumentDate(doc.created_at)} · {doc.file_size}
                             </span>
                             <div className="flex items-center gap-1 shrink-0">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}>
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -717,6 +722,10 @@ export function Documents() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </Button>
                           <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}>
                             <Download className="h-4 w-4 mr-2" />
                             Download
@@ -766,6 +775,14 @@ export function Documents() {
         onOpenChange={setUploadOpen}
         onSuccess={fetchDocuments}
       />
+      
+      {viewerDoc && (
+        <DocumentViewerModal
+          doc={viewerDoc}
+          onClose={() => setViewerDoc(null)}
+          onSaved={fetchDocuments}
+        />
+      )}
       
       <button
         onClick={() => setUploadOpen(true)}

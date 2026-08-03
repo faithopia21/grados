@@ -65,8 +65,10 @@ import {
   ChevronRight,
   ChevronLeft,
   DollarSign,
+  Eye,
 } from 'lucide-react';
 import { PageHeader } from '../components/page-header';
+import { DocumentViewerModal } from '../components/document-viewer-modal';
 
 interface DbProgram {
   id: string;
@@ -368,6 +370,7 @@ export function SchoolWorkspace() {
   const [editingPortalUrl, setEditingPortalUrl] = useState(false);
   const [portalUrlDraft, setPortalUrlDraft] = useState('');
   const [portalSaving, setPortalSaving] = useState(false);
+  const [viewerDoc, setViewerDoc] = useState<DbDocument | null>(null);
   const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
   const [editingLinkDraft, setEditingLinkDraft] = useState({ label: '', url: '' });
   const [showAddLink, setShowAddLink] = useState(false);
@@ -1684,6 +1687,14 @@ export function SchoolWorkspace() {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={(e) => { e.stopPropagation(); handleDownloadLinkedDoc(doc); }}
                           >
                             <Download className="h-4 w-4 mr-2" />
@@ -1760,6 +1771,16 @@ export function SchoolWorkspace() {
               onSuccess={() => {
                 fetchLinkedDocuments(program.id);
                 fetchLibraryDocuments();
+              }}
+            />
+          )}
+          
+          {viewerDoc && (
+            <DocumentViewerModal
+              doc={viewerDoc}
+              onClose={() => setViewerDoc(null)}
+              onSaved={() => {
+                if (program) fetchLinkedDocuments(program.id);
               }}
             />
           )}
