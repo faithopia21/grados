@@ -667,9 +667,23 @@ export function Timeline() {
                         toast.success(`Synced ${toSync.length} deadline(s) to Google Calendar`);
                         setShowExportModal(false);
                       },
-                      () => {
+                      (error: any) => {
                         setSyncing(false);
-                        toast.error('Google Calendar sync failed. Please try again.');
+                        
+                        const isAccessError = 
+                          error?.error === 'access_denied' ||
+                          error?.error === 'invalid_client' ||
+                          error?.type === 'popup_closed';
+                        
+                        if (isAccessError) {
+                          toast.error(
+                            'Google Calendar sync is in early access right now. Use "Export calendar file" below instead — it works for everyone.'
+                          );
+                        } else {
+                          toast.error(
+                            'Google Calendar sync failed. Please try again or use "Export calendar file" instead.'
+                          );
+                        }
                       }
                     );
                   }}
