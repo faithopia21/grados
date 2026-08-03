@@ -985,130 +985,7 @@ export function SchoolWorkspace() {
   console.log('Rendering workspace for:', program.school_name, 'id:', id);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Mobile Header */}
-      <div className="md:hidden bg-background border-b border-border overflow-hidden">
-        {/* Row 1 — navigation and actions */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-1">
-          {/* Back button */}
-          <button
-            onClick={() => navigate('/applications')}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft size={16} />
-            <span className="text-xs">Back</span>
-          </button>
-          
-          {/* Action icons — compact on mobile */}
-          <div className="flex items-center gap-2">
-            {/* Status badge — clickable, opens modal */}
-            <button
-              onClick={() => setIsStatusDialogOpen(true)}
-              className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border border-border hover:bg-accent"
-            >
-              <span className={`w-2 h-2 rounded-full ${getStatusDotColor(program.status)}`} />
-              <span className="max-w-[80px] truncate">
-                {program.status || 'Not Started'}
-              </span>
-            </button>
-            
-            {/* Portal icon button (only if URL exists) */}
-            {program?.portal_url?.trim() && (
-              <button
-                onClick={() => window.open(program.portal_url!, '_blank')}
-                className="p-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950"
-                title="Open Application Portal"
-              >
-                <ExternalLink size={16} />
-              </button>
-            )}
-          </div>
-        </div>
-        
-        {/* Row 2 — Compact Header Details */}
-        <div className="px-4 pb-2">
-          <h1 className="text-lg font-semibold text-foreground leading-tight mb-0.5">
-            {program?.school_name}
-          </h1>
-          
-          {/* All details on ONE line */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-sm text-muted-foreground">
-              {program?.program_name}
-            </span>
-            {program?.country && (
-              <>
-                <span className="text-muted-foreground text-xs">•</span>
-                <span className="text-xs text-muted-foreground">
-                  {program.country}
-                </span>
-              </>
-            )}
-            {program?.degree_type && (
-              <>
-                <span className="text-muted-foreground text-xs">•</span>
-                <span className="text-xs text-muted-foreground">
-                  {program.degree_type}
-                </span>
-              </>
-            )}
-            {program?.funding_available && (
-              <span 
-                title="Funding available"
-                className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 cursor-default flex-shrink-0"
-              >
-                <DollarSign size={11} />
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop Header */}
-      <div className="hidden md:block">
-        <PageHeader 
-          title={
-            <div className="flex items-center gap-2">
-              <span>{program.school_name}</span>
-              {program.funding_available && (
-                <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0 text-xs">
-                  Funding Available
-                </Badge>
-              )}
-            </div>
-          }
-          subtitle={`${program.degree_type} in ${program.program_name}${program.country ? ` · ${program.country}` : ''}`}
-          backTo="/applications"
-        >
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={getStatusBadgeVariant(program.status)}
-              className={cn(
-                'cursor-pointer h-8 px-3 text-sm',
-                getStatusBadgeClassName(program.status)
-              )}
-              onClick={() => setIsStatusDialogOpen(true)}
-              title="Update status"
-            >
-              {statusLabel}
-            </Badge>
-            
-            {program.portal_url?.trim() && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-transparent border-[#4F46E5] text-[#4F46E5] hover:bg-indigo-50 dark:hover:bg-indigo-950/30 h-8"
-                onClick={() => window.open(program.portal_url!, '_blank')}
-              >
-                Open Portal <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
-              </Button>
-            )}
-          </div>
-        </PageHeader>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
-
+    <div className="min-h-screen bg-background flex flex-col">
       <StatusUpdateDialog
         open={isStatusDialogOpen}
         onOpenChange={setIsStatusDialogOpen}
@@ -1117,49 +994,173 @@ export function SchoolWorkspace() {
         confirming={statusSaving}
       />
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
-          <TabsList className="flex w-full border-b border-border bg-transparent overflow-x-auto scrollbar-hide rounded-none h-auto p-0 gap-0">
-            <TabsTrigger
-              value="overview"
-              className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
+        <div className="sticky top-[52px] md:top-0 z-20 bg-background border-b border-border shadow-sm">
+          {/* Mobile Header */}
+          <div className="md:hidden overflow-hidden">
+            {/* Row 1 — navigation and actions */}
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+              {/* Back button */}
+              <button
+                onClick={() => navigate('/applications')}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <ChevronLeft size={16} />
+                <span className="text-xs">Back</span>
+              </button>
+              
+              {/* Action icons — compact on mobile */}
+              <div className="flex items-center gap-2">
+                {/* Status badge — clickable, opens modal */}
+                <button
+                  onClick={() => setIsStatusDialogOpen(true)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border border-border hover:bg-accent"
+                >
+                  <span className={`w-2 h-2 rounded-full ${getStatusDotColor(program.status)}`} />
+                  <span className="max-w-[80px] truncate">
+                    {program.status || 'Not Started'}
+                  </span>
+                </button>
+                
+                {/* Portal icon button (only if URL exists) */}
+                {program?.portal_url?.trim() && (
+                  <button
+                    onClick={() => window.open(program.portal_url!, '_blank')}
+                    className="p-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950"
+                    title="Open Application Portal"
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Row 2 — Compact Header Details */}
+            <div className="px-4 pb-2">
+              <h1 className="text-lg font-semibold text-foreground leading-tight mb-0.5">
+                {program?.school_name}
+              </h1>
+              
+              {/* All details on ONE line */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-sm text-muted-foreground">
+                  {program?.program_name}
+                </span>
+                {program?.country && (
+                  <>
+                    <span className="text-muted-foreground text-xs">•</span>
+                    <span className="text-xs text-muted-foreground">
+                      {program.country}
+                    </span>
+                  </>
+                )}
+                {program?.degree_type && (
+                  <>
+                    <span className="text-muted-foreground text-xs">•</span>
+                    <span className="text-xs text-muted-foreground">
+                      {program.degree_type}
+                    </span>
+                  </>
+                )}
+                {program?.funding_available && (
+                  <span 
+                    title="Funding available"
+                    className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 cursor-default flex-shrink-0"
+                  >
+                    <DollarSign size={11} />
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Header */}
+          <div className="hidden md:block">
+            <PageHeader 
+              title={
+                <div className="flex items-center gap-2">
+                  <span>{program.school_name}</span>
+                  {program.funding_available && (
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0 text-xs">
+                      Funding Available
+                    </Badge>
+                  )}
+                </div>
+              }
+              subtitle={`${program.degree_type} in ${program.program_name}${program.country ? ` · ${program.country}` : ''}`}
+              backTo="/applications"
             >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="requirements"
-              className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
-            >
-              Requirements
-            </TabsTrigger>
-            <TabsTrigger
-              value="recommendations"
-              className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
-            >
-              Recommendations
-            </TabsTrigger>
-            <TabsTrigger
-              value="documents"
-              className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
-            >
-              Documents
-            </TabsTrigger>
-            <TabsTrigger
-              value="notes"
-              className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
-            >
-              Notes
-            </TabsTrigger>
-            <TabsTrigger
-              value="portal"
-              className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
-            >
-              Portal Access
-            </TabsTrigger>
-          </TabsList>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={getStatusBadgeVariant(program.status)}
+                  className={cn(
+                    'cursor-pointer h-8 px-3 text-sm',
+                    getStatusBadgeClassName(program.status)
+                  )}
+                  onClick={() => setIsStatusDialogOpen(true)}
+                  title="Update status"
+                >
+                  {statusLabel}
+                </Badge>
+                
+                {program.portal_url?.trim() && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent border-[#4F46E5] text-[#4F46E5] hover:bg-indigo-50 dark:hover:bg-indigo-950/30 h-8"
+                    onClick={() => window.open(program.portal_url!, '_blank')}
+                  >
+                    Open Portal <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
+                  </Button>
+                )}
+              </div>
+            </PageHeader>
+          </div>
+
+          <div className="overflow-x-auto px-4 md:px-8 scrollbar-hide pt-2 md:pt-0">
+            <TabsList className="flex w-full bg-transparent overflow-x-auto scrollbar-hide rounded-none h-auto p-0 gap-0 border-0">
+              <TabsTrigger
+                value="overview"
+                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="requirements"
+                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                Requirements
+              </TabsTrigger>
+              <TabsTrigger
+                value="recommendations"
+                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                Recommendations
+              </TabsTrigger>
+              <TabsTrigger
+                value="documents"
+                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                Documents
+              </TabsTrigger>
+              <TabsTrigger
+                value="notes"
+                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                Notes
+              </TabsTrigger>
+              <TabsTrigger
+                value="portal"
+                className="px-4 py-3 text-sm font-medium rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground bg-transparent transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                Portal Access
+              </TabsTrigger>
+            </TabsList>
+          </div>
         </div>
 
-        <TabsContent value="overview" className="space-y-4">
+        <div className="flex-1 p-4 md:p-8 space-y-6">
+          <TabsContent value="overview" className="space-y-4 mt-0">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Column 1 — Application Deadline */}
             <Card className="bg-white dark:bg-card border border-border/50 rounded-xl">
@@ -2027,7 +2028,8 @@ export function SchoolWorkspace() {
             </Card>
           </div>
           </TabsContent>
-        </Tabs>
+        </div>
+      </Tabs>
       {/* Briefing Note Overlay */}
       {briefingOverlayId && (() => {
         const rec = recommenders.find(r => r.id === briefingOverlayId);
@@ -2073,7 +2075,6 @@ export function SchoolWorkspace() {
           </div>
         );
       })()}
-      </div>
     </div>
   );
 }
