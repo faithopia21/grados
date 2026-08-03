@@ -89,6 +89,22 @@ const FAQS = [
       {
         q: "What does the deadline colour coding mean?",
         a: "Red means the deadline is within 7 days and needs immediate attention. Amber means 8 to 30 days away. Blue means 31 to 60 days away. Green means more than 60 days away. Deadlines with no date set show as grey."
+      },
+      {
+        q: "What is the difference between Export .ics and Sync to Google Calendar?",
+        a: "Export .ics downloads a calendar file you can import into Apple Calendar, Outlook, or most other calendar apps. Sync to Google Calendar is a separate option built specifically for Google Calendar users, since Google Calendar discards custom reminders from imported files. If you use Google Calendar on Android or the web, use Sync to Google Calendar. If you use Apple Calendar, Outlook, or another app, use Export .ics."
+      },
+      {
+        q: "Why did Sync to Google Calendar ask for permission to my calendar?",
+        a: "GradOS needs permission to create and update deadline events directly in your Google Calendar. This is a one-time authorisation each time you sync. GradOS only creates and updates events for your application deadlines — it cannot see or modify anything else already in your calendar."
+      },
+      {
+        q: "I synced twice and now have duplicate events. How do I fix this?",
+        a: "Open the Export calendar modal on the Deadlines page and click 'Having duplicate events? Clear all synced events'. This removes every deadline event GradOS has created in your Google Calendar. Afterwards, click Sync to Google Calendar again to recreate them cleanly."
+      },
+      {
+        q: "Can I set a custom reminder time, like 2 months before a deadline?",
+        a: "Yes. In the Export calendar modal, below the preset reminder options, there is a custom reminder section where you can enter any number of months, weeks, days, hours, or minutes before the deadline. Click Add to include it alongside your other selected reminders."
       }
     ]
   },
