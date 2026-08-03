@@ -746,7 +746,7 @@ export function SchoolWorkspace() {
       (existing || []).map(item => item.label.toLowerCase().trim())
     );
 
-    const defaultItems = [
+    const masterItems = [
       { label: 'Statement of Purpose', is_required: true, is_done: false, status: 'pending' },
       { label: 'CV/Resume', is_required: true, is_done: false, status: 'pending' },
       { label: 'Transcripts', is_required: true, is_done: false, status: 'pending' },
@@ -754,6 +754,21 @@ export function SchoolWorkspace() {
       { label: 'Letter of Recommendation 2', is_required: true, is_done: false, status: 'pending' },
       { label: 'Application Fee', is_required: true, is_done: false, status: 'pending' },
     ];
+
+    const phdItems = [
+      { label: 'Statement of Purpose', is_required: true, is_done: false, status: 'pending' },
+      { label: 'CV/Resume', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Transcripts', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Letter of Recommendation 1', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Letter of Recommendation 2', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Letter of Recommendation 3', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Application Fee', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Research Proposal', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Writing Sample', is_required: true, is_done: false, status: 'pending' },
+      { label: 'Personal Statement', is_required: false, is_done: false, status: 'pending' },
+    ];
+
+    const defaultItems = program.degree_type === 'PhD' ? phdItems : masterItems;
 
     // Only insert items whose label does not already exist for this program
     const itemsToInsert = defaultItems.filter(
