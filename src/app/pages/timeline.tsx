@@ -672,11 +672,15 @@ export function Timeline() {
               <button
                 onClick={handleClearSyncedEvents}
                 disabled={clearing}
-                className="w-full text-xs text-muted-foreground underline hover:text-red-500 text-center mt-2 disabled:opacity-50"
+                className="w-full text-xs text-muted-foreground hover:text-red-500 text-center mt-2 disabled:opacity-50"
               >
                 {clearing 
                   ? 'Removing old synced events...' 
-                  : 'Having duplicate events? Clear all synced events'
+                  : (
+                    <>
+                      Having duplicate events? <span className="underline">Clear all synced events</span>
+                    </>
+                  )
                 }
               </button>
             </div>

@@ -136,28 +136,49 @@ export async function clearAllGradosEvents(): Promise<{ deleted: number; error?:
   }
 
   try {
-    const listUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?privateExtendedProperty=gradosApp%3Dtrue&maxResults=250`;
-    
-    const listRes = await fetch(listUrl, {
-      headers: { 
-        Authorization: `Bearer ${accessToken}` 
-      },
-    });
-    const listData = await listRes.json();
-    const events = listData.items || [];
+    let allEvents: any[] = [];
+    let pageToken: string | undefined = undefined;
+
+    do {
+      const params = new URLSearchParams({
+        q: 'DEADLINE:',
+        timeMin: '2020-01-01T00:00:00Z',
+        timeMax: '2035-01-01T00:00:00Z',
+        maxResults: '250',
+        singleEvents: 'true',
+      });
+      if (pageToken) params.set('pageToken', pageToken);
+
+      const listRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      const listData = await listRes.json();
+      const items = (listData.items || []).filter(
+        (e: any) =>
+          typeof e.summary === 'string' &&
+          e.summary.startsWith('DEADLINE:')
+      );
+      allEvents = allEvents.concat(items);
+      pageToken = listData.nextPageToken;
+    } while (pageToken);
 
     let deleted = 0;
-    for (const event of events) {
+    for (const event of allEvents) {
       const delRes = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`,
         {
           method: 'DELETE',
-          headers: { 
-            Authorization: `Bearer ${accessToken}` 
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
-      if (delRes.ok) deleted++;
+      if (delRes.ok || delRes.status === 410) deleted++;
     }
 
     return { deleted };
@@ -165,3 +186,4 @@ export async function clearAllGradosEvents(): Promise<{ deleted: number; error?:
     return { deleted: 0, error: err.message };
   }
 }
+
