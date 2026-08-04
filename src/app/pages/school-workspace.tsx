@@ -66,6 +66,8 @@ import {
   ChevronLeft,
   DollarSign,
   Eye,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { PageHeader } from '../components/page-header';
 import { DocumentViewerModal } from '../components/document-viewer-modal';
@@ -366,6 +368,8 @@ export function SchoolWorkspace() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [recommenderDeleteId, setRecommenderDeleteId] = useState<string | null>(null);
   const [briefingOverlayId, setBriefingOverlayId] = useState<string | null>(null);
+  const [recommendersViewMode, setRecommendersViewMode] = usePersistedState<'card' | 'list'>('grados_recommenders_view', 'card');
+  const [expandedRecommenderId, setExpandedRecommenderId] = useState<string | null>(null);
   // Portal inline-editing state
   const [editingPortalUrl, setEditingPortalUrl] = useState(false);
   const [portalUrlDraft, setPortalUrlDraft] = useState('');
@@ -1792,6 +1796,22 @@ export function SchoolWorkspace() {
 
         <TabsContent value="recommendations">
           <div className="space-y-4">
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => {
+                  setRecommendersViewMode(
+                    recommendersViewMode === 'card' 
+                      ? 'list' 
+                      : 'card'
+                  );
+                  setExpandedRecommenderId(null);
+                }}
+                className="p-2 border border-border rounded-lg hover:bg-accent flex-shrink-0 text-muted-foreground"
+                title={recommendersViewMode === 'card' ? 'Switch to list view' : 'Switch to card view'}
+              >
+                {recommendersViewMode === 'card' ? <List size={16} /> : <LayoutGrid size={16} />}
+              </button>
+            </div>
             {recommenderSelection.isSelectionMode && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1821,6 +1841,153 @@ export function SchoolWorkspace() {
 
             {recommenders.map(rec => {
               const isSelected = recommenderSelection.selectedIds.has(rec.id);
+              
+              if (recommendersViewMode === 'list') {
+                return (
+                  <div key={rec.id} className={`border border-border rounded-lg overflow-hidden bg-card ${isSelected ? 'border-[#4F46E5] ring-1 ring-[#4F46E5]' : ''}`}>
+                    <div
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        recommenderSelection.toggleSelection(rec.id, true);
+                      }}
+                      onClick={(e) => { 
+                        if (recommenderSelection.isSelectionMode) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          recommenderSelection.toggleSelection(rec.id);
+                        } else {
+                          setExpandedRecommenderId(
+                            expandedRecommenderId === rec.id 
+                              ? null 
+                              : rec.id
+                          );
+                        }
+                      }}
+                      className={`flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-accent/50 cursor-pointer transition-colors ${isSelected ? 'bg-[#4F46E5]/5' : ''}`}
+                    >
+                      {recommenderSelection.isSelectionMode && (
+                        <div onClick={e => e.stopPropagation()} className="flex items-center">
+                          <Checkbox checked={isSelected} onCheckedChange={() => recommenderSelection.toggleSelection(rec.id)} />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">
+                          {rec.name || 'Unnamed recommender'}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {rec.title || 'No role set'}
+                        </p>
+                      </div>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 bg-muted text-muted-foreground">
+                        {rec.status || 'Not Asked'}
+                      </span>
+                      <ChevronRight 
+                        size={16} 
+                        className={`text-muted-foreground flex-shrink-0 transition-transform ${expandedRecommenderId === rec.id ? 'rotate-90' : ''}`}
+                      />
+                    </div>
+
+                    {expandedRecommenderId === rec.id && (
+                      <div className="px-4 py-4 border-b border-border bg-accent/20 relative">
+                        <button
+                          type="button"
+                          className="absolute top-3 right-3 p-2 rounded-full text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+                          onClick={(e) => { e.stopPropagation(); setRecommenderDeleteId(rec.id); }}
+                          aria-label="Remove recommender"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        {recommenderDeleteId === rec.id && (
+                          <div className="px-6 pt-4 pb-0 border-b border-border">
+                            <p className="text-sm mb-2 pr-12">Remove this recommender?</p>
+                            <div className="flex gap-2 pb-4">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-[#DC2626] border-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/30 min-h-[44px]"
+                                onClick={(e) => { e.stopPropagation(); handleDeleteRecommender(rec); }}
+                              >
+                                Yes
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => { e.stopPropagation(); setRecommenderDeleteId(null); }}
+                                className="min-h-[44px]"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        <div onClick={e => recommenderSelection.isSelectionMode && e.stopPropagation()}>
+                          <div className="pt-2 space-y-4 pr-12">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Name</Label>
+                                <Input
+                                  defaultValue={rec.name ?? ''}
+                                  placeholder="Recommender name"
+                                  onBlur={e => handleRecommenderFieldBlur(rec, 'name', e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Title / Role</Label>
+                                <Input
+                                  defaultValue={rec.title ?? ''}
+                                  placeholder="Professor, Manager..."
+                                  onBlur={e => handleRecommenderFieldBlur(rec, 'title', e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Email</Label>
+                                <Input
+                                  type="email"
+                                  defaultValue={rec.email ?? ''}
+                                  placeholder="email@university.edu"
+                                  onBlur={e => handleRecommenderFieldBlur(rec, 'email', e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <Label className="text-xs shrink-0">Status</Label>
+                              <select
+                                value={rec.status || 'Not Asked'}
+                                onChange={e => handleRecommenderStatusChange(rec, e.target.value)}
+                                className="px-3 py-2 text-sm border border-border rounded-md bg-background"
+                              >
+                                {RECOMMENDER_STATUSES.map(s => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Briefing note</Label>
+                              {rec.briefing_note?.trim() ? (
+                                <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed">
+                                  {rec.briefing_note}
+                                </p>
+                              ) : (
+                                <p className="text-[12px] text-muted-foreground italic">No briefing note yet</p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setBriefingOverlayId(rec.id)}
+                                className="text-xs text-[#4F46E5] hover:underline mt-0.5 block"
+                              >
+                                View / Edit note →
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               return (
               <Card
                 key={rec.id}

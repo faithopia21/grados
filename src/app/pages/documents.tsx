@@ -47,7 +47,7 @@ export function Documents() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [sortOption, setSortOption] = usePersistedState<string>('docs_sort', 'recent');
   const [sortOrder, setSortOrder] = usePersistedState<'asc' | 'desc'>('docs_sort_order', 'desc');
-  const [activeCategory, setActiveCategory] = usePersistedState<string>('docs_category', 'All Documents');
+  const [activeCategories, setActiveCategories] = usePersistedState<string[]>('grados_docs_categories', []);
   const [viewMode, setViewMode] = usePersistedState<'card' | 'list'>('grados_docs_view', 'card');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -248,32 +248,34 @@ export function Documents() {
   ];
 
   const categoryFilteredDocuments = useMemo(() => {
-    const hasActiveFilters = activeCategory !== 'All Documents';
-    if (!hasActiveFilters) return documents;
-    return documents.filter(doc => {
-      const docType = (doc.doc_type || '').toLowerCase();
-      switch (activeCategory) {
-        case 'SOP':
-          return docType.includes('sop') || docType.includes('statement');
-        case 'CV':
-          return docType.includes('cv') || docType.includes('resume');
-        case 'Transcripts':
-          return docType.includes('transcript');
-        case 'Recommendations':
-          return docType.includes('recommendation') || docType.includes('letter') || docType.includes('lor');
-        case 'Writing Sample':
-          return docType.includes('writing') || docType.includes('sample');
-        case 'Other':
-          return !['sop', 'statement', 'cv', 'resume', 'transcript',
-            'recommendation', 'letter', 'lor', 'writing', 'sample']
-            .some(t => docType.includes(t));
-        default:
-          return true;
-      }
-    });
-  }, [documents, activeCategory]);
+    return activeCategories.length === 0
+      ? documents
+      : documents.filter(doc => {
+          const docType = (doc.doc_type || '').toLowerCase();
+          return activeCategories.some(cat => {
+            switch (cat) {
+              case 'SOP':
+                return docType.includes('sop') || docType.includes('statement');
+              case 'CV':
+                return docType.includes('cv') || docType.includes('resume');
+              case 'Transcripts':
+                return docType.includes('transcript');
+              case 'Recommendations':
+                return docType.includes('recommendation') || docType.includes('letter') || docType.includes('lor');
+              case 'Writing Sample':
+                return docType.includes('writing') || docType.includes('sample');
+              case 'Other':
+                return !['sop', 'statement', 'cv', 'resume', 'transcript',
+                  'recommendation', 'letter', 'lor', 'writing', 'sample']
+                  .some(t => docType.includes(t));
+              default:
+                return false;
+            }
+          });
+        });
+  }, [documents, activeCategories]);
 
-  const hasActiveFilters = activeCategory !== 'All Documents';
+  const hasActiveFilters = activeCategories.length > 0;
 
   const filteredDocuments = useMemo(() => {
     let filtered = categoryFilteredDocuments;
@@ -416,15 +418,15 @@ export function Documents() {
                       setShowDocSortMenu(false);
                     }}
                     className={`p-2 border rounded-lg hover:bg-accent transition-colors relative ${
-                      activeCategory !== 'All Documents'
+                      hasActiveFilters
                         ? 'border-indigo-500 text-indigo-600'
                         : 'border-border'
                     }`}
                   >
                     <SlidersHorizontal size={16} />
-                    {activeCategory !== 'All Documents' && (
-                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-600 text-white text-xs rounded-full flex items-center justify-center">
-                        1
+                    {hasActiveFilters && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white md:static md:w-auto md:h-5 md:px-1.5 md:rounded-md">
+                        {activeCategories.length}
                       </span>
                     )}
                   </button>
@@ -447,9 +449,9 @@ export function Documents() {
                         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                           <span className="text-sm font-semibold">Document Type</span>
                           <div className="flex items-center gap-3">
-                            {activeCategory !== 'All Documents' && (
+                            {hasActiveFilters && (
                               <button
-                                onClick={() => setActiveCategory('All Documents')}
+                                onClick={() => setActiveCategories([])}
                                 className="text-xs text-red-500 hover:underline"
                               >
                                 Clear
@@ -467,24 +469,34 @@ export function Documents() {
                         {/* Options */}
                         <div className="px-4 py-3">
                           <div className="flex flex-wrap gap-1.5">
-                            {CATEGORIES.map(cat => (
-                              <button
-                                key={cat}
-                                onClick={() => {
-                                  setActiveCategory(cat);
-                                  if (window.innerWidth < 768) {
-                                    setShowFilter(false);
-                                  }
-                                }}
-                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                  activeCategory === cat
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-muted text-muted-foreground hover:bg-accent'
-                                }`}
-                              >
-                                {cat}
-                              </button>
-                            ))}
+                            {CATEGORIES.map(cat => {
+                              const isActive = cat === 'All Documents'
+                                ? activeCategories.length === 0
+                                : activeCategories.includes(cat);
+                              return (
+                                <button
+                                  key={cat}
+                                  onClick={() => {
+                                    if (cat === 'All Documents') {
+                                      setActiveCategories([]);
+                                    } else {
+                                      setActiveCategories(prev =>
+                                        prev.includes(cat)
+                                          ? prev.filter(c => c !== cat)
+                                          : [...prev, cat]
+                                      );
+                                    }
+                                  }}
+                                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                    isActive
+                                      ? 'bg-indigo-600 text-white'
+                                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                                  }`}
+                                >
+                                  {cat}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 
