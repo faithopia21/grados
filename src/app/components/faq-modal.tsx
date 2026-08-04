@@ -26,6 +26,10 @@ const FAQS = [
       {
         q: "Can I use GradOS on my phone?",
         a: "Yes. GradOS is fully responsive and works on mobile phones and tablets. On mobile, use the bottom navigation bar to move between sections. Tap the + button to add a new school."
+      },
+      {
+        q: "Can I install GradOS on my phone like an app?",
+        a: "Yes. On Android, open GradOS in Chrome, tap the menu (three dots) in the top right, and choose 'Add to Home screen' or 'Install app'. On iPhone, open GradOS in Safari, tap the Share icon, then 'Add to Home Screen'. This adds a GradOS icon to your home screen that opens like a regular app, without needing to open a browser first."
       }
     ]
   },
