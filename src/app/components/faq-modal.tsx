@@ -88,7 +88,11 @@ const FAQS = [
       },
       {
         q: "Can I get email reminders for upcoming deadlines?",
-        a: "Email reminders are coming in a future update. For now, use the Deadline Tracker page and the .ics calendar export to keep track of upcoming deadlines in your preferred calendar app."
+        a: "Yes. Go to Settings and turn on Email deadline reminders. You can choose exactly which days you want to be reminded — for example 1 month, 2 weeks, 1 week, 3 days, and 1 day before a deadline, or any custom number of months, weeks, or days you prefer. Reminders are sent once daily by email for any deadline matching your chosen schedule."
+      },
+      {
+        q: "Why can't I set an email reminder in hours or minutes?",
+        a: "Email reminders are checked once per day, so they work at the level of days rather than hours or minutes. If you need a reminder at a specific time of day, use Sync to Google Calendar or Export .ics instead — those support hour and minute-level reminders through your calendar app."
       },
       {
         q: "What does the deadline colour coding mean?",
