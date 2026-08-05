@@ -69,6 +69,9 @@ export function Settings() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [emailRemindersEnabled, setEmailRemindersEnabled] = useState(true);
+  const [emailReminderDays, setEmailReminderDays] = useState<number[]>([7, 3, 1]);
+  const [customDayValue, setCustomDayValue] = useState('');
+  const [customDayUnit, setCustomDayUnit] = useState<'months' | 'weeks' | 'days'>('days');
   const [weeklyProgress, setWeeklyProgress] = useState(false);
   const [showOriginalTimezone, setShowOriginalTimezone] = usePersistedState<boolean>(
     'grados_show_original_tz',
@@ -137,16 +140,41 @@ export function Settings() {
       
       const { data: profile } = await supabase
         .from('profiles')
-        .select('email_reminders_enabled')
+        .select('email_reminders_enabled, email_reminder_days')
         .eq('id', user.id)
         .maybeSingle();
       
       if (profile) {
         setEmailRemindersEnabled(profile.email_reminders_enabled !== false);
+        const days = profile.email_reminder_days;
+        if (days && Array.isArray(days) && days.length > 0) {
+          setEmailReminderDays(days);
+        } else {
+          setEmailReminderDays([7, 3, 1]);
+        }
       }
     };
     loadPreference();
   }, []);
+
+  const saveEmailReminderDays = async (days: number[]) => {
+    const sorted = [...days].sort((a, b) => b - a);
+    setEmailReminderDays(sorted);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ email_reminder_days: sorted })
+      .eq('id', user.id);
+    
+    if (error) {
+      toast.error('Failed to save reminders');
+      return;
+    }
+    toast.success('Reminder schedule saved');
+  };
 
   const handleToggleEmailReminders = async (enabled: boolean) => {
     setEmailRemindersEnabled(enabled);
@@ -633,27 +661,126 @@ export function Settings() {
         </CardHeader>
         {expandedSection === 'notifications' && (
           <CardContent className="space-y-6 pt-6">
-            <div className="flex items-center justify-between py-3 border-b border-border">
-              <div>
-                <p className="text-sm font-medium">
-                  Email deadline reminders
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Get an email 7, 3, and 1 day before each deadline
-                </p>
+            <div className="flex flex-col py-3 border-b border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">
+                    Email deadline reminders
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Choose which days you want to be reminded below
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleToggleEmailReminders(!emailRemindersEnabled)}
+                  className={`relative w-10 h-6 rounded-full transition-colors ${
+                    emailRemindersEnabled ? 'bg-indigo-600' : 'bg-muted'
+                  }`}
+                >
+                  <span 
+                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      emailRemindersEnabled ? 'translate-x-4 left-0.5' : 'left-0.5'
+                    }`} 
+                  />
+                </button>
               </div>
-              <button
-                onClick={() => handleToggleEmailReminders(!emailRemindersEnabled)}
-                className={`relative w-10 h-6 rounded-full transition-colors ${
-                  emailRemindersEnabled ? 'bg-indigo-600' : 'bg-muted'
-                }`}
-              >
-                <span 
-                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                    emailRemindersEnabled ? 'translate-x-4 left-0.5' : 'left-0.5'
-                  }`} 
-                />
-              </button>
+
+              {emailRemindersEnabled && (
+                <div className="pl-0 pr-0 py-3 mt-2 border-t border-border">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Remind me
+                  </p>
+                  
+                  <div className="space-y-2 mb-3">
+                    {[
+                      { label: '1 month before', days: 30 },
+                      { label: '2 weeks before', days: 14 },
+                      { label: '1 week before', days: 7 },
+                      { label: '3 days before', days: 3 },
+                      { label: '1 day before', days: 1 },
+                      { label: 'On the deadline day', days: 0 },
+                    ].map(preset => (
+                      <label key={preset.days} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={emailReminderDays.includes(preset.days)}
+                          onChange={() => {
+                            const next = emailReminderDays.includes(preset.days)
+                              ? emailReminderDays.filter(d => d !== preset.days)
+                              : [...emailReminderDays, preset.days];
+                            saveEmailReminderDays(next);
+                          }}
+                          className="accent-indigo-600 w-4 h-4"
+                        />
+                        <span className="text-sm">{preset.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={customDayValue}
+                      onChange={e => setCustomDayValue(e.target.value)}
+                      placeholder="2"
+                      className="w-16 px-2 py-1.5 text-sm border border-border rounded-lg bg-background text-center focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <select
+                      value={customDayUnit}
+                      onChange={e => setCustomDayUnit(e.target.value as any)}
+                      className="flex-1 px-2 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none"
+                    >
+                      <option value="months">months before</option>
+                      <option value="weeks">weeks before</option>
+                      <option value="days">days before</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        const num = parseInt(customDayValue);
+                        if (!num || num < 1) return;
+                        
+                        const days = customDayUnit === 'months'
+                          ? num * 30
+                          : customDayUnit === 'weeks'
+                          ? num * 7
+                          : num;
+                        
+                        if (!emailReminderDays.includes(days)) {
+                          saveEmailReminderDays([...emailReminderDays, days]);
+                        }
+                        setCustomDayValue('');
+                      }}
+                      className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex-shrink-0"
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  {emailReminderDays.filter(d => ![30, 14, 7, 3, 1, 0].includes(d)).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {emailReminderDays
+                        .filter(d => ![30, 14, 7, 3, 1, 0].includes(d))
+                        .map(d => (
+                          <span
+                            key={d}
+                            className="flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full"
+                          >
+                            {d} day(s) before
+                            <button
+                              onClick={() => saveEmailReminderDays(emailReminderDays.filter(x => x !== d))}
+                              className="hover:text-red-500 ml-0.5"
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
