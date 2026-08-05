@@ -68,7 +68,7 @@ export function Settings() {
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
-  const [emailReminders, setEmailReminders] = useState(true);
+  const [emailRemindersEnabled, setEmailRemindersEnabled] = useState(true);
   const [weeklyProgress, setWeeklyProgress] = useState(false);
   const [showOriginalTimezone, setShowOriginalTimezone] = usePersistedState<boolean>(
     'grados_show_original_tz',
@@ -129,6 +129,48 @@ export function Settings() {
 
     loadAccount();
   }, []);
+
+  useEffect(() => {
+    const loadPreference = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email_reminders_enabled')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (profile) {
+        setEmailRemindersEnabled(profile.email_reminders_enabled !== false);
+      }
+    };
+    loadPreference();
+  }, []);
+
+  const handleToggleEmailReminders = async (enabled: boolean) => {
+    setEmailRemindersEnabled(enabled);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ email_reminders_enabled: enabled })
+      .eq('id', user.id);
+    
+    if (error) {
+      toast.error('Failed to save preference');
+      setEmailRemindersEnabled(!enabled);
+      return;
+    }
+    
+    toast.success(
+      enabled 
+        ? 'Email reminders turned on' 
+        : 'Email reminders turned off'
+    );
+  };
 
   const handleChangePassword = async () => {
     setPasswordError('');
@@ -591,20 +633,27 @@ export function Settings() {
         </CardHeader>
         {expandedSection === 'notifications' && (
           <CardContent className="space-y-6 pt-6">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="emailReminders">Email reminders for upcoming deadlines</Label>
-                </div>
-                <Switch
-                  id="emailReminders"
-                  checked={emailReminders}
-                  onCheckedChange={setEmailReminders}
-                />
+            <div className="flex items-center justify-between py-3 border-b border-border">
+              <div>
+                <p className="text-sm font-medium">
+                  Email deadline reminders
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Get an email 7, 3, and 1 day before each deadline
+                </p>
               </div>
-              <p className="text-[11px] italic text-muted-foreground mt-1">
-                Email reminders coming in a future update.
-              </p>
+              <button
+                onClick={() => handleToggleEmailReminders(!emailRemindersEnabled)}
+                className={`relative w-10 h-6 rounded-full transition-colors ${
+                  emailRemindersEnabled ? 'bg-indigo-600' : 'bg-muted'
+                }`}
+              >
+                <span 
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    emailRemindersEnabled ? 'translate-x-4 left-0.5' : 'left-0.5'
+                  }`} 
+                />
+              </button>
             </div>
 
             <div>
