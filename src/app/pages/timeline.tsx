@@ -13,7 +13,7 @@ import {
 } from '../../lib/program-status';
 import { getShortTimezoneLabel } from '../../lib/timezone';
 import { Calendar, Clock, AlertCircle, ArrowRight, Download, X, LayoutGrid, List, ChevronRight } from 'lucide-react';
-import { PageHeader } from '../components/page-header';
+
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { usePersistedState } from '@/hooks/usePersistedState';
@@ -405,11 +405,9 @@ export function Timeline() {
   if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        <PageHeader
-          title="Deadlines"
-          subtitle="All application deadlines in one place"
-          backTo="/dashboard"
-        />
+        <div className="bg-background border-b border-border px-4 md:px-6 py-3">
+          <p className="text-sm text-muted-foreground">All application deadlines in one place</p>
+        </div>
         <OfflinePage
           onRetry={() => { setFetchError(false); fetchPrograms(); }}
           pageName="your deadlines"
@@ -420,11 +418,9 @@ export function Timeline() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <PageHeader
-        title="Deadlines"
-        subtitle="All application deadlines in one place"
-        backTo="/dashboard"
-      />
+      <div className="bg-background border-b border-border px-4 md:px-6 py-3">
+        <p className="text-sm text-muted-foreground">All application deadlines in one place</p>
+      </div>
 
       {/* Export .ics Modal */}
       {showExportModal && (

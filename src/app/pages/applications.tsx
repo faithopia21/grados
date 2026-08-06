@@ -24,7 +24,7 @@ import { FABButton } from '../components/layout/fab-button';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { displayProgramStatus, getStatusBadgeClassName } from '../../lib/program-status';
-import { PageHeader } from '../components/page-header';
+
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { usePersistedState } from '@/hooks/usePersistedState';
@@ -624,11 +624,9 @@ export function Applications() {
   if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        <PageHeader
-          title="Applications"
-          subtitle="Manage and track all your program applications"
-          backTo="/dashboard"
-        />
+        <div className="bg-background border-b border-border px-4 md:px-8 py-3">
+          <p className="text-sm text-muted-foreground">Manage and track all your program applications</p>
+        </div>
         <OfflinePage
           onRetry={() => { setFetchError(false); fetchPrograms(); }}
           pageName="your applications"
@@ -639,11 +637,9 @@ export function Applications() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <PageHeader 
-        title="All Applications"
-        subtitle="Manage all your graduate school applications"
-        backTo="/dashboard"
-      />
+      <div className="bg-background border-b border-border px-4 md:px-8 py-3">
+        <p className="text-sm text-muted-foreground">Manage all your graduate school applications</p>
+      </div>
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
         <div className="flex justify-end mb-2">
           <Button onClick={() => setIsAddSchoolOpen(true)} className="hidden md:flex">

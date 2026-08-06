@@ -31,7 +31,7 @@ import {
 import { FileText, Upload, Download, Trash2, Search, AlertTriangle, ArrowUp, ArrowDown, X, SlidersHorizontal, ChevronDown, LayoutGrid, List, Eye } from 'lucide-react';
 
 import { toast } from 'sonner';
-import { PageHeader } from '../components/page-header';
+
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OfflinePage } from '../components/offline-page';
 import { usePersistedState } from '@/hooks/usePersistedState';
@@ -329,11 +329,9 @@ export function Documents() {
   if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        <PageHeader
-          title="Documents"
-          subtitle="Manage all your application documents"
-          backTo="/dashboard"
-        />
+        <div className="bg-background border-b border-border px-4 md:px-6 py-3">
+          <p className="text-sm text-muted-foreground">Manage all your application documents</p>
+        </div>
         <OfflinePage
           onRetry={() => { setFetchError(false); fetchDocuments(); }}
           pageName="your documents"
@@ -344,11 +342,9 @@ export function Documents() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <PageHeader
-        title="All Documents"
-        subtitle="Manage your application materials across all schools"
-        backTo="/dashboard"
-      />
+      <div className="bg-background border-b border-border px-4 md:px-6 py-3">
+        <p className="text-sm text-muted-foreground">Manage your application materials across all schools</p>
+      </div>
 
       {/* Storage usage bar */}
       <div className="px-4 md:px-6 py-2">
