@@ -14,11 +14,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { ChevronDown, ChevronRight, CheckCircle2, ExternalLink, Mail, X, AlertTriangle, FileText, FileSpreadsheet } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronRight, CheckCircle2, ExternalLink, Mail, X, AlertTriangle, FileText, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import { supabase } from '../../lib/supabase';
-import { PageHeader } from '../components/page-header';
+
 import { exportApplicationsPDF } from '../../lib/export-pdf';
 import { FAQModal } from '../components/faq-modal';
 
@@ -529,11 +529,17 @@ export function Settings() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <PageHeader 
-        title="Settings"
-        subtitle="Manage your account and preferences"
-        backTo="/dashboard"
-      />
+      <div className="bg-background border-b border-border px-4 md:px-6 py-3 flex items-center gap-3">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-accent transition-colors shrink-0 -ml-2"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <p className="text-sm text-muted-foreground truncate">
+          Manage your account and preferences
+        </p>
+      </div>
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
 
       <Card className="border-0 shadow-sm">
