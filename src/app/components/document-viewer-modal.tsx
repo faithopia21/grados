@@ -125,8 +125,8 @@ export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/80 backdrop-blur-sm">
-      <div className="fixed inset-0 md:inset-8 z-50 bg-background md:rounded-xl flex flex-col overflow-hidden shadow-2xl border border-border">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-background/80 backdrop-blur-sm">
+      <div className="fixed inset-0 md:inset-8 z-[60] bg-background md:rounded-xl flex flex-col overflow-hidden shadow-2xl border border-border">
         {/* Header */}
         <div className="flex items-center justify-between p-3 md:p-4 border-b border-border bg-muted/10 shrink-0">
           <div className="flex items-center gap-3 overflow-hidden">
