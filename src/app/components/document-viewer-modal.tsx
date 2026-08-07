@@ -19,11 +19,14 @@ export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerMod
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'pdf' | 'docx' | 'unsupported'>('unsupported');
 
   useEffect(() => {
     const init = async () => {
+      if (!doc) return;
       setLoading(true);
+      setError(null);
       const ext = doc.name.split('.').pop()?.toLowerCase();
       
       if (ext === 'pdf') {
@@ -37,12 +40,12 @@ export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerMod
       }
 
       if (doc.storage_path) {
-        const { data, error } = await supabase.storage
+        const { data, error: err } = await supabase.storage
           .from('documents')
           .createSignedUrl(doc.storage_path, 3600);
 
-        if (error || !data) {
-          toast.error('Failed to load document');
+        if (err || !data?.signedUrl) {
+          setError('Could not load this document');
           setLoading(false);
           return;
         }
@@ -56,9 +59,13 @@ export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerMod
             const result = await mammoth.convertToHtml({ arrayBuffer });
             setHtmlContent(result.value);
           } catch (err) {
-            toast.error('Failed to parse document');
+            setError('Failed to parse document');
           }
         }
+      } else if (doc.file_url) {
+        setSignedUrl(doc.file_url);
+      } else {
+        setError('No valid file source found');
       }
       setLoading(false);
     };
@@ -109,36 +116,62 @@ export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerMod
     }
   };
 
+  const handleDownload = () => {
+    if (signedUrl) {
+      window.open(signedUrl, '_blank');
+    } else if (doc.file_url) {
+      window.open(doc.file_url, '_blank');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background/80 backdrop-blur-sm">
-      <div className="flex-1 flex flex-col bg-background m-4 md:m-8 rounded-lg border border-border shadow-lg overflow-hidden">
+      <div className="fixed inset-0 md:inset-8 z-50 bg-background md:rounded-xl flex flex-col overflow-hidden shadow-2xl border border-border">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold">{doc.name}</h2>
-            <span className="text-xs px-2 py-1 bg-accent text-accent-foreground rounded-full font-medium">
+        <div className="flex items-center justify-between p-3 md:p-4 border-b border-border bg-muted/10 shrink-0">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <h2 className="text-base md:text-lg font-semibold truncate">{doc.name}</h2>
+            <span className="text-xs px-2 py-0.5 bg-accent text-accent-foreground rounded-full font-medium shrink-0">
               v{doc.version || 1}
             </span>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0 ml-2">
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col bg-accent/10">
-          {loading ? (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              Loading document...
+        <div className="flex-1 overflow-hidden flex flex-col bg-accent/5">
+          {loading && (
+            <div className="flex flex-col items-center justify-center h-full gap-3">
+              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-muted-foreground">
+                Loading document...
+              </p>
             </div>
-          ) : fileType === 'pdf' && signedUrl ? (
-            <iframe 
-              src={signedUrl} 
-              className="w-full flex-1 rounded-md border border-border bg-white min-h-[70vh]"
+          )}
+
+          {!loading && error && (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
+              <p className="text-sm text-red-600">
+                {error}
+              </p>
+              <button onClick={handleDownload} className="text-sm text-indigo-600 hover:underline">
+                Download instead
+              </button>
+            </div>
+          )}
+
+          {!loading && !error && signedUrl && fileType === 'pdf' && (
+            <iframe
+              src={signedUrl}
+              className="w-full h-full border-0"
               title={doc.name}
             />
-          ) : fileType === 'docx' ? (
-            <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col min-h-[70vh] bg-background">
+          )}
+
+          {!loading && !error && fileType === 'docx' && (
+            <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col bg-background h-full overflow-y-auto">
               <RichTextEditor
                 value={htmlContent}
                 onChange={setHtmlContent}
@@ -146,29 +179,29 @@ export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerMod
                 minHeight="100%"
               />
             </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
+          )}
+
+          {!loading && !error && fileType === 'unsupported' && (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 px-6 text-center">
               <p>Preview not available for this file type. Download to view.</p>
-              {doc.file_url && (
-                <Button onClick={() => window.open(doc.file_url, '_blank')}>
-                  <Download className="h-4 w-4 mr-2" /> Download Document
-                </Button>
-              )}
+              <Button onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" /> Download Document
+              </Button>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end p-4 border-t border-border gap-2 bg-muted/30">
-          <Button variant="outline" onClick={onClose} disabled={saving}>
-            {fileType === 'docx' ? 'Cancel' : 'Close'}
-          </Button>
-          {fileType === 'docx' && (
+        {!loading && !error && fileType === 'docx' && (
+          <div className="flex items-center justify-end p-3 md:p-4 border-t border-border gap-2 bg-muted/10 shrink-0">
+            <Button variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
             <Button onClick={handleSave} disabled={saving || loading}>
               {saving ? 'Saving...' : 'Save changes'}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
