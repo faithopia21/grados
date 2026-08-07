@@ -64,6 +64,7 @@ export function UploadDocumentFlow({
       setUploading(false);
       reset();
       onOpenChange(false);
+      toast('Upload Cancelled');
     } else {
       onOpenChange(next);
       if (!next) reset();
