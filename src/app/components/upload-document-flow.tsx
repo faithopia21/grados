@@ -31,6 +31,7 @@ export function UploadDocumentFlow({
   linkToProgramId,
 }: UploadDocumentFlowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isCancelledRef = useRef(false);
   const [selectedType, setSelectedType] = useState<DocTypeValue | ''>('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -58,7 +59,12 @@ export function UploadDocumentFlow({
   };
 
   const handleClose = (next: boolean) => {
-    if (!uploading) {
+    if (uploading) {
+      isCancelledRef.current = true;
+      setUploading(false);
+      reset();
+      onOpenChange(false);
+    } else {
       onOpenChange(next);
       if (!next) reset();
     }
@@ -78,6 +84,7 @@ export function UploadDocumentFlow({
   };
 
   const performUpload = async (fileToUpload: File, version: number) => {
+    isCancelledRef.current = false;
     setUploading(true);
     setUploadProgress(10);
     setError('');
@@ -108,6 +115,11 @@ export function UploadDocumentFlow({
     const { error: uploadError } = await uploadPromise;
 
     clearInterval(interval);
+
+    if (isCancelledRef.current) {
+      await supabase.storage.from('documents').remove([filePath]);
+      return;
+    }
 
     if (uploadError) {
       setUploading(false);
@@ -166,6 +178,7 @@ export function UploadDocumentFlow({
 
 
   const performLinkSave = async (name: string, url: string, version: number) => {
+    isCancelledRef.current = false;
     setUploading(true);
     setError('');
 
@@ -251,6 +264,8 @@ export function UploadDocumentFlow({
       .limit(1);
 
     setUploading(false);
+
+    if (isCancelledRef.current) return;
 
     if (existing && existing.length > 0) {
       setExistingDoc(existing[0]);
@@ -439,7 +454,7 @@ export function UploadDocumentFlow({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleClose(false)} disabled={uploading}>
+            <Button variant="outline" onClick={() => handleClose(false)}>
               Cancel
             </Button>
             {existingDoc ? (
