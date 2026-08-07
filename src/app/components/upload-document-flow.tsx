@@ -165,7 +165,18 @@ export function UploadDocumentFlow({
     }
 
     const validExtensions = /\.(pdf|docx?|doc|txt)$/i;
-    if (!validExtensions.test(file.name)) {
+    const validMimeTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'application/vnd.google-apps.document'
+    ];
+    
+    const isValidName = validExtensions.test(file.name);
+    const isValidType = validMimeTypes.includes(file.type);
+
+    if (!isValidName && !isValidType) {
       setError('Invalid file format. Please select a PDF, DOCX, DOC, or TXT document.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
