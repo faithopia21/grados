@@ -164,7 +164,9 @@ export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerMod
 
           {!loading && !error && signedUrl && fileType === 'pdf' && (
             <iframe
-              src={signedUrl}
+              src={/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) 
+                ? `https://docs.google.com/viewer?url=${encodeURIComponent(signedUrl)}&embedded=true` 
+                : signedUrl}
               className="w-full h-full border-0"
               title={doc.name}
             />
