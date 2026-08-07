@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { htmlToDocxBlob } from '../../lib/html-to-docx';
+import { RichTextEditor } from './rich-text-editor';
 import { Button } from './ui/button';
 import { X, Download } from 'lucide-react';
+import { toast } from 'sonner';
+import mammoth from 'mammoth';
 import { type DbDocument } from '../../lib/documents';
 
 interface DocumentViewerModalProps {
   doc: DbDocument;
   onClose: () => void;
-  onSaved?: () => void; // Kept for compatibility if used elsewhere
+  onSaved?: () => void;
 }
 
-export function DocumentViewerModal({ doc, onClose }: DocumentViewerModalProps) {
+export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerModalProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [htmlContent, setHtmlContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'pdf' | 'docx' | 'unsupported'>('unsupported');
 
@@ -45,6 +51,17 @@ export function DocumentViewerModal({ doc, onClose }: DocumentViewerModalProps) 
         }
 
         setSignedUrl(data.signedUrl);
+
+        if (ext === 'docx' || ext === 'doc') {
+          try {
+            const response = await fetch(data.signedUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            const result = await mammoth.convertToHtml({ arrayBuffer });
+            setHtmlContent(result.value);
+          } catch (err) {
+            setError('Failed to parse document');
+          }
+        }
       } else if (doc.file_url) {
         setSignedUrl(doc.file_url);
       } else {
@@ -55,6 +72,49 @@ export function DocumentViewerModal({ doc, onClose }: DocumentViewerModalProps) 
 
     init();
   }, [doc]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const blob = await htmlToDocxBlob(htmlContent);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const newVersion = (doc.version || 1) + 1;
+      const safeName = doc.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${user.id}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, blob, {
+          contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { error: insertError } = await supabase.from('documents')
+        .insert({
+          user_id: user.id,
+          name: doc.name,
+          doc_type: doc.doc_type,
+          file_url: '',
+          file_size: `${(blob.size / 1024).toFixed(0)} KB`,
+          version: newVersion,
+          storage_path: filePath,
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success(`Saved as version ${newVersion}`);
+      onSaved?.();
+      onClose();
+    } catch (err: any) {
+      toast.error('Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleDownload = () => {
     if (signedUrl) {
@@ -112,12 +172,15 @@ export function DocumentViewerModal({ doc, onClose }: DocumentViewerModalProps) 
             />
           )}
 
-          {!loading && !error && signedUrl && fileType === 'docx' && (
-            <iframe
-              src={`https://docs.google.com/viewer?url=${encodeURIComponent(signedUrl)}&embedded=true`}
-              className="w-full h-full border-0 bg-white"
-              title={doc.name}
-            />
+          {!loading && !error && fileType === 'docx' && (
+            <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col bg-background h-full overflow-y-auto">
+              <RichTextEditor
+                value={htmlContent}
+                onChange={setHtmlContent}
+                className="flex-1 h-full"
+                minHeight="100%"
+              />
+            </div>
           )}
 
           {!loading && !error && fileType === 'unsupported' && (
@@ -129,6 +192,18 @@ export function DocumentViewerModal({ doc, onClose }: DocumentViewerModalProps) 
             </div>
           )}
         </div>
+
+        {/* Footer */}
+        {!loading && !error && fileType === 'docx' && (
+          <div className="flex items-center justify-end p-3 md:p-4 border-t border-border gap-2 bg-muted/10 shrink-0">
+            <Button variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving || loading}>
+              {saving ? 'Saving...' : 'Save changes'}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
