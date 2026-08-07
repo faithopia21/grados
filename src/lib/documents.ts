@@ -101,4 +101,4 @@ export function matchesDocFilter(docType: string, filter: string): boolean {
   return docType === filter;
 }
 
-export const ACCEPTED_FILE_TYPES = '.pdf,.docx,.doc,.txt';
+export const ACCEPTED_FILE_TYPES = '.pdf,.docx,.doc,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/vnd.google-apps.document';
