@@ -12,6 +12,8 @@ import { Label } from './ui/label';
 import { Progress } from './ui/progress';
 import { supabase } from '../../lib/supabase';
 import { ACCEPTED_FILE_TYPES, DOC_TYPE_OPTIONS, type DocTypeValue } from '../../lib/documents';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Input } from './ui/input';
 import { cn, formatDate } from '../../lib/utils';
 import { toast } from 'sonner';
 
@@ -34,6 +36,9 @@ export function UploadDocumentFlow({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadMethod, setUploadMethod] = useState<'file' | 'link'>('file');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkName, setLinkName] = useState('');
   const [versionChoice, setVersionChoice] = useState<'new' | 'separate' | null>(null);
   const [existingDoc, setExistingDoc] = useState<any>(null);
 
@@ -45,6 +50,8 @@ export function UploadDocumentFlow({
     setSelectedFile(null);
     setVersionChoice(null);
     setExistingDoc(null);
+    setLinkUrl('');
+    setLinkName('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -58,12 +65,16 @@ export function UploadDocumentFlow({
   };
 
   const handleContinue = () => {
-    if (!selectedType) {
-      setError('Please select a document type');
-      return;
+    if (uploadMethod === 'file') {
+      if (!selectedType) {
+        setError('Please select a document type');
+        return;
+      }
+      setError('');
+      fileInputRef.current?.click();
+    } else {
+      handleLinkSubmit();
     }
-    setError('');
-    fileInputRef.current?.click();
   };
 
   const performUpload = async (fileToUpload: File, version: number) => {
@@ -153,6 +164,102 @@ export function UploadDocumentFlow({
     onSuccess();
   };
 
+
+  const performLinkSave = async (name: string, url: string, version: number) => {
+    setUploading(true);
+    setError('');
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setUploading(false);
+      setError(userError?.message || 'You must be signed in');
+      return;
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('documents')
+      .insert({
+        user_id: user.id,
+        name: name,
+        doc_type: selectedType,
+        file_url: url,
+        file_size: 'Link',
+        version: version,
+        storage_path: null,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      setUploading(false);
+      setError(insertError.message);
+      return;
+    }
+
+    if (linkToProgramId && inserted) {
+      const { error: linkError } = await supabase.from('program_documents').insert({
+        program_id: linkToProgramId,
+        document_id: inserted.id,
+      });
+
+      if (linkError) {
+        setUploading(false);
+        setError(linkError.message);
+        return;
+      }
+    }
+
+    toast.success('Link added successfully');
+    setUploading(false);
+    reset();
+    onOpenChange(false);
+    onSuccess();
+  };
+
+  const handleLinkSubmit = async () => {
+    if (!selectedType) {
+      setError('Please select a document type');
+      return;
+    }
+    if (!linkName.trim() || !linkUrl.trim()) {
+      setError('Please provide both a name and a URL');
+      return;
+    }
+    try {
+      new URL(linkUrl);
+    } catch {
+      setError('Please enter a valid URL');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setUploading(false);
+      setError(userError?.message || 'You must be signed in');
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from('documents')
+      .select('id, name, version, created_at')
+      .eq('user_id', user.id)
+      .ilike('name', linkName.trim())
+      .order('version', { ascending: false })
+      .limit(1);
+
+    setUploading(false);
+
+    if (existing && existing.length > 0) {
+      setExistingDoc(existing[0]);
+      return;
+    }
+
+    await performLinkSave(linkName.trim(), linkUrl.trim(), 1);
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedType) return;
@@ -218,6 +325,7 @@ export function UploadDocumentFlow({
       <input
         ref={fileInputRef}
         type="file"
+        accept={ACCEPTED_FILE_TYPES}
         className="hidden"
         onChange={handleFileSelect}
       />
@@ -231,33 +339,61 @@ export function UploadDocumentFlow({
           </DialogHeader>
 
           <div className="space-y-3 py-2">
-            <Label>Document type</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {DOC_TYPE_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  disabled={uploading || !!existingDoc}
-                  onClick={() => setSelectedType(opt.value)}
-                  className={cn(
-                    'px-3 py-2 rounded-md border text-sm text-left transition-colors',
-                    selectedType === opt.value
-                      ? 'border-[#4F46E5] bg-[#4F46E5] text-white'
-                      : 'border-border hover:bg-accent'
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            <Tabs value={uploadMethod} onValueChange={(v) => { setUploadMethod(v as 'file' | 'link'); setError(''); setExistingDoc(null); }}>
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="file">Upload File</TabsTrigger>
+                <TabsTrigger value="link">Add Link</TabsTrigger>
+              </TabsList>
 
-            {existingDoc && selectedFile && (
+              <Label>Document type</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2 mb-4">
+                {DOC_TYPE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={uploading || !!existingDoc}
+                    onClick={() => setSelectedType(opt.value)}
+                    className={cn(
+                      'px-3 py-2 rounded-md border text-sm text-left transition-colors',
+                      selectedType === opt.value
+                        ? 'border-[#4F46E5] bg-[#4F46E5] text-white'
+                        : 'border-border hover:bg-accent'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <TabsContent value="link" className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Link Name</Label>
+                  <Input 
+                    placeholder="e.g. My Resume (Google Docs)" 
+                    value={linkName} 
+                    onChange={e => setLinkName(e.target.value)} 
+                    disabled={uploading || !!existingDoc} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>URL</Label>
+                  <Input 
+                    placeholder="https://docs.google.com/..." 
+                    value={linkUrl} 
+                    onChange={e => setLinkUrl(e.target.value)} 
+                    disabled={uploading || !!existingDoc} 
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {existingDoc && (
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 mb-3 mt-4">
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
                   A document with this name already exists
                 </p>
                 <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-                  "{selectedFile.name}" — Version {existingDoc.version} uploaded on {formatDate(existingDoc.created_at)}
+                  "{uploadMethod === 'file' ? selectedFile?.name : linkName}" — Version {existingDoc.version} uploaded on {formatDate(existingDoc.created_at)}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -308,12 +444,12 @@ export function UploadDocumentFlow({
             </Button>
             {existingDoc ? (
               <Button
-                onClick={() => performUpload(selectedFile!, versionChoice === 'new' ? (existingDoc.version || 1) + 1 : 1)}
+                onClick={() => uploadMethod === 'file' ? performUpload(selectedFile!, versionChoice === 'new' ? (existingDoc.version || 1) + 1 : 1) : performLinkSave(linkName.trim(), linkUrl.trim(), versionChoice === 'new' ? (existingDoc.version || 1) + 1 : 1)}
                 disabled={uploading || !versionChoice}
                 style={{ backgroundColor: '#4F46E5' }}
                 className="text-white hover:opacity-90 disabled:opacity-50"
               >
-                {uploading ? 'Uploading...' : 'Confirm Upload'}
+                {uploading ? (uploadMethod === 'file' ? 'Uploading...' : 'Saving...') : (uploadMethod === 'file' ? 'Confirm Upload' : 'Confirm Link')}
               </Button>
             ) : (
               <Button
@@ -322,7 +458,7 @@ export function UploadDocumentFlow({
                 style={{ backgroundColor: '#4F46E5' }}
                 className="text-white hover:opacity-90 disabled:opacity-50"
               >
-                Choose file
+                {uploadMethod === 'file' ? 'Choose file' : 'Add Link'}
               </Button>
             )}
           </DialogFooter>
