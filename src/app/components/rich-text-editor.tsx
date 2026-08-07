@@ -54,6 +54,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   minHeight?: string;
   className?: string;
+  variant?: 'default' | 'page';
 }
 
 const EditorButton = ({
@@ -96,6 +97,7 @@ export function RichTextEditor({
   placeholder = 'Write something...',
   minHeight = '150px',
   className = '',
+  variant = 'default',
 }: RichTextEditorProps) {
   const [showToolbar, setShowToolbar] = useState(false);
   const [isLinkOpen, setIsLinkOpen] = useState(false);
@@ -373,11 +375,17 @@ export function RichTextEditor({
       </TooltipProvider>
 
       <div
-        className="flex-1 overflow-y-auto cursor-text [&_.ProseMirror]:min-h-full [&_.ProseMirror]:p-3 sm:[&_.ProseMirror]:p-4 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p]:leading-[inherit] [&_.ProseMirror_li]:leading-[inherit] [&_.ProseMirror_a]:text-blue-500 [&_.ProseMirror_a]:underline"
-        style={{ minHeight, lineHeight: '1.0' }}
-        onClick={() => editor.commands.focus()}
+        className={`flex-1 overflow-y-auto cursor-text ${
+          variant === 'page'
+            ? 'bg-muted/30 dark:bg-muted/10 p-4 sm:p-8 [&_.ProseMirror]:bg-card [&_.ProseMirror]:shadow-md [&_.ProseMirror]:max-w-[816px] [&_.ProseMirror]:mx-auto [&_.ProseMirror]:min-h-[1056px] [&_.ProseMirror]:p-8 sm:[&_.ProseMirror]:p-16 [&_.ProseMirror]:border [&_.ProseMirror]:border-border [&_.ProseMirror]:mb-12'
+            : '[&_.ProseMirror]:min-h-full [&_.ProseMirror]:p-3 sm:[&_.ProseMirror]:p-4'
+        } [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p]:leading-[inherit] [&_.ProseMirror_li]:leading-[inherit] [&_.ProseMirror_a]:text-blue-500 [&_.ProseMirror_a]:underline`}
+        style={{ minHeight: variant === 'page' ? 'auto' : minHeight, lineHeight: '1.0' }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) editor.commands.focus();
+        }}
       >
-        <EditorContent editor={editor} className="h-full" />
+        <EditorContent editor={editor} className={variant === 'page' ? '' : 'h-full'} />
       </div>
     </div>
   );

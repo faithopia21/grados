@@ -173,12 +173,12 @@ export function DocumentViewerModal({ doc, onClose, onSaved }: DocumentViewerMod
           )}
 
           {!loading && !error && fileType === 'docx' && (
-            <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col bg-background h-full overflow-y-auto">
+            <div className="flex-1 w-full flex flex-col h-full overflow-hidden">
               <RichTextEditor
                 value={htmlContent}
                 onChange={setHtmlContent}
-                className="flex-1 h-full"
-                minHeight="100%"
+                className="flex-1 h-full border-none rounded-none"
+                variant="page"
               />
             </div>
           )}
