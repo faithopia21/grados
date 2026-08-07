@@ -208,7 +208,7 @@ export function Dashboard() {
       <ProductTour />
       <div className="p-4 md:p-8 space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+        <div className="flex-1 text-center">
           <p className="text-sm text-muted-foreground">
             Overview of your graduate application journey
           </p>

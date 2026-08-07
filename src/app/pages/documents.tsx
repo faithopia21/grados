@@ -329,7 +329,7 @@ export function Documents() {
   if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        <div className="bg-background border-b border-border px-4 md:px-6 py-3">
+        <div className="bg-background border-b border-border px-4 md:px-6 py-3 text-center">
           <p className="text-sm text-muted-foreground">Manage all your application documents</p>
         </div>
         <OfflinePage
@@ -342,7 +342,7 @@ export function Documents() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="bg-background border-b border-border px-4 md:px-6 py-3">
+      <div className="bg-background border-b border-border px-4 md:px-6 py-3 text-center">
         <p className="text-sm text-muted-foreground">Manage your application materials across all schools</p>
       </div>
 

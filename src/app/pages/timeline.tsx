@@ -405,7 +405,7 @@ export function Timeline() {
   if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        <div className="bg-background border-b border-border px-4 md:px-6 py-3">
+        <div className="bg-background border-b border-border px-4 md:px-6 py-3 text-center">
           <p className="text-sm text-muted-foreground">All application deadlines in one place</p>
         </div>
         <OfflinePage
@@ -418,7 +418,7 @@ export function Timeline() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="bg-background border-b border-border px-4 md:px-6 py-3">
+      <div className="bg-background border-b border-border px-4 md:px-6 py-3 text-center">
         <p className="text-sm text-muted-foreground">All application deadlines in one place</p>
       </div>
 

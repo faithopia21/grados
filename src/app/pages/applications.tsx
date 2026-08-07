@@ -624,7 +624,7 @@ export function Applications() {
   if (fetchError || !isOnline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        <div className="bg-background border-b border-border px-4 md:px-8 py-3">
+        <div className="bg-background border-b border-border px-4 md:px-8 py-3 text-center">
           <p className="text-sm text-muted-foreground">Manage and track all your program applications</p>
         </div>
         <OfflinePage
@@ -637,7 +637,7 @@ export function Applications() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="bg-background border-b border-border px-4 md:px-8 py-3">
+      <div className="bg-background border-b border-border px-4 md:px-8 py-3 text-center">
         <p className="text-sm text-muted-foreground">Manage all your graduate school applications</p>
       </div>
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
