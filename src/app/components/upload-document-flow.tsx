@@ -207,7 +207,6 @@ export function UploadDocumentFlow({
       <input
         ref={fileInputRef}
         type="file"
-        accept="*/*"
         className="hidden"
         onChange={handleFileSelect}
       />
