@@ -455,8 +455,17 @@ export function UploadDocumentFlow({
             {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => handleClose(false)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="mt-2 sm:mt-0"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleClose(false);
+              }}
+            >
               Cancel
             </Button>
             {existingDoc ? (
