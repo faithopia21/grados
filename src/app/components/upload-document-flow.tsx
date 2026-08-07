@@ -84,7 +84,6 @@ export function UploadDocumentFlow({
   };
 
   const performUpload = async (fileToUpload: File, version: number) => {
-    isCancelledRef.current = false;
     setUploading(true);
     setUploadProgress(10);
     setError('');
@@ -178,7 +177,6 @@ export function UploadDocumentFlow({
 
 
   const performLinkSave = async (name: string, url: string, version: number) => {
-    isCancelledRef.current = false;
     setUploading(true);
     setError('');
 
@@ -230,6 +228,7 @@ export function UploadDocumentFlow({
   };
 
   const handleLinkSubmit = async () => {
+    isCancelledRef.current = false;
     if (!selectedType) {
       setError('Please select a document type');
       return;
@@ -276,6 +275,7 @@ export function UploadDocumentFlow({
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    isCancelledRef.current = false;
     const file = e.target.files?.[0];
     if (!file || !selectedType) return;
 
@@ -326,6 +326,8 @@ export function UploadDocumentFlow({
 
     setUploading(false);
     setUploadProgress(0);
+
+    if (isCancelledRef.current) return;
 
     if (existing && existing.length > 0) {
       setExistingDoc(existing[0]);
