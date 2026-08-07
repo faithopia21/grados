@@ -164,6 +164,13 @@ export function UploadDocumentFlow({
       return;
     }
 
+    const validExtensions = /\.(pdf|docx?|doc|txt)$/i;
+    if (!validExtensions.test(file.name)) {
+      setError('Invalid file format. Please select a PDF, DOCX, DOC, or TXT document.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setSelectedFile(file);
     setUploading(true);
     setUploadProgress(10);
@@ -200,7 +207,7 @@ export function UploadDocumentFlow({
       <input
         ref={fileInputRef}
         type="file"
-        accept={ACCEPTED_FILE_TYPES}
+        accept="*/*"
         className="hidden"
         onChange={handleFileSelect}
       />
